@@ -211,6 +211,311 @@ int drline_read(gzFile fp, trace_entry_t *val, trace_entry_t **p_val, int *edx) 
     return 1;
 }
 
+void create_spatter_file(
+        const char* trace_file_name,
+        int gather_ntop,
+        int scatter_ntop,
+        int* gather_offset,
+        int* scatter_offset,
+        int64_t** gather_patterns,
+        int64_t** scatter_patterns,
+        /* */
+        addr_t* gather_tot,
+        addr_t* scatter_tot,
+        addr_t* gather_top,
+        addr_t* gather_top_idx,
+        addr_t* scatter_top,
+        addr_t* scatter_top_idx,
+        /* */
+        char** gather_srcline,
+        char** scatter_srcline,
+        double gather_cnt,
+        double scatter_cnt
+)
+{
+    int i = 0;
+    int j = 0;
+
+    //Create stride histogram and create spatter
+    int sidx;
+    int first_spatter = 1;
+    int unique_strides;
+    int64_t idx, pidx;
+    int64_t n_stride[1027];
+    double outbounds;
+    //print
+
+    //Create spatter file
+    FILE *fp, *fp2;
+    char *json_name, *gs_info;
+    json_name = str_replace(trace_file_name, ".gz", ".json");
+    fp = fopen(json_name, "w");
+    if (fp == NULL) {
+        printf("ERROR: Could not open %s!\n", json_name);
+        exit(-1);
+    }
+    gs_info = str_replace(trace_file_name, ".gz", ".txt");
+    fp2 = fopen(gs_info, "w");
+    if (fp2 == NULL) {
+        printf("ERROR: Could not open %s!\n", gs_info);
+        exit(-1);
+    }
+
+    //Header
+    fprintf(fp, "[ ");
+    fprintf(fp2, "#sourceline, g/s, indices, percentage of g/s in trace\n");
+
+    printf("\n");
+    for (i = 0; i < gather_ntop; i++) {
+        printf("***************************************************************************************\n");
+
+        unique_strides = 0;
+        for (j = 0; j < 1027; j++)
+            n_stride[j] = 0;
+
+        for (j = 1; j < gather_offset[i]; j++) {
+            sidx = gather_patterns[i][j] - gather_patterns[i][j - 1] + 513;
+            sidx = (sidx < 1) ? 0 : sidx;
+            sidx = (sidx > 1025) ? 1026 : sidx;
+            n_stride[sidx]++;
+        }
+
+        for (j = 0; j < 1027; j++) {
+            if (n_stride[j] > 0) {
+                unique_strides++;
+            }
+        }
+
+        outbounds = (double) (n_stride[0] + n_stride[1026]) / (double) gather_offset[i];
+
+        //if ( ( (unique_strides > NSTRIDES) || (outbounds > OUTTHRESH) ) && (gather_offset[i] > USTRIDES ) ){
+        if (1) {
+
+            //create a binary file
+            FILE *fp_bin;
+            char *bin_name;
+            bin_name = str_replace(trace_file_name, ".gz", ".sbin");
+            printf("%s\n", bin_name);
+            fp_bin = fopen(bin_name, "w");
+            if (fp_bin == NULL) {
+                printf("ERROR: Could not open %s!\n", bin_name);
+                exit(-1);
+            }
+
+            printf("GIADDR   -- %p\n", gather_top[i]);
+            printf("SRCLINE  -- %s\n", gather_srcline[gather_top_idx[i]]);
+            printf("GATHER %c -- %6.3f%c (512-bit chunks)\n",
+                   '%', 100.0 * (double) gather_tot[i] / gather_cnt, '%');
+            printf("NDISTS  -- %ld\n", gather_offset[i]);
+
+            int64_t nlcnt = 0;
+            for (j = 0; j < gather_offset[i]; j++) {
+
+                if (j < 39) {
+                    printf("%10ld ", gather_patterns[i][j]);
+                    fflush(stdout);
+                    if ((++nlcnt % 13) == 0)
+                        printf("\n");
+
+                } else if (j >= (gather_offset[i] - 39)) {
+                    printf("%10ld ", gather_patterns[i][j]);
+                    fflush(stdout);
+                    if ((++nlcnt % 13) == 0)
+                        printf("\n");
+
+                } else if (j == 39)
+                    printf("...\n");
+            }
+            printf("\n");
+            printf("DIST HISTOGRAM --\n");
+
+            for (j = 0; j < 1027; j++) {
+                if (n_stride[j] > 0) {
+                    if (j == 0)
+                        printf("%6s: %ld\n", "< -512", n_stride[j]);
+                    else if (j == 1026)
+                        printf("%6s: %ld\n", ">  512", n_stride[j]);
+                    else
+                        printf("%6d: %ld\n", j - 513, n_stride[j]);
+                }
+            }
+
+            if (first_spatter) {
+                first_spatter = 0;
+                fprintf(fp, " {\"kernel\":\"Gather\", \"pattern\":[");
+
+            } else {
+                fprintf(fp, ",\n {\"kernel\":\"Gather\", \"pattern\":[");
+            }
+
+            fwrite(gather_patterns[i], sizeof(uint64_t), gather_offset[i], fp_bin);
+            fclose(fp_bin);
+
+            for (j = 0; j < gather_offset[i] - 1; j++)
+                fprintf(fp, "%ld,", gather_patterns[i][j]);
+            fprintf(fp, "%ld", gather_patterns[i][gather_offset[i] - 1]);
+
+            fprintf(fp, "], \"count\":1}");
+
+            fprintf(fp2, "%s,G,%ld,%6.3f\n",
+                    gather_srcline[gather_top_idx[i]], gather_offset[i],
+                    100.0 * (double) gather_tot[i] / gather_cnt);
+        }
+        printf("***************************************************************************************\n\n");
+    }
+
+    printf("\n");
+    for (i = 0; i < scatter_ntop; i++) {
+        printf("***************************************************************************************\n");
+
+        unique_strides = 0;
+        for (j = 0; j < 1027; j++)
+            n_stride[j] = 0;
+
+        for (j = 1; j < scatter_offset[i]; j++) {
+            sidx = scatter_patterns[i][j] - scatter_patterns[i][j - 1] + 513;
+            sidx = (sidx < 1) ? 0 : sidx;
+            sidx = (sidx > 1025) ? 1026 : sidx;
+            n_stride[sidx]++;
+        }
+
+        for (j = 0; j < 1027; j++) {
+            if (n_stride[j] > 0) {
+                unique_strides++;
+            }
+        }
+
+        outbounds = (double) (n_stride[0] + n_stride[1026]) / (double) scatter_offset[i];
+
+        //if (((unique_strides > NSTRIDES)  | (outbounds > OUTTHRESH) ) && (scatter_offset[i] > USTRIDES) ){
+        if (1) {
+
+            //create a binary file
+            FILE *fp_bin;
+            char *bin_name;
+            bin_name = str_replace(trace_file_name, ".gz", ".sbin");
+            printf("%s\n", bin_name);
+            fp_bin = fopen(bin_name, "w");
+            if (fp_bin == NULL) {
+                printf("ERROR: Could not open %s!\n", bin_name);
+                exit(-1);
+            }
+
+            printf("SIADDR    -- %p\n", scatter_top[i]);
+            printf("SRCLINE   -- %s\n", scatter_srcline[scatter_top_idx[i]]);
+            printf("SCATTER %c -- %6.3f%c (512-bit chunks)\n",
+                   '%', 100.0 * (double) scatter_tot[i] / scatter_cnt, '%');
+            printf("NDISTS  -- %ld\n", scatter_offset[i]);
+
+            int64_t nlcnt = 0;
+            for (j = 0; j < scatter_offset[i]; j++) {
+
+                if (j < 39) {
+                    printf("%10ld ", scatter_patterns[i][j]);
+                    fflush(stdout);
+                    if ((++nlcnt % 13) == 0)
+                        printf("\n");
+
+                } else if (j >= (scatter_offset[i] - 39)) {
+                    printf("%10ld ", scatter_patterns[i][j]);
+                    fflush(stdout);
+                    if ((++nlcnt % 13) == 0)
+                        printf("\n");
+
+                } else if (j == 39)
+                    printf("...\n");
+            }
+            printf("\n");
+            printf("DIST HISTOGRAM --\n");
+            for (j = 0; j < 1027; j++) {
+                if (n_stride[j] > 0) {
+                    if (j == 0)
+                        printf("%6s: %ld\n", "< -512", n_stride[j]);
+                    else if (j == 1026)
+                        printf("%6s: %ld\n", ">  512", n_stride[j]);
+                    else
+                        printf("%6d: %ld\n", j - 513, n_stride[j]);
+                }
+            }
+
+            if (first_spatter) {
+                first_spatter = 0;
+                fprintf(fp, " {\"kernel\":\"Scatter\", \"pattern\":[");
+
+            } else {
+                fprintf(fp, ", {\"kernel\":\"Scatter\", \"pattern\":[");
+            }
+
+            fwrite(scatter_patterns[i], sizeof(uint64_t), scatter_offset[i], fp_bin);
+            fclose(fp_bin);
+
+            for (j = 0; j < scatter_offset[i] - 1; j++)
+                fprintf(fp, "%ld,", scatter_patterns[i][j]);
+            fprintf(fp, "%ld", scatter_patterns[i][scatter_offset[i] - 1]);
+            fprintf(fp, "], \"count\":1}");
+
+            fprintf(fp2, "%s,S,%ld,%6.3f\n",
+                    scatter_srcline[scatter_top_idx[i]], scatter_offset[i],
+                    100.0 * (double) scatter_tot[i] / scatter_cnt);
+        }
+        printf("***************************************************************************************\n\n");
+    }
+
+    //Footer
+    fprintf(fp, " ]");
+    fclose(fp);
+    fclose(fp2);
+
+}
+
+void normalize_stats(
+        int gather_ntop,
+        int scatter_ntop,
+        int* gather_offset,
+        int* scatter_offset,
+        int64_t** gather_patterns,
+        int64_t** scatter_patterns
+)
+{
+    int i = 0;
+    int j = 0;
+
+    //Normalize
+    int64_t smallest;
+    for (i = 0; i < gather_ntop; i++) {
+
+        //Find smallest
+        smallest = 0;
+        for (j = 0; j < gather_offset[i]; j++) {
+            if (gather_patterns[i][j] < smallest)
+                smallest = gather_patterns[i][j];
+        }
+
+        smallest *= -1;
+        //Normalize
+        for (j = 0; j < gather_offset[i]; j++) {
+            gather_patterns[i][j] += smallest;
+        }
+    }
+
+    for (i = 0; i < scatter_ntop; i++) {
+
+        //Find smallest
+        smallest = 0;
+        for (j = 0; j < scatter_offset[i]; j++) {
+            if (scatter_patterns[i][j] < smallest)
+                smallest = scatter_patterns[i][j];
+        }
+        smallest *= -1;
+
+        //Normalize
+        for (j = 0; j < scatter_offset[i]; j++) {
+            scatter_patterns[i][j] += smallest;
+        }
+    }
+}
+
+
 int main(int argc, char **argv) {
 
     //generic
@@ -408,9 +713,9 @@ int main(int argc, char **argv) {
                 //do analysis
                 /***************************/
                 //i = each window
-                for (w = 0; w < 2; w++) {
+                for (w = 0; w < 2; w++) {  // 2
 
-                    for (i = 0; i < IWINDOW; i++) {
+                    for (i = 0; i < IWINDOW; i++) {  // 1024
 
                         if (w_iaddrs[w][i] == -1)
                             break;
@@ -447,7 +752,7 @@ int main(int argc, char **argv) {
                             }
                         }
 
-                        if (gs == 0) {
+                        if (gs == 0) {  // GATHER
 
                             gather_occ_avg += w_cnt[w][i];
                             gather_cnt += 1.0;
@@ -468,7 +773,7 @@ int main(int argc, char **argv) {
 
                             }
 
-                        } else if (gs == 1) {
+                        } else if (gs == 1) { // SCATTER
 
                             scatter_occ_avg += w_cnt[w][i];
                             scatter_cnt += 1.0;
@@ -532,6 +837,11 @@ int main(int argc, char **argv) {
         drtrace_lines++;
 
     } //while drtrace
+
+
+
+
+
 
     //metrics
     gather_occ_avg /= gather_cnt;
@@ -780,271 +1090,13 @@ int main(int argc, char **argv) {
 
     printf("\n");
 
-    //Normalize
-    int64_t smallest;
-    for (i = 0; i < gather_ntop; i++) {
+    normalize_stats( gather_ntop, scatter_ntop, gather_offset, scatter_offset, gather_patterns, scatter_patterns);
 
-        //Find smallest
-        smallest = 0;
-        for (j = 0; j < gather_offset[i]; j++) {
-            if (gather_patterns[i][j] < smallest)
-                smallest = gather_patterns[i][j];
-        }
-
-        smallest *= -1;
-        //Normalize
-        for (j = 0; j < gather_offset[i]; j++) {
-            gather_patterns[i][j] += smallest;
-        }
-    }
-
-    for (i = 0; i < scatter_ntop; i++) {
-
-        //Find smallest
-        smallest = 0;
-        for (j = 0; j < scatter_offset[i]; j++) {
-            if (scatter_patterns[i][j] < smallest)
-                smallest = scatter_patterns[i][j];
-        }
-        smallest *= -1;
-
-        //Normalize
-        for (j = 0; j < scatter_offset[i]; j++) {
-            scatter_patterns[i][j] += smallest;
-        }
-    }
-
-    //Create stride histogram and create spatter
-    int sidx;
-    int first_spatter = 1;
-    int unique_strides;
-    int64_t idx, pidx;
-    int64_t n_stride[1027];
-    double outbounds;
-    //print
-
-
-    //Create spatter file
-    FILE *fp, *fp2;
-    char *json_name, *gs_info;
-    json_name = str_replace(argv[1], ".gz", ".json");
-    fp = fopen(json_name, "w");
-    if (fp == NULL) {
-        printf("ERROR: Could not open %s!\n", json_name);
-        exit(-1);
-    }
-    gs_info = str_replace(argv[1], ".gz", ".txt");
-    fp2 = fopen(gs_info, "w");
-    if (fp2 == NULL) {
-        printf("ERROR: Could not open %s!\n", gs_info);
-        exit(-1);
-    }
-
-    //Header
-    fprintf(fp, "[ ");
-    fprintf(fp2, "#sourceline, g/s, indices, percentage of g/s in trace\n");
-
-    printf("\n");
-    for (i = 0; i < gather_ntop; i++) {
-        printf("***************************************************************************************\n");
-
-        unique_strides = 0;
-        for (j = 0; j < 1027; j++)
-            n_stride[j] = 0;
-
-        for (j = 1; j < gather_offset[i]; j++) {
-            sidx = gather_patterns[i][j] - gather_patterns[i][j - 1] + 513;
-            sidx = (sidx < 1) ? 0 : sidx;
-            sidx = (sidx > 1025) ? 1026 : sidx;
-            n_stride[sidx]++;
-        }
-
-        for (j = 0; j < 1027; j++) {
-            if (n_stride[j] > 0) {
-                unique_strides++;
-            }
-        }
-
-        outbounds = (double) (n_stride[0] + n_stride[1026]) / (double) gather_offset[i];
-
-        //if ( ( (unique_strides > NSTRIDES) || (outbounds > OUTTHRESH) ) && (gather_offset[i] > USTRIDES ) ){
-        if (1) {
-
-            //create a binary file
-            FILE *fp_bin;
-            char *bin_name;
-            bin_name = str_replace(argv[1], ".gz", ".sbin");
-            printf("%s\n", bin_name);
-            fp_bin = fopen(bin_name, "w");
-            if (fp_bin == NULL) {
-                printf("ERROR: Could not open %s!\n", bin_name);
-                exit(-1);
-            }
-
-            printf("GIADDR   -- %p\n", gather_top[i]);
-            printf("SRCLINE  -- %s\n", gather_srcline[gather_top_idx[i]]);
-            printf("GATHER %c -- %6.3f%c (512-bit chunks)\n",
-                   '%', 100.0 * (double) gather_tot[i] / gather_cnt, '%');
-            printf("NDISTS  -- %ld\n", gather_offset[i]);
-
-            int64_t nlcnt = 0;
-            for (j = 0; j < gather_offset[i]; j++) {
-
-                if (j < 39) {
-                    printf("%10ld ", gather_patterns[i][j]);
-                    fflush(stdout);
-                    if ((++nlcnt % 13) == 0)
-                        printf("\n");
-
-                } else if (j >= (gather_offset[i] - 39)) {
-                    printf("%10ld ", gather_patterns[i][j]);
-                    fflush(stdout);
-                    if ((++nlcnt % 13) == 0)
-                        printf("\n");
-
-                } else if (j == 39)
-                    printf("...\n");
-            }
-            printf("\n");
-            printf("DIST HISTOGRAM --\n");
-
-            for (j = 0; j < 1027; j++) {
-                if (n_stride[j] > 0) {
-                    if (j == 0)
-                        printf("%6s: %ld\n", "< -512", n_stride[j]);
-                    else if (j == 1026)
-                        printf("%6s: %ld\n", ">  512", n_stride[j]);
-                    else
-                        printf("%6d: %ld\n", j - 513, n_stride[j]);
-                }
-            }
-
-            if (first_spatter) {
-                first_spatter = 0;
-                fprintf(fp, " {\"kernel\":\"Gather\", \"pattern\":[");
-
-            } else {
-                fprintf(fp, ",\n {\"kernel\":\"Gather\", \"pattern\":[");
-            }
-
-            fwrite(gather_patterns[i], sizeof(uint64_t), gather_offset[i], fp_bin);
-            fclose(fp_bin);
-
-            for (j = 0; j < gather_offset[i] - 1; j++)
-                fprintf(fp, "%ld,", gather_patterns[i][j]);
-            fprintf(fp, "%ld", gather_patterns[i][gather_offset[i] - 1]);
-
-            fprintf(fp, "], \"count\":1}");
-
-            fprintf(fp2, "%s,G,%ld,%6.3f\n",
-                    gather_srcline[gather_top_idx[i]], gather_offset[i],
-                    100.0 * (double) gather_tot[i] / gather_cnt);
-        }
-        printf("***************************************************************************************\n\n");
-    }
-
-    printf("\n");
-    for (i = 0; i < scatter_ntop; i++) {
-        printf("***************************************************************************************\n");
-
-        unique_strides = 0;
-        for (j = 0; j < 1027; j++)
-            n_stride[j] = 0;
-
-        for (j = 1; j < scatter_offset[i]; j++) {
-            sidx = scatter_patterns[i][j] - scatter_patterns[i][j - 1] + 513;
-            sidx = (sidx < 1) ? 0 : sidx;
-            sidx = (sidx > 1025) ? 1026 : sidx;
-            n_stride[sidx]++;
-        }
-
-        for (j = 0; j < 1027; j++) {
-            if (n_stride[j] > 0) {
-                unique_strides++;
-            }
-        }
-
-        outbounds = (double) (n_stride[0] + n_stride[1026]) / (double) scatter_offset[i];
-
-        //if (((unique_strides > NSTRIDES)  | (outbounds > OUTTHRESH) ) && (scatter_offset[i] > USTRIDES) ){
-        if (1) {
-
-            //create a binary file
-            FILE *fp_bin;
-            char *bin_name;
-            bin_name = str_replace(argv[1], ".gz", ".sbin");
-            printf("%s\n", bin_name);
-            fp_bin = fopen(bin_name, "w");
-            if (fp_bin == NULL) {
-                printf("ERROR: Could not open %s!\n", bin_name);
-                exit(-1);
-            }
-
-            printf("SIADDR    -- %p\n", scatter_top[i]);
-            printf("SRCLINE   -- %s\n", scatter_srcline[scatter_top_idx[i]]);
-            printf("SCATTER %c -- %6.3f%c (512-bit chunks)\n",
-                   '%', 100.0 * (double) scatter_tot[i] / scatter_cnt, '%');
-            printf("NDISTS  -- %ld\n", scatter_offset[i]);
-
-            int64_t nlcnt = 0;
-            for (j = 0; j < scatter_offset[i]; j++) {
-
-                if (j < 39) {
-                    printf("%10ld ", scatter_patterns[i][j]);
-                    fflush(stdout);
-                    if ((++nlcnt % 13) == 0)
-                        printf("\n");
-
-                } else if (j >= (scatter_offset[i] - 39)) {
-                    printf("%10ld ", scatter_patterns[i][j]);
-                    fflush(stdout);
-                    if ((++nlcnt % 13) == 0)
-                        printf("\n");
-
-                } else if (j == 39)
-                    printf("...\n");
-            }
-            printf("\n");
-            printf("DIST HISTOGRAM --\n");
-            for (j = 0; j < 1027; j++) {
-                if (n_stride[j] > 0) {
-                    if (j == 0)
-                        printf("%6s: %ld\n", "< -512", n_stride[j]);
-                    else if (j == 1026)
-                        printf("%6s: %ld\n", ">  512", n_stride[j]);
-                    else
-                        printf("%6d: %ld\n", j - 513, n_stride[j]);
-                }
-            }
-
-            if (first_spatter) {
-                first_spatter = 0;
-                fprintf(fp, " {\"kernel\":\"Scatter\", \"pattern\":[");
-
-            } else {
-                fprintf(fp, ", {\"kernel\":\"Scatter\", \"pattern\":[");
-            }
-
-            fwrite(scatter_patterns[i], sizeof(uint64_t), scatter_offset[i], fp_bin);
-            fclose(fp_bin);
-
-            for (j = 0; j < scatter_offset[i] - 1; j++)
-                fprintf(fp, "%ld,", scatter_patterns[i][j]);
-            fprintf(fp, "%ld", scatter_patterns[i][scatter_offset[i] - 1]);
-            fprintf(fp, "], \"count\":1}");
-
-            fprintf(fp2, "%s,S,%ld,%6.3f\n",
-                    scatter_srcline[scatter_top_idx[i]], scatter_offset[i],
-                    100.0 * (double) scatter_tot[i] / scatter_cnt);
-        }
-        printf("***************************************************************************************\n\n");
-    }
-
-    //Footer
-    fprintf(fp, " ]");
-    fclose(fp);
-    fclose(fp2);
-
+    create_spatter_file(argv[1],
+                        gather_ntop, scatter_ntop, gather_offset, scatter_offset, gather_patterns, scatter_patterns,
+                        gather_tot, scatter_tot, gather_top, gather_top_idx, scatter_top, scatter_top_idx,
+                        gather_srcline, scatter_srcline, gather_cnt, scatter_cnt
+    );
 
     for (i = 0; i < NTOP; i++) {
         free(gather_patterns[i]);
