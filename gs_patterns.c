@@ -48,6 +48,8 @@
 #define ADDREND   (0xFFFFFFFFFFFFFFFFUL)
 #define ADDRUSYNC (0xFFFFFFFFFFFFFFFEUL)
 
+#define MAX_LINE_LENGTH 1024
+
 typedef uintptr_t addr_t;
 
 //FROM DR SOURCE
@@ -165,8 +167,8 @@ void translate_iaddr(const char *binary, char *source_line, addr_t iaddr) {
 
     int i = 0;
     int ntranslated = 0;
-    char path[1024];
-    char cmd[1024];
+    char path[MAX_LINE_LENGTH];
+    char cmd[MAX_LINE_LENGTH];
     FILE *fp;
 
     sprintf(cmd, "addr2line -e %s 0x%lx", binary, iaddr);
@@ -227,8 +229,8 @@ void create_spatter_file(
         addr_t* scatter_top,
         addr_t* scatter_top_idx,
         /* */
-        char** gather_srcline,
-        char** scatter_srcline,
+        char gather_srcline[][MAX_LINE_LENGTH],
+        char scatter_srcline[][MAX_LINE_LENGTH],
         double gather_cnt,
         double scatter_cnt
 )
@@ -250,7 +252,7 @@ void create_spatter_file(
     char *json_name, *gs_info;
     json_name = (char*)str_replace(trace_file_name, ".gz", ".json");
     if (strstr(json_name, ".json") == 0) {
-        strncat(json_name, ".json", strlen(".json"+1));
+        strncat(json_name, ".json", strlen(".json")+1);
     }
 
     fp = fopen(json_name, "w");
@@ -528,7 +530,7 @@ void normalize_stats(
 
 double update_source_lines(
         addr_t* target_iaddrs,
-        char target_srcline[][1024], //was char**
+        char target_srcline[][MAX_LINE_LENGTH], //was char**
         int64_t* target_icnt,   // updated
         const char* binary_file_name)
 {
@@ -557,8 +559,8 @@ void second_pass(gzFile fp_drtrace,
                  trace_entry_t* p_drtrace,
                  int gather_ntop,
                  int scatter_ntop,
-                 int* gather_offset,
-                 int* scatter_offset,
+                 int* gather_offset,         // updated
+                 int* scatter_offset,        // updated
                  int64_t** gather_patterns,  // updated
                  int64_t** scatter_patterns, // updated
                  addr_t* gather_base,       // updated
@@ -726,7 +728,7 @@ int main(int argc, char **argv) {
     int64_t ngs = 0;
     char *eptr;
     char binary[1024];
-    char srcline[1024];
+    char srcline[MAX_LINE_LENGTH];
 
     //dtrace vars
     int64_t drtrace_lines = 0;
@@ -765,11 +767,11 @@ int main(int argc, char **argv) {
     static int64_t w_cnt[2][IWINDOW];
 
     //First pass to find top gather / scatters
-    static char gather_srcline[NGS][1024];
+    static char gather_srcline[NGS][MAX_LINE_LENGTH];
     static addr_t gather_iaddrs[NGS] = {0};
     static int64_t gather_icnt[NGS] = {0};
     static int64_t gather_occ[NGS] = {0};
-    static char scatter_srcline[NGS][1024];
+    static char scatter_srcline[NGS][MAX_LINE_LENGTH];
     static addr_t scatter_iaddrs[NGS] = {0};
     static int64_t scatter_icnt[NGS] = {0};
     static int64_t scatter_occ[NGS] = {0};
@@ -1100,7 +1102,7 @@ int main(int argc, char **argv) {
     create_spatter_file(argv[1],
                         gather_ntop, scatter_ntop, gather_offset, scatter_offset, gather_patterns, scatter_patterns,
                         gather_tot, scatter_tot, gather_top, gather_top_idx, scatter_top, scatter_top_idx,
-                        (char**)gather_srcline, (char**)scatter_srcline, gather_cnt, scatter_cnt
+                        gather_srcline, scatter_srcline, gather_cnt, scatter_cnt
     );
 
     for (i = 0; i < NTOP; i++) {
