@@ -121,7 +121,7 @@ const char *str_replace(const char *orig, const char *rep, const char *with) {
         ins = tmp + len_rep;
     }
 
-    tmp = result = malloc(strlen(orig) + (len_with - len_rep) * count + 1);
+    tmp = result = (char*)malloc(strlen(orig) + (len_with - len_rep) * count + 1);
 
     if (!result)
         return NULL;
@@ -132,7 +132,7 @@ const char *str_replace(const char *orig, const char *rep, const char *with) {
     //    ins points to the next occurrence of rep in orig
     //    orig points to the remainder of orig after "end of rep"
     while (count--) {
-        ins = strstr(orig, rep);
+        ins = (char*)strstr(orig, rep);
         len_front = ins - orig;
         tmp = strncpy(tmp, orig, len_front) + len_front;
         tmp = strcpy(tmp, with) + len_with;
