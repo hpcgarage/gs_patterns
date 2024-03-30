@@ -90,7 +90,7 @@ int endswith(const char *a, const char *b) {
 }
 
 //https://stackoverflow.com/questions/779875/what-function-is-to-replace-a-substring-from-a-string-in-c
-char *str_replace(char *orig, char *rep, char *with) {
+const char *str_replace(const char *orig, const char *rep, const char *with) {
     char *result; // the return string
     char *ins;    // the next insert point
     char *tmp;    // varies
@@ -114,7 +114,7 @@ char *str_replace(char *orig, char *rep, char *with) {
     len_with = strlen(with);
 
     // count the number of replacements needed
-    ins = orig;
+    ins = (char*)orig;
     for (count = 0; tmp = strstr(ins, rep); ++count) {
         ins = tmp + len_rep;
     }
@@ -144,8 +144,8 @@ char *get_str(char *line, char *bparse, char *aparse) {
 
     char *sline;
 
-    sline = str_replace(line, bparse, "");
-    sline = str_replace(sline, aparse, "");
+    sline = (char*)str_replace(line, bparse, "");
+    sline = (char*)str_replace(sline, aparse, "");
 
     return sline;
 }
@@ -161,7 +161,7 @@ int cnt_str(char *line, char c) {
     return cnt;
 }
 
-void translate_iaddr(char *binary, char *source_line, addr_t iaddr) {
+void translate_iaddr(const char *binary, char *source_line, addr_t iaddr) {
 
     int i = 0;
     int ntranslated = 0;
@@ -248,13 +248,21 @@ void create_spatter_file(
     //Create spatter file
     FILE *fp, *fp2;
     char *json_name, *gs_info;
-    json_name = str_replace(trace_file_name, ".gz", ".json");
+    json_name = (char*)str_replace(trace_file_name, ".gz", ".json");
+    if (strstr(json_name, ".json") == 0) {
+        strncat(json_name, ".json", strlen(".json"+1));
+    }
+
     fp = fopen(json_name, "w");
     if (fp == NULL) {
         printf("ERROR: Could not open %s!\n", json_name);
         exit(-1);
     }
-    gs_info = str_replace(trace_file_name, ".gz", ".txt");
+    gs_info = (char*)str_replace(trace_file_name, ".gz", ".txt");
+    if (strstr(gs_info, ".json") == 0) {
+        strncat(gs_info, ".txt", strlen(".txt")+1);
+    }
+
     fp2 = fopen(gs_info, "w");
     if (fp2 == NULL) {
         printf("ERROR: Could not open %s!\n", gs_info);
@@ -294,7 +302,10 @@ void create_spatter_file(
             //create a binary file
             FILE *fp_bin;
             char *bin_name;
-            bin_name = str_replace(trace_file_name, ".gz", ".sbin");
+            bin_name = (char*)str_replace(trace_file_name, ".gz", ".sbin");
+            if (strstr(bin_name, ".sbin") == 0) {
+                strncat(bin_name, ".sbin", strlen(".sbin")+1);
+            }
             printf("%s\n", bin_name);
             fp_bin = fopen(bin_name, "w");
             if (fp_bin == NULL) {
@@ -302,11 +313,11 @@ void create_spatter_file(
                 exit(-1);
             }
 
-            printf("GIADDR   -- %p\n", gather_top[i]);
+            printf("GIADDR   -- %p\n", (void*) gather_top[i]);
             printf("SRCLINE  -- %s\n", gather_srcline[gather_top_idx[i]]);
             printf("GATHER %c -- %6.3f%c (512-bit chunks)\n",
                    '%', 100.0 * (double) gather_tot[i] / gather_cnt, '%');
-            printf("NDISTS  -- %ld\n", gather_offset[i]);
+            printf("NDISTS  -- %ld\n", (long int)gather_offset[i]);
 
             int64_t nlcnt = 0;
             for (j = 0; j < gather_offset[i]; j++) {
@@ -358,7 +369,7 @@ void create_spatter_file(
             fprintf(fp, "], \"count\":1}");
 
             fprintf(fp2, "%s,G,%ld,%6.3f\n",
-                    gather_srcline[gather_top_idx[i]], gather_offset[i],
+                    gather_srcline[gather_top_idx[i]], (long int)gather_offset[i],
                     100.0 * (double) gather_tot[i] / gather_cnt);
         }
         printf("***************************************************************************************\n\n");
@@ -393,7 +404,10 @@ void create_spatter_file(
             //create a binary file
             FILE *fp_bin;
             char *bin_name;
-            bin_name = str_replace(trace_file_name, ".gz", ".sbin");
+            bin_name = (char*)str_replace(trace_file_name, ".gz", ".sbin");
+            if (strstr(bin_name, ".sbin") == 0) {
+                strncat(bin_name, ".sbin", strlen(".sbin")+1);
+            }
             printf("%s\n", bin_name);
             fp_bin = fopen(bin_name, "w");
             if (fp_bin == NULL) {
@@ -401,11 +415,11 @@ void create_spatter_file(
                 exit(-1);
             }
 
-            printf("SIADDR    -- %p\n", scatter_top[i]);
+            printf("SIADDR    -- %p\n", (void*)scatter_top[i]);
             printf("SRCLINE   -- %s\n", scatter_srcline[scatter_top_idx[i]]);
             printf("SCATTER %c -- %6.3f%c (512-bit chunks)\n",
                    '%', 100.0 * (double) scatter_tot[i] / scatter_cnt, '%');
-            printf("NDISTS  -- %ld\n", scatter_offset[i]);
+            printf("NDISTS  -- %ld\n", (long int)scatter_offset[i]);
 
             int64_t nlcnt = 0;
             for (j = 0; j < scatter_offset[i]; j++) {
@@ -455,7 +469,7 @@ void create_spatter_file(
             fprintf(fp, "], \"count\":1}");
 
             fprintf(fp2, "%s,S,%ld,%6.3f\n",
-                    scatter_srcline[scatter_top_idx[i]], scatter_offset[i],
+                    scatter_srcline[scatter_top_idx[i]], (long int)scatter_offset[i],
                     100.0 * (double) scatter_tot[i] / scatter_cnt);
         }
         printf("***************************************************************************************\n\n");
@@ -477,39 +491,36 @@ void normalize_stats(
         int64_t** scatter_patterns  // updated
 )
 {
-    int i = 0;
-    int j = 0;
-
     //Normalize
     int64_t smallest;
-    for (i = 0; i < gather_ntop; i++) {
+    for (int i = 0; i < gather_ntop; i++) {
 
         //Find smallest
         smallest = 0;
-        for (j = 0; j < gather_offset[i]; j++) {
+        for (int j = 0; j < gather_offset[i]; j++) {
             if (gather_patterns[i][j] < smallest)
                 smallest = gather_patterns[i][j];
         }
 
         smallest *= -1;
         //Normalize
-        for (j = 0; j < gather_offset[i]; j++) {
+        for (int j = 0; j < gather_offset[i]; j++) {
             gather_patterns[i][j] += smallest;
         }
     }
 
-    for (i = 0; i < scatter_ntop; i++) {
+    for (int i = 0; i < scatter_ntop; i++) {
 
         //Find smallest
         smallest = 0;
-        for (j = 0; j < scatter_offset[i]; j++) {
+        for (int j = 0; j < scatter_offset[i]; j++) {
             if (scatter_patterns[i][j] < smallest)
                 smallest = scatter_patterns[i][j];
         }
         smallest *= -1;
 
         //Normalize
-        for (j = 0; j < scatter_offset[i]; j++) {
+        for (int j = 0; j < scatter_offset[i]; j++) {
             scatter_patterns[i][j] += smallest;
         }
     }
@@ -517,7 +528,7 @@ void normalize_stats(
 
 double update_source_lines(
         addr_t* target_iaddrs,
-        char** target_srcline,
+        char target_srcline[][1024], //was char**
         int64_t* target_icnt,   // updated
         const char* binary_file_name)
 {
@@ -1057,7 +1068,7 @@ int main(int argc, char **argv) {
     gather_cnt = update_source_lines(gather_iaddrs, gather_srcline, gather_icnt, binary);
 
     //Get top gathers
-    gather_ntop = get_top_target("GIADDR", gather_srcline, gather_icnt, gather_iaddrs, gather_top, gather_tot, gather_top_idx);
+    gather_ntop = get_top_target("GIADDR", (char**) gather_srcline, gather_icnt, gather_iaddrs, gather_top, gather_tot, gather_top_idx);
 
 
     //Find source lines
@@ -1066,7 +1077,7 @@ int main(int argc, char **argv) {
 
     //Get top scatters
     //printf("\nTOP SCATTERS\n");
-    scatter_ntop = get_top_target("SIADDR", scatter_srcline, scatter_icnt, scatter_iaddrs, scatter_top, scatter_tot, scatter_top_idx);
+    scatter_ntop = get_top_target("SIADDR", (char**)scatter_srcline, scatter_icnt, scatter_iaddrs, scatter_top, scatter_tot, scatter_top_idx);
 
 
     //Second Pass
@@ -1089,7 +1100,7 @@ int main(int argc, char **argv) {
     create_spatter_file(argv[1],
                         gather_ntop, scatter_ntop, gather_offset, scatter_offset, gather_patterns, scatter_patterns,
                         gather_tot, scatter_tot, gather_top, gather_top_idx, scatter_top, scatter_top_idx,
-                        gather_srcline, scatter_srcline, gather_cnt, scatter_cnt
+                        (char**)gather_srcline, (char**)scatter_srcline, gather_cnt, scatter_cnt
     );
 
     for (i = 0; i < NTOP; i++) {
