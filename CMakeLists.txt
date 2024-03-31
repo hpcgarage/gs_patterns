@@ -4,6 +4,7 @@ set (CMAKE_VERBOSE_MAKEFILE "1")
 
 project( gs_patterns VERSION 1.0 LANGUAGES CXX)
 
-add_executable(gs_patterns gs_patterns.cpp)
+add_executable(gs_patterns gs_patterns.cpp
+        gs_patterns.h)
 
 set(CMAKE_CXX_STANDARD_LIBRARIES "-lm -lz ${CMAKE_CXX_STANDARD_LIBRARIES}")

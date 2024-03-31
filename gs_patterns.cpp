@@ -13,32 +13,7 @@
 #include <iostream>
 #include <exception>
 
-#define MAX(X, Y) (((X) < (Y)) ? Y : X)
-#define MIN(X, Y) (((X) > (Y)) ? Y : X)
-#define ABS(X) (((X) < 0) ? (-1) * (X) : X)
-
-//triggers
-#define SAMPLE 0
-#define PERSAMPLE 10000000
-//#define PERSAMPLE 1000
-
-//info
-#define CLSIZE (64)
-#define VBITS (512)
-#define NBUFS (1LL<<10)
-#define IWINDOW (1024)
-#define NGS (8096)
-
-//patterns
-#define USTRIDES 1024   //Threshold for number of accesses
-#define NSTRIDES 15     //Threshold for number of unique distances
-#define OUTTHRESH (0.5) //Threshold for percentage of distances at boundaries of histogram
-#define NTOP (10)
-#define PSIZE (1<<23)
-//#define PSIZE (1<<18)
-
-//DONT CHANGE
-#define VBYTES (VBITS/8)
+#include "gs_patterns.h"
 
 //Terminal colors
 #define KNRM  "\x1B[0m"
@@ -47,84 +22,6 @@
 #define KBLU  "\x1B[34m"
 #define KMAG  "\x1B[35m"
 #define KCYN  "\x1B[36m"
-
-//address status
-#define ADDREND   (0xFFFFFFFFFFFFFFFFUL)
-#define ADDRUSYNC (0xFFFFFFFFFFFFFFFEUL)
-
-#define MAX_LINE_LENGTH 1024
-
-typedef uintptr_t addr_t;
-
-//FROM DR SOURCE
-//DR trace
-struct _trace_entry_t {
-    unsigned short type; // 2 bytes: trace_type_t
-    unsigned short size;
-    union {
-        addr_t addr;
-        unsigned char length[sizeof(addr_t)];
-    };
-}  __attribute__((packed));
-typedef struct _trace_entry_t trace_entry_t;
-
-class Metrics
-{
-public:
-    typedef enum { GATHER=0, SCATTER } metrics_type;
-
-    Metrics(metrics_type mType) : _mType(mType)
-    {
-        /// TODO: Convert to new/free
-        for (int j = 0; j < NTOP; j++) {
-            patterns[j] = (int64_t *) calloc(PSIZE, sizeof(int64_t));
-            if (patterns[j] == NULL) {
-                printf("ERROR: Could not allocate gather_patterns!\n");
-                throw std::runtime_error("Could not allocate patterns for " + type_as_string());  //exit(-1);
-            }
-        }
-    }
-
-    ~Metrics()
-    {
-        /// TODO: Convert to new/free
-        for (int i = 0; i < NTOP; i++) {
-            free(patterns[i]);
-        }
-    }
-
-    Metrics(const Metrics &) = delete;
-    Metrics & operator=(const Metrics & right) = delete;
-
-    std::string type_as_string() { return !_mType ? "GATHER" : "SCATTER"; }
-    std::string getName()        { return !_mType ? "Gather" : "Scatter"; }
-    std::string getShortName()   { return !_mType ? "G" : "S"; }
-
-    auto get_srcline() { return srcline[_mType]; }
-
-//private:
-    int      ntop = 0;
-    double   cnt = 0.0;
-    int      offset[NTOP]  = {0};
-
-    addr_t   tot[NTOP]     = {0};
-    addr_t   top[NTOP]     = {0};
-    addr_t   top_idx[NTOP] = {0};
-
-    int64_t* patterns[NTOP] = {0};
-
-private:
-    static char srcline[2][NGS][MAX_LINE_LENGTH]; // was static (may move out and have 1 per type)
-
-    metrics_type _mType;
-};
-
-/*
-class Address_Instr
-{
-public:
-};
-*/
 
 static inline int popcount(uint64_t x) {
     int c;
@@ -456,8 +353,8 @@ void normalize_stats(Metrics & target_metrics)
 
 double update_source_lines(
         addr_t* target_iaddrs,
-        char target_srcline[][MAX_LINE_LENGTH], //was char**
         int64_t* target_icnt,   // updated
+        Metrics & target_metrics,
         const char* binary_file_name)
 {
     double scatter_cnt = 0.0;
@@ -469,8 +366,8 @@ double update_source_lines(
         if (target_iaddrs[k] == 0) {
             break;
         }
-        translate_iaddr(binary_file_name, target_srcline[k], target_iaddrs[k]);
-        if (startswith(target_srcline[k], "?"))
+        translate_iaddr(binary_file_name, target_metrics.get_srcline()[k], target_iaddrs[k]);
+        if (startswith(target_metrics.get_srcline()[k], "?"))
             target_icnt[k] = 0;
 
         scatter_cnt += target_icnt[k];
@@ -580,14 +477,9 @@ void second_pass(gzFile fp_drtrace, trace_entry_t* drtrace, trace_entry_t* p_drt
 }
 
 int get_top_target(
-        const char* target_type,
-        char** target_srcline,
         int64_t* target_icnt,   // updated
         addr_t* target_iaddrs,  // updated
-        addr_t* target_top,     // updated
-        addr_t* target_tot,     // updated
-        addr_t* target_top_idx  // updates
-)
+        Metrics & target_metrics)
 {
     int target_ntop = 0;
     int bestcnt;
@@ -618,12 +510,12 @@ int get_top_target(
             break;
         } else {
             target_ntop++;
-            target_top[j] = best_iaddr;
-            target_top_idx[j] = bestidx;
-            target_tot[j] = target_icnt[bestidx];
+            target_metrics.top[j] = best_iaddr;
+            target_metrics.top_idx[j] = bestidx;
+            target_metrics.tot[j] = target_icnt[bestidx];
             target_icnt[bestidx] = 0;
 
-            //printf("%s -- %016lx: %16lu -- %s\n", target_type, target_top[j], target_tot[j], target_srcline[bestidx]);
+            //printf("%sIADDR -- %016lx: %16lu -- %s\n", target_metrics.getShortName().c_str(), target_metrics.top[j], target_metrics.tot[j], target_metrics.get_srcline()[bestidx]);
         }
     }
 
@@ -669,8 +561,6 @@ int main(int argc, char **argv) {
     int64_t mcl;
     int64_t gather_bytes_hist[100] = {0};
     int64_t scatter_bytes_hist[100] = {0};
-    ///double gather_cnt = 0.0;
-    ///double scatter_cnt = 0.0;
     double other_cnt = 0.0;
     double gather_score = 0.0;
     double gather_occ_avg = 0.0;
@@ -686,35 +576,16 @@ int main(int argc, char **argv) {
     static int64_t w_cnt[2][IWINDOW];
 
     //First pass to find top gather / scatters
-    ///static char gather_srcline[NGS][MAX_LINE_LENGTH];
     static addr_t gather_iaddrs[NGS] = {0};
     static int64_t gather_icnt[NGS] = {0};
     static int64_t gather_occ[NGS] = {0};
-    ///static char scatter_srcline[NGS][MAX_LINE_LENGTH];
     static addr_t scatter_iaddrs[NGS] = {0};
     static int64_t scatter_icnt[NGS] = {0};
     static int64_t scatter_occ[NGS] = {0};
 
-    //Second Pass
-    int dotrace;
-    int bestcnt;
-    int bestidx;
-    int gather_ntop = 0;
-    int scatter_ntop = 0;
-    static int gather_offset[NTOP] = {0};
-    static int scatter_offset[NTOP] = {0};
-
     static addr_t best_iaddr;
-    ///static addr_t gather_tot[NTOP] = {0};
-    ///static addr_t scatter_tot[NTOP] = {0};
-    ///static addr_t gather_top[NTOP] = {0};
-    ///static addr_t gather_top_idx[NTOP] = {0};
-    ///static addr_t scatter_top[NTOP] = {0};
-    ///static addr_t scatter_top_idx[NTOP] = {0};
     static addr_t gather_base[NTOP] = {0};
     static addr_t scatter_base[NTOP] = {0};
-    //static int64_t *gather_patterns[NTOP] = {0};
-    //static int64_t *scatter_patterns[NTOP] = {0};
 
     if (argc == 3) {
 
@@ -734,13 +605,8 @@ int main(int argc, char **argv) {
 
     try {
 
-        //Metrics gather_metrics(Metrics::GATHER);
-        //Metrics scatter_metrics(Metrics::SCATTER);
-
-        Metrics* g = new Metrics(Metrics::GATHER);
-        Metrics* s = new Metrics(Metrics::SCATTER);
-        Metrics & gather_metrics  = *g;
-        Metrics & scatter_metrics = *s;
+        Metrics gather_metrics(Metrics::GATHER);
+        Metrics scatter_metrics(Metrics::SCATTER);
 
         //init window arrays
         for (w = 0; w < 2; w++) {
@@ -958,7 +824,6 @@ int main(int argc, char **argv) {
         //close files
         gzclose(fp_drtrace);
 
-
         printf("DRTRACE STATS\n");
         printf("DRTRACE LINES:        %16lu\n", drtrace_lines);
         printf("OPCODES:              %16lu\n", opcodes);
@@ -975,28 +840,23 @@ int main(int argc, char **argv) {
         printf("SCATTER COUNT:        %16.3f (log2)\n", log(scatter_metrics.cnt) / log(2.0));
         printf("OTHER  COUNT:         %16.3f (log2)\n", log(other_cnt) / log(2.0));
 
-        //Find source lines
-
-        //Must have symbol
+        // Find source lines for gathers - Must have symbol
         printf("\nSymbol table lookup for gathers...");
         fflush(stdout);
-        gather_metrics.cnt = update_source_lines(gather_iaddrs, gather_metrics.get_srcline(), gather_icnt, binary);
+        gather_metrics.cnt = update_source_lines(gather_iaddrs, gather_icnt, gather_metrics, binary);
 
         //Get top gathers
-        gather_metrics.ntop = get_top_target("GIADDR", (char**) gather_metrics.get_srcline(), gather_icnt, gather_iaddrs,
-                                     gather_metrics.top, gather_metrics.tot, gather_metrics.top_idx);
+        gather_metrics.ntop = get_top_target(gather_icnt, gather_iaddrs, gather_metrics);
 
-
-        //Find source lines
+        // Find source lines for scatters
         printf("Symbol table lookup for scatters...");
-        scatter_metrics.cnt = update_source_lines(scatter_iaddrs, scatter_metrics.get_srcline(), scatter_icnt, binary);
+        scatter_metrics.cnt = update_source_lines(scatter_iaddrs, scatter_icnt, scatter_metrics, binary);
 
         //Get top scatters
-        //printf("\nTOP SCATTERS\n");
-        scatter_metrics.ntop = get_top_target("SIADDR", (char**) scatter_metrics.get_srcline(), scatter_icnt, scatter_iaddrs,
-                                      scatter_metrics.top, scatter_metrics.tot, scatter_metrics.top_idx);
+        scatter_metrics.ntop = get_top_target(scatter_icnt, scatter_iaddrs, scatter_metrics);
 
-        //Second Pass
+        // ----------------- Second Pass -----------------
+
         //Open trace
         fp_drtrace = gzopen(argv[1], "hrb");
         if (fp_drtrace == NULL) {
@@ -1007,11 +867,14 @@ int main(int argc, char **argv) {
         second_pass(fp_drtrace, drtrace, p_drtrace, gather_metrics, scatter_metrics);
 
         gzclose(fp_drtrace);
-
         printf("\n");
+
+        // ----------------- Normalize -----------------
 
         normalize_stats(gather_metrics);
         normalize_stats(scatter_metrics);
+
+        // ----------------- Create Spatter File -----------------
 
         create_spatter_file(argv[1], gather_metrics, scatter_metrics);
 
