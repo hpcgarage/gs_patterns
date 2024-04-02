@@ -120,7 +120,6 @@ private:
     static addr_t iaddrs[2][NGS];
     static int64_t icnt[2][NGS];
     static int64_t occ[2][NGS];
-    //addr_t base[2][NTOP];
 
     metrics_type _mType;
 };
@@ -134,7 +133,6 @@ public:
     uint64_t opcodes_mem  = 0;
     uint64_t addrs        = 0;
     uint64_t other        = 0;
-    //int      gs;  // needed across calls?
     int64_t  ngs          = 0;
     int64_t drtrace_lines = 0;
 

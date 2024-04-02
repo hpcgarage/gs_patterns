@@ -185,7 +185,7 @@ int drline_read(gzFile fp, trace_entry_t *val, trace_entry_t **p_val, int *edx) 
     return 1;
 }
 
-void create_metrics_file(FILE *fp, FILE *fp2, const char* trace_file_name, Metrics & target_metrics);
+void create_metrics_file(FILE *fp, FILE *fp2, const char* trace_file_name, Metrics & target_metrics, bool & first_spatter);
 
 void create_spatter_file(const char* trace_file_name, Metrics & gather_metrics, Metrics & scatter_metrics)
 {
@@ -217,9 +217,10 @@ void create_spatter_file(const char* trace_file_name, Metrics & gather_metrics, 
     fprintf(fp, "[ ");
     fprintf(fp2, "#sourceline, g/s, indices, percentage of g/s in trace\n");
 
-    create_metrics_file(fp, fp2, trace_file_name, gather_metrics);
+    bool first_spatter = true;
+    create_metrics_file(fp, fp2, trace_file_name, gather_metrics, first_spatter);
 
-    create_metrics_file(fp, fp2, trace_file_name, scatter_metrics);
+    create_metrics_file(fp, fp2, trace_file_name, scatter_metrics, first_spatter);
 
     //Footer
     fprintf(fp, " ]");
@@ -227,14 +228,13 @@ void create_spatter_file(const char* trace_file_name, Metrics & gather_metrics, 
     fclose(fp2);
 }
 
-void create_metrics_file(FILE *fp, FILE *fp2, const char* trace_file_name, Metrics & target_metrics)
+void create_metrics_file(FILE *fp, FILE *fp2, const char* trace_file_name, Metrics & target_metrics, bool & first_spatter)
 {
     int i = 0;
     int j = 0;
 
     //Create stride histogram and create spatter
     int sidx;
-    static bool first_spatter = true;
     int unique_strides;
     int64_t idx, pidx;
     int64_t n_stride[1027];
@@ -388,23 +388,23 @@ double update_source_lines(InstrInfo & target_iinfo, Metrics & target_metrics, c
 
 void second_pass(gzFile fp_drtrace, Metrics & gather_metrics, Metrics & scatter_metrics)
 {
-    uint64_t mcnt = 0;
+    uint64_t mcnt = 0;  // used our own local mcnt while iterating over file in this method.
     int iret = 0;
     trace_entry_t* drline;
     addr_t iaddr;
     int64_t maddr;
     int i = 0;
 
-    // TODO: remove these statics
-    static addr_t gather_base[NTOP] = {0};
-    static addr_t scatter_base[NTOP] = {0};
+    addr_t gather_base[NTOP] = {0};
+    addr_t scatter_base[NTOP] = {0};
 
     bool breakout = false;
     printf("\nSecond pass to fill gather / scatter subtraces\n");
     fflush(stdout);
 
     trace_entry_t* p_drtrace = NULL;
-    static trace_entry_t drtrace[NBUFS];
+    trace_entry_t drtrace[NBUFS];   // was static (1024 bytes)
+
     while (drline_read(fp_drtrace, drtrace, &p_drtrace, &iret) && !breakout) {
 
         //decode drtrace
@@ -736,7 +736,8 @@ void first_pass(
     fflush(stdout);
 
     trace_entry_t *p_drtrace = NULL;
-    static trace_entry_t drtrace[NBUFS];
+    trace_entry_t drtrace[NBUFS];  // was static (1024 bytes)
+
     while (drline_read(fp_drtrace, drtrace, &p_drtrace, &iret)) {
         //decode drtrace
         drline = p_drtrace;
