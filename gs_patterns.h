@@ -4,6 +4,9 @@
 
 #pragma once
 
+#include <exception>
+#include <string>
+
 #define MAX(X, Y) (((X) < (Y)) ? Y : X)
 #define MIN(X, Y) (((X) > (Y)) ? Y : X)
 #define ABS(X) (((X) < 0) ? (-1) * (X) : X)
@@ -158,7 +161,7 @@ private:
 class TraceInfo  // Stats
 {
 public:
-    /// TODO: need an reset method to zero out counters
+    /// TODO: need a reset method to zero out counters
 
     uint64_t opcodes      = 0;
     uint64_t opcodes_mem  = 0;
