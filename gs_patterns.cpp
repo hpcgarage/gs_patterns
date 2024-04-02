@@ -197,6 +197,8 @@ void create_metrics_file(FILE *fp, FILE *fp2, const char* trace_file_name, Metri
     int64_t n_stride[1027];
     double outbounds;
 
+    if (first_spatter) printf("\n");
+
     printf("\n");
     for (i = 0; i < target_metrics.ntop; i++) {
         printf("***************************************************************************************\n");
@@ -366,7 +368,6 @@ double update_source_lines_from_binary(InstrInfo & target_iinfo, Metrics & targe
 {
     double scatter_cnt = 0.0;
 
-    fflush(stdout);
     //Check it is not a library
     for (int k = 0; k < NGS; k++) {
 
@@ -712,6 +713,8 @@ void handle_trace_entry(
     } else {
         trace_info.other++;
     }
+
+    trace_info.drtrace_lines++;
 }
 
 void display_stats(TraceInfo & trace_info, Metrics &  gather_metrics, Metrics & scatter_metrics)
@@ -761,9 +764,7 @@ void process_traces(
         handle_trace_entry(drline, trace_info, gather_iinfo, scatter_iinfo, gather_metrics, scatter_metrics, iw);
 
         p_drtrace++;
-        trace_info.drtrace_lines++;
-
-    } //while drtrace
+    }
 
     //metrics
     trace_info.gather_occ_avg /= gather_metrics.cnt;
@@ -782,10 +783,14 @@ void update_source_lines(
 {
     // Find source lines for gathers - Must have symbol
     printf("\nSymbol table lookup for gathers...");
+    fflush(stdout);
+
     gather_metrics.cnt = update_source_lines_from_binary(gather_iinfo, gather_metrics, binary);
 
     // Find source lines for scatters
     printf("Symbol table lookup for scatters...");
+    fflush(stdout);
+
     scatter_metrics.cnt = update_source_lines_from_binary(scatter_iinfo, scatter_metrics, binary);
 }
 
@@ -812,29 +817,37 @@ void update_metrics(
     normalize_stats(scatter_metrics);
 }
 
+gzFile open_trace_file(const std::string & trace_file_name)
+{
+    gzFile fp;
 
-int main(int argc, char **argv) {
+    fp = gzopen(trace_file_name.c_str(), "hrb");
+    if (fp == NULL) {
+        throw std::runtime_error("Could not open " + trace_file_name + "!");
+    }
+    return fp;
+}
 
+void close_trace_file (gzFile & fp)
+{
+    gzclose(fp);
+}
+
+int main(int argc, char **argv)
+{
     char binary[1024];
     gzFile fp_drtrace;
 
-    if (argc == 3) {
-
-        // 1 open dr trace
-        fp_drtrace = gzopen(argv[1], "hrb");
-        if (fp_drtrace == NULL) {
-            printf("ERROR: Could not open %s!\n", argv[1]);
-            exit(-1);
+    try
+    {
+        if (argc == 3) {
+            fp_drtrace = open_trace_file(std::string(argv[1]));
+            strcpy(binary, argv[2]);
+        }
+        else {
+            throw std::runtime_error("Invalid arguments, should be: trace.gz binary");
         }
 
-        strcpy(binary, argv[2]);
-
-    } else {
-        printf("ERROR: Invalid arguments, should be: trace.gz binary\n");
-        exit(-1);
-    }
-
-    try {
         Metrics gather_metrics(GATHER);
         Metrics scatter_metrics(SCATTER);
 
@@ -846,28 +859,19 @@ int main(int argc, char **argv) {
         // ----------------- Process Traces -----------------
 
         process_traces(trace_info, gather_iinfo, scatter_iinfo, gather_metrics, scatter_metrics, fp_drtrace);
-        //close files
-        gzclose(fp_drtrace);
 
-        fflush(stdout);
+        close_trace_file(fp_drtrace);
 
         // ----------------- Update Source Lines -----------------
 
         update_source_lines(gather_iinfo, scatter_iinfo, gather_metrics, scatter_metrics, binary);
 
-        //Open trace
-        fp_drtrace = gzopen(argv[1], "hrb");
-        if (fp_drtrace == NULL) {
-            printf("ERROR: Could not open %s!\n", argv[1]);
-            exit(-1);
-        }
-
         // ----------------- Update Metrics -----------------
+        fp_drtrace = open_trace_file(argv[1]);
 
         update_metrics(gather_iinfo, scatter_iinfo, gather_metrics, scatter_metrics, fp_drtrace);
 
-        gzclose(fp_drtrace);
-        printf("\n");
+        close_trace_file(fp_drtrace);
 
         // ----------------- Create Spatter File -----------------
 
@@ -876,10 +880,9 @@ int main(int argc, char **argv) {
     }
     catch (const std::exception & ex)
     {
-        std::cerr << "Error: " << ex.what() << std::endl;
+        std::cerr << "ERROR: " << ex.what() << std::endl;
         exit(-1);
     }
 
     return 0;
-
 }
