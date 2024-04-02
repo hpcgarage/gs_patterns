@@ -11,6 +11,7 @@
 
 #include <stdexcept>
 #include <iostream>
+#include <sstream>
 #include <exception>
 
 #include "gs_patterns.h"
@@ -135,7 +136,7 @@ int cnt_str(char *line, char c) {
     return cnt;
 }
 
-void translate_iaddr(const char *binary, char *source_line, addr_t iaddr) {
+void translate_iaddr(const std::string & binary, char *source_line, addr_t iaddr) {
 
     int i = 0;
     int ntranslated = 0;
@@ -143,13 +144,12 @@ void translate_iaddr(const char *binary, char *source_line, addr_t iaddr) {
     char cmd[MAX_LINE_LENGTH];
     FILE *fp;
 
-    sprintf(cmd, "addr2line -e %s 0x%lx", binary, iaddr);
+    sprintf(cmd, "addr2line -e %s 0x%lx", binary.c_str(), iaddr);
 
     /* Open the command for reading. */
     fp = popen(cmd, "r");
     if (fp == NULL) {
-        printf("Failed to run command\n");
-        exit(1);
+        throw GSError("Failed to run command");
     }
 
     /* Read the output a line at a time - output it. */
@@ -235,8 +235,7 @@ void create_metrics_file(FILE *fp, FILE *fp2, const char* trace_file_name, Metri
             printf("%s\n", bin_name);
             fp_bin = fopen(bin_name, "w");
             if (fp_bin == NULL) {
-                printf("ERROR: Could not open %s!\n", bin_name);
-                exit(-1);
+                throw GSFileError("Could not open " + std::string(bin_name) + "!");
             }
 
             printf("%sIADDR    -- %p\n", target_metrics.getShortName().c_str(), (void*) target_metrics.top[i]);
@@ -313,8 +312,7 @@ void create_spatter_file(const char* trace_file_name, Metrics & gather_metrics, 
 
     fp = fopen(json_name, "w");
     if (fp == NULL) {
-        printf("ERROR: Could not open %s!\n", json_name);
-        exit(-1);
+        throw GSFileError("Could not open " + std::string(json_name) + "!");
     }
     gs_info = (char*)str_replace(trace_file_name, ".gz", ".txt");
     if (strstr(gs_info, ".json") == 0) {
@@ -323,8 +321,7 @@ void create_spatter_file(const char* trace_file_name, Metrics & gather_metrics, 
 
     fp2 = fopen(gs_info, "w");
     if (fp2 == NULL) {
-        printf("ERROR: Could not open %s!\n", gs_info);
-        exit(-1);
+        throw GSFileError("Could not open " + std::string(gs_info) + "!");
     }
 
     //Header
@@ -364,7 +361,7 @@ void normalize_stats(Metrics & target_metrics)
     }
 }
 
-double update_source_lines_from_binary(InstrInfo & target_iinfo, Metrics & target_metrics, const char* binary_file_name)
+double update_source_lines_from_binary(InstrInfo & target_iinfo, Metrics & target_metrics, const std::string & binary_file_name)
 {
     double scatter_cnt = 0.0;
 
@@ -540,6 +537,12 @@ void handle_trace_entry(
     int w_rw_idx;
     int w_idx;
     int gs;
+
+    if (drline->type == 0 && drline->size == 0) {
+        std::ostringstream os;
+        os << "Invalid trace entry: type: [" << drline->type << "] size: [" << drline->size << "]";
+        throw GSDataError(os.str());
+    }
 
     /*****************************/
     /** INSTR 0xa-0x10 and 0x1e **/
@@ -779,7 +782,7 @@ void update_source_lines(
         InstrInfo & scatter_iinfo,
         Metrics & gather_metrics,
         Metrics & scatter_metrics,
-        const char * binary)
+        const std::string & binary)
 {
     // Find source lines for gathers - Must have symbol
     printf("\nSymbol table lookup for gathers...");
@@ -823,7 +826,7 @@ gzFile open_trace_file(const std::string & trace_file_name)
 
     fp = gzopen(trace_file_name.c_str(), "hrb");
     if (fp == NULL) {
-        throw std::runtime_error("Could not open " + trace_file_name + "!");
+        throw GSFileError("Could not open " + trace_file_name + "!");
     }
     return fp;
 }
@@ -835,18 +838,17 @@ void close_trace_file (gzFile & fp)
 
 int main(int argc, char **argv)
 {
-    char binary[1024];
-    gzFile fp_drtrace;
-
     try
     {
-        if (argc == 3) {
-            fp_drtrace = open_trace_file(std::string(argv[1]));
-            strcpy(binary, argv[2]);
+        if (argc != 3) {
+            throw GSError("Invalid arguments, should be: trace.gz binary_file_name");
         }
-        else {
-            throw std::runtime_error("Invalid arguments, should be: trace.gz binary");
-        }
+
+        gzFile fp_drtrace;
+        std::string trace_file_name(argv[1]);
+        std::string binary_file_name(argv[2]);
+
+        fp_drtrace = open_trace_file(trace_file_name);
 
         Metrics gather_metrics(GATHER);
         Metrics scatter_metrics(SCATTER);
@@ -864,7 +866,7 @@ int main(int argc, char **argv)
 
         // ----------------- Update Source Lines -----------------
 
-        update_source_lines(gather_iinfo, scatter_iinfo, gather_metrics, scatter_metrics, binary);
+        update_source_lines(gather_iinfo, scatter_iinfo, gather_metrics, scatter_metrics, binary_file_name);
 
         // ----------------- Update Metrics -----------------
         fp_drtrace = open_trace_file(argv[1]);
@@ -877,6 +879,26 @@ int main(int argc, char **argv)
 
         create_spatter_file(argv[1], gather_metrics, scatter_metrics);
 
+    }
+    catch (const GSFileError & ex)
+    {
+        std::cerr << "ERROR: <GSFileError> " << ex.what() << std::endl;
+        exit(-1);
+    }
+    catch (const GSAllocError & ex)
+    {
+        std::cerr << "ERROR: <GSAllocError> " << ex.what() << std::endl;
+        exit(-1);
+    }
+    catch (const GSDataError & ex)
+    {
+        std::cerr << "ERROR: <GSDataError> " << ex.what() << std::endl;
+        exit(1);
+    }
+    catch (const GSError & ex)
+    {
+        std::cerr << "ERROR: <GSError> " << ex.what() << std::endl;
+        exit(1);
     }
     catch (const std::exception & ex)
     {

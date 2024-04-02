@@ -53,6 +53,38 @@ typedef struct _trace_entry_t trace_entry_t;
 
 typedef enum { GATHER=0, SCATTER } metrics_type;
 
+class GSError : public std::exception
+{
+public:
+    GSError (const std::string & reason) : _reason(reason) { }
+    ~GSError() {}
+
+    const char * what() const noexcept override { return _reason.c_str(); }
+private:
+    std::string _reason;
+};
+
+class GSFileError : public GSError
+{
+public:
+    GSFileError (const std::string & reason) : GSError(reason) { }
+    ~GSFileError() {}
+};
+
+class GSDataError : public GSError
+{
+public:
+    GSDataError (const std::string & reason) : GSError(reason) { }
+    ~GSDataError() {}
+};
+
+class GSAllocError : public GSError
+{
+public:
+    GSAllocError (const std::string & reason) : GSError(reason) { }
+    ~GSAllocError() {}
+};
+
 class Metrics
 {
 public:
@@ -62,8 +94,7 @@ public:
         for (int j = 0; j < NTOP; j++) {
             patterns[j] = (int64_t *) calloc(PSIZE, sizeof(int64_t));
             if (patterns[j] == NULL) {
-                printf("ERROR: Could not allocate gather_patterns!\n");
-                throw std::runtime_error("Could not allocate patterns for " + type_as_string());  //exit(-1);
+                throw GSAllocError("Could not allocate patterns for " + type_as_string() + "!");
             }
         }
     }
