@@ -51,11 +51,11 @@ struct _trace_entry_t {
 }  __attribute__((packed));
 typedef struct _trace_entry_t trace_entry_t;
 
+typedef enum { GATHER=0, SCATTER } metrics_type;
+
 class Metrics
 {
 public:
-    typedef enum { GATHER=0, SCATTER } metrics_type;
-
     Metrics(metrics_type mType) : _mType(mType)
     {
         /// TODO: Convert to new/free
@@ -102,9 +102,90 @@ private:
     metrics_type _mType;
 };
 
-/*
-class Address_Instr
+
+class InstrInfo
 {
 public:
+    InstrInfo(metrics_type mType) : _mType(mType) { }
+    ~InstrInfo() { }
+
+    InstrInfo(const InstrInfo &) = delete;
+    InstrInfo & operator=(const InstrInfo & right) = delete;
+
+    addr_t*  get_iaddrs() { return iaddrs[_mType]; }
+    int64_t* get_icnt()   { return icnt[_mType]; }
+    int64_t* get_occ()    { return occ[_mType]; }
+
+private:
+    static addr_t iaddrs[2][NGS];
+    static int64_t icnt[2][NGS];
+    static int64_t occ[2][NGS];
+    //addr_t base[2][NTOP];
+
+    metrics_type _mType;
 };
-*/
+
+class TraceInfo  // Stats
+{
+public:
+    /// TODO: need an reset method to zero out counters
+
+    uint64_t opcodes      = 0;
+    uint64_t opcodes_mem  = 0;
+    uint64_t addrs        = 0;
+    uint64_t other        = 0;
+    //int      gs;  // needed across calls?
+    int64_t  ngs          = 0;
+    int64_t drtrace_lines = 0;
+
+    bool    did_opcode  = false; // revist this ---------------
+    double  other_cnt       = 0.0;
+    double  gather_score    = 0.0;
+    double  gather_occ_avg  = 0.0;
+    double  scatter_occ_avg = 0.0;
+
+    uint64_t     mcnt  = 0;
+
+};
+
+class InstrWindow
+{
+public:
+    InstrWindow() {
+        //init window arrays
+        for (int w = 0; w < 2; w++) {
+            for (int i = 0; i < IWINDOW; i++) {
+                w_iaddrs[w][i] = -1;
+                w_bytes[w][i] = 0;
+                w_cnt[w][i] = 0;
+                for (int j = 0; j < VBYTES; j++)
+                    w_maddr[w][i][j] = -1;
+            }
+        }
+    }
+
+    ~InstrWindow() { }
+
+    InstrWindow(const InstrWindow &) = delete;
+    InstrWindow & operator=(const InstrWindow & right) = delete;
+
+#if 0
+    static int64_t w_iaddrs[2][IWINDOW];
+    static int64_t w_bytes[2][IWINDOW];
+    static int64_t w_maddr[2][IWINDOW][VBYTES];
+    static int64_t w_cnt[2][IWINDOW];
+#else
+    // moved from static storage to instance variables (watch out for stack overflow)
+    // Revisit and move to heap if an issue - estimate of 2k*3 + 128k
+    int64_t w_iaddrs[2][IWINDOW];
+    int64_t w_bytes[2][IWINDOW];
+    int64_t w_maddr[2][IWINDOW][VBYTES];
+    int64_t w_cnt[2][IWINDOW];
+#endif
+
+    // State which must be carried with each call to handle a trace
+    addr_t   iaddr;
+    int64_t  maddr_prev;
+    int64_t  maddr;
+
+};

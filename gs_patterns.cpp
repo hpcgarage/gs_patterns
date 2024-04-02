@@ -23,6 +23,19 @@
 #define KMAG  "\x1B[35m"
 #define KCYN  "\x1B[36m"
 
+// Class Static data initialization
+char    Metrics::srcline[2][NGS][MAX_LINE_LENGTH];
+addr_t  InstrInfo::iaddrs[2][NGS];
+int64_t InstrInfo::icnt[2][NGS];
+int64_t InstrInfo::occ[2][NGS];
+
+#if 0
+int64_t InstrWindow::w_iaddrs[2][IWINDOW];
+int64_t InstrWindow::w_bytes[2][IWINDOW];
+int64_t InstrWindow::w_maddr[2][IWINDOW][VBYTES];
+int64_t InstrWindow::w_cnt[2][IWINDOW];
+#endif
+
 static inline int popcount(uint64_t x) {
     int c;
 
@@ -351,11 +364,7 @@ void normalize_stats(Metrics & target_metrics)
     }
 }
 
-double update_source_lines(
-        addr_t* target_iaddrs,
-        int64_t* target_icnt,   // updated
-        Metrics & target_metrics,
-        const char* binary_file_name)
+double update_source_lines(InstrInfo & target_iinfo, Metrics & target_metrics, const char* binary_file_name)
 {
     double scatter_cnt = 0.0;
 
@@ -363,22 +372,21 @@ double update_source_lines(
     //Check it is not a library
     for (int k = 0; k < NGS; k++) {
 
-        if (target_iaddrs[k] == 0) {
+        if (target_iinfo.get_iaddrs()[k] == 0) {
             break;
         }
-        translate_iaddr(binary_file_name, target_metrics.get_srcline()[k], target_iaddrs[k]);
+        translate_iaddr(binary_file_name, target_metrics.get_srcline()[k], target_iinfo.get_iaddrs()[k]);
         if (startswith(target_metrics.get_srcline()[k], "?"))
-            target_icnt[k] = 0;
+            target_iinfo.get_icnt()[k] = 0;
 
-        scatter_cnt += target_icnt[k];
+        scatter_cnt += target_iinfo.get_icnt()[k];
     }
     printf("done.\n");
 
     return scatter_cnt;
 }
 
-void second_pass(gzFile fp_drtrace, trace_entry_t* drtrace, trace_entry_t* p_drtrace,
-                 Metrics & gather_metrics, Metrics & scatter_metrics)
+void second_pass(gzFile fp_drtrace, Metrics & gather_metrics, Metrics & scatter_metrics)
 {
     uint64_t mcnt = 0;
     int iret = 0;
@@ -387,13 +395,16 @@ void second_pass(gzFile fp_drtrace, trace_entry_t* drtrace, trace_entry_t* p_drt
     int64_t maddr;
     int i = 0;
 
+    // TODO: remove these statics
     static addr_t gather_base[NTOP] = {0};
     static addr_t scatter_base[NTOP] = {0};
 
-    p_drtrace = NULL;
-    int breakout = 0;
+    bool breakout = false;
     printf("\nSecond pass to fill gather / scatter subtraces\n");
     fflush(stdout);
+
+    trace_entry_t* p_drtrace = NULL;
+    static trace_entry_t drtrace[NBUFS];
     while (drline_read(fp_drtrace, drtrace, &p_drtrace, &iret) && !breakout) {
 
         //decode drtrace
@@ -437,7 +448,7 @@ void second_pass(gzFile fp_drtrace, trace_entry_t* drtrace, trace_entry_t* p_drt
                         //Add index
                         if (gather_metrics.offset[i] >= PSIZE) {
                             printf("WARNING: Need to increase PSIZE. Truncating trace...\n");
-                            breakout = 1;
+                            breakout = true;
                         }
                         //printf("g -- %d % d\n", i, gather_offset[i]); fflush(stdout);
                         gather_metrics.patterns[i][gather_metrics.offset[i]++] = (int64_t) (maddr - gather_base[i]);
@@ -461,7 +472,7 @@ void second_pass(gzFile fp_drtrace, trace_entry_t* drtrace, trace_entry_t* p_drt
                         //Add index
                         if (scatter_metrics.offset[i] >= PSIZE) {
                             printf("WARNING: Need to increase PSIZE. Truncating trace...\n");
-                            breakout = 1;
+                            breakout = true;
                         }
                         scatter_metrics.patterns[i][scatter_metrics.offset[i]++] = (int64_t) (maddr - scatter_base[i]);
                         break;
@@ -476,10 +487,7 @@ void second_pass(gzFile fp_drtrace, trace_entry_t* drtrace, trace_entry_t* p_drt
     } //while drtrace
 }
 
-int get_top_target(
-        int64_t* target_icnt,   // updated
-        addr_t* target_iaddrs,  // updated
-        Metrics & target_metrics)
+int get_top_target(InstrInfo & target_iinfo, Metrics & target_metrics)
 {
     int target_ntop = 0;
     int bestcnt;
@@ -492,16 +500,16 @@ int get_top_target(
 
         for (int k = 0; k < NGS; k++) {
 
-            if (target_icnt[k] == 0)
+            if (target_iinfo.get_icnt()[k] == 0)
                 continue;
 
-            if (target_iaddrs[k] == 0) {
+            if (target_iinfo.get_iaddrs()[k] == 0) {
                 break;
             }
 
-            if (target_icnt[k] > bestcnt) {
-                bestcnt = target_icnt[k];
-                best_iaddr = target_iaddrs[k];
+            if (target_iinfo.get_icnt()[k] > bestcnt) {
+                bestcnt = target_iinfo.get_icnt()[k];
+                best_iaddr = target_iinfo.get_iaddrs()[k];
                 bestidx = k;
             }
         }
@@ -512,8 +520,8 @@ int get_top_target(
             target_ntop++;
             target_metrics.top[j] = best_iaddr;
             target_metrics.top_idx[j] = bestidx;
-            target_metrics.tot[j] = target_icnt[bestidx];
-            target_icnt[bestidx] = 0;
+            target_metrics.tot[j] = target_iinfo.get_icnt()[bestidx];
+            target_iinfo.get_icnt()[bestidx] = 0;
 
             //printf("%sIADDR -- %016lx: %16lu -- %s\n", target_metrics.getShortName().c_str(), target_metrics.top[j], target_metrics.tot[j], target_metrics.get_srcline()[bestidx]);
         }
@@ -522,70 +530,231 @@ int get_top_target(
     return target_ntop;
 }
 
-char Metrics::srcline[2][NGS][MAX_LINE_LENGTH];
+void handle_trace_entry(
+        trace_entry_t *drline,
+        TraceInfo &   trace_info,
+        InstrInfo &   gather_iinfo,
+        InstrInfo &   scatter_iinfo,
+        Metrics &     gather_metrics,
+        Metrics &     scatter_metrics,
+        InstrWindow & iw)
+{
+    int i, j, k, w;
+    int w_rw_idx;
+    int w_idx;
+    int gs;
+
+    /*****************************/
+    /** INSTR 0xa-0x10 and 0x1e **/
+    /*****************************/
+    if (((drline->type >= 0xa) && (drline->type <= 0x10)) || (drline->type == 0x1e)) {
+
+        iw.iaddr = drline->addr;
+
+        //nops
+        trace_info.opcodes++;
+        trace_info.did_opcode = true;
+
+        /***********************/
+        /** MEM 0x00 and 0x01 **/
+        /***********************/
+    } else if ((drline->type == 0x0) || (drline->type == 0x1)) {
+
+        w_rw_idx = drline->type;
+
+        //printf("M DRTRACE -- iaddr: %016lx addr: %016lx cl_start: %d bytes: %d\n",
+        //     iaddr,  drline->addr, drline->addr % 64, drline->size);
+
+        if ((++trace_info.mcnt % PERSAMPLE) == 0) {
+#if SAMPLE
+            break;
+#endif
+            printf(".");
+            fflush(stdout);
+        }
+
+        //is iaddr in window
+        w_idx = -1;
+        for (i = 0; i < IWINDOW; i++) {
+
+            //new iaddr
+            if (iw.w_iaddrs[w_rw_idx][i] == -1) {
+                w_idx = i;
+                break;
+
+                //iaddr exists
+            } else if (iw.w_iaddrs[w_rw_idx][i] == iw.iaddr) {
+                w_idx = i;
+                break;
+            }
+        }
+
+        //new window
+        if ((w_idx == -1) || (iw.w_bytes[w_rw_idx][w_idx] >= VBYTES) ||
+            (iw.w_cnt[w_rw_idx][w_idx] >= VBYTES)) {
+
+            /***************************/
+            //do analysis
+            /***************************/
+            //i = each window
+            for (w = 0; w < 2; w++) {  // 2
+
+                for (i = 0; i < IWINDOW; i++) {  // 1024
+
+                    if (iw.w_iaddrs[w][i] == -1)
+                        break;
+
+                    int byte = iw.w_bytes[w][i] / iw.w_cnt[w][i];
+
+                    //First pass
+                    //Determine
+                    //gather/scatter?
+                    gs = -1;
+                    for (j = 0; j < iw.w_cnt[w][i]; j++) {
+
+                        //address and cl
+                        iw.maddr = iw.w_maddr[w][i][j];
+                        assert(iw.maddr > -1);
+
+                        //previous addr
+                        if (j == 0)
+                            iw.maddr_prev = iw.maddr - 1;
+
+                        //gather / scatter
+                        if (iw.maddr != iw.maddr_prev) {
+                            if ((gs == -1) && (abs(iw.maddr - iw.maddr_prev) > 1))
+                                gs = w;
+                        }
+                        iw.maddr_prev = iw.maddr;
+                    }
+
+                    for (j = 0; j < iw.w_cnt[w][i]; j++) {
+
+                        if (gs == -1) {
+                            trace_info.other_cnt++;
+                            continue;
+                        }
+                    }
+
+                    if (gs == 0) {  // GATHER
+
+                        trace_info.gather_occ_avg += iw.w_cnt[w][i];
+                        gather_metrics.cnt += 1.0;
+
+                        for (k = 0; k < NGS; k++) {
+                            if (gather_iinfo.get_iaddrs()[k] == 0) {
+                                gather_iinfo.get_iaddrs()[k] = iw.w_iaddrs[w][i];
+                                (gather_iinfo.get_icnt()[k])++;
+                                gather_iinfo.get_occ()[k] += iw.w_cnt[w][i];
+                                break;
+                            }
+
+                            if (gather_iinfo.get_iaddrs()[k] == iw.w_iaddrs[w][i]) {
+                                (gather_iinfo.get_icnt()[k])++;
+                                gather_iinfo.get_occ()[k] += iw.w_cnt[w][i];
+                                break;
+                            }
+
+                        }
+
+                    } else if (gs == 1) { // SCATTER
+
+                        trace_info.scatter_occ_avg += iw.w_cnt[w][i];
+                        scatter_metrics.cnt += 1.0;
+
+                        for (k = 0; k < NGS; k++) {
+                            if (scatter_iinfo.get_iaddrs()[k] == 0) {
+                                scatter_iinfo.get_iaddrs()[k] = iw.w_iaddrs[w][i];
+                                (scatter_iinfo.get_icnt()[k])++;
+                                scatter_iinfo.get_occ()[k] += iw.w_cnt[w][i];
+                                break;
+                            }
+
+                            if (scatter_iinfo.get_iaddrs()[k] == iw.w_iaddrs[w][i]) {
+                                (scatter_iinfo.get_icnt()[k])++;
+                                scatter_iinfo.get_occ()[k] += iw.w_cnt[w][i];
+                                break;
+                            }
+                        }
+                    }
+                } //WINDOW i
+
+                w_idx = 0;
+
+                //reset windows
+                for (i = 0; i < IWINDOW; i++) {
+                    iw.w_iaddrs[w][i] = -1;
+                    iw.w_bytes[w][i] = 0;
+                    iw.w_cnt[w][i] = 0;
+                    for (j = 0; j < VBYTES; j++)
+                        iw.w_maddr[w][i][j] = -1;
+                }
+            } // rw w
+        } //analysis
+
+        //Set window values
+        iw.w_iaddrs[w_rw_idx][w_idx] = iw.iaddr;
+        iw.w_maddr[w_rw_idx][w_idx][iw.w_cnt[w_rw_idx][w_idx]] = drline->addr / drline->size;
+        iw.w_bytes[w_rw_idx][w_idx] += drline->size;
+
+        //num access per iaddr in loop
+        iw.w_cnt[w_rw_idx][w_idx]++;
+
+        if (trace_info.did_opcode) {
+
+            trace_info.opcodes_mem++;
+            trace_info.addrs++;
+            trace_info.did_opcode = false;
+
+        } else {
+            trace_info.addrs++;
+        }
+
+        /***********************/
+        /** SOMETHING ELSE **/
+        /***********************/
+    } else {
+        trace_info.other++;
+    }
+
+}
+
+void first_pass(
+        TraceInfo & trace_info,
+        InstrInfo & gather_iinfo,
+        InstrInfo & scatter_iinfo,
+        Metrics & gather_metrics,
+        Metrics & scatter_metrics,
+        gzFile & fp_drtrace
+)
+{
+    int iret = 0;
+    trace_entry_t *drline;
+    InstrWindow iw;
+
+    printf("First pass to find top gather / scatter iaddresses\n");
+    fflush(stdout);
+
+    trace_entry_t *p_drtrace = NULL;
+    static trace_entry_t drtrace[NBUFS];
+    while (drline_read(fp_drtrace, drtrace, &p_drtrace, &iret)) {
+        //decode drtrace
+        drline = p_drtrace;
+
+        handle_trace_entry(drline, trace_info, gather_iinfo, scatter_iinfo, gather_metrics, scatter_metrics, iw);
+
+        p_drtrace++;
+        trace_info.drtrace_lines++;
+
+    } //while drtrace
+}
 
 int main(int argc, char **argv) {
 
-    //generic
-    int i, j, k, m, n, w;
-    int iwindow = 0;
-    int iret = 0;
     int ret;
-    int did_opcode = 0;
-    int windowfull = 0;
-    int byte;
-    int do_gs_traces = 0;
-    int do_filter = 1;
-    int64_t ngs = 0;
-    char *eptr;
     char binary[1024];
-    char srcline[MAX_LINE_LENGTH];
-
-    //dtrace vars
-    int64_t drtrace_lines = 0;
-    trace_entry_t *drline;
-    trace_entry_t *drline2;
-    trace_entry_t *p_drtrace = NULL;
-    static trace_entry_t drtrace[NBUFS];
     gzFile fp_drtrace;
     FILE *fp_gs;
-
-    //metrics
-    int gs;
-    uint64_t opcodes = 0;
-    uint64_t opcodes_mem = 0;
-    uint64_t addrs = 0;
-    uint64_t other = 0;
-    int64_t maddr_prev;
-    int64_t maddr;
-    int64_t mcl;
-    int64_t gather_bytes_hist[100] = {0};
-    int64_t scatter_bytes_hist[100] = {0};
-    double other_cnt = 0.0;
-    double gather_score = 0.0;
-    double gather_occ_avg = 0.0;
-    double scatter_occ_avg = 0.0;
-
-    //windows
-    int w_rw_idx;
-    int w_idx;
-    addr_t iaddr;
-    static int64_t w_iaddrs[2][IWINDOW];
-    static int64_t w_bytes[2][IWINDOW];
-    static int64_t w_maddr[2][IWINDOW][VBYTES];
-    static int64_t w_cnt[2][IWINDOW];
-
-    //First pass to find top gather / scatters
-    static addr_t gather_iaddrs[NGS] = {0};
-    static int64_t gather_icnt[NGS] = {0};
-    static int64_t gather_occ[NGS] = {0};
-    static addr_t scatter_iaddrs[NGS] = {0};
-    static int64_t scatter_icnt[NGS] = {0};
-    static int64_t scatter_occ[NGS] = {0};
-
-    static addr_t best_iaddr;
-    static addr_t gather_base[NTOP] = {0};
-    static addr_t scatter_base[NTOP] = {0};
 
     if (argc == 3) {
 
@@ -604,220 +773,21 @@ int main(int argc, char **argv) {
     }
 
     try {
+        Metrics gather_metrics(GATHER);
+        Metrics scatter_metrics(SCATTER);
 
-        Metrics gather_metrics(Metrics::GATHER);
-        Metrics scatter_metrics(Metrics::SCATTER);
+        InstrInfo gather_iinfo(GATHER);
+        InstrInfo scatter_iinfo(SCATTER);
 
-        //init window arrays
-        for (w = 0; w < 2; w++) {
-            for (i = 0; i < IWINDOW; i++) {
-                w_iaddrs[w][i] = -1;
-                w_bytes[w][i] = 0;
-                w_cnt[w][i] = 0;
-                for (j = 0; j < VBYTES; j++)
-                    w_maddr[w][i][j] = -1;
-            }
-        }
+        TraceInfo trace_info;
 
-        uint64_t mcnt = 0;
-        uint64_t unique_iaddrs = 0;
-        int unsynced = 0;
-        uint64_t unsync_cnt = 0;
-        addr_t ciaddr;
+        // ----------------- First Pass -----------------
 
-        printf("First pass to find top gather / scatter iaddresses\n");
-        fflush(stdout);
-
-        //read dr trace entries instrs
-        //printf("%16s %16s %16s %16s %16s %16s\n", "iaddr", "rw", "byte", "bytes", "cnt", "maddr");
-        while (drline_read(fp_drtrace, drtrace, &p_drtrace, &iret)) {
-
-            //decode drtrace
-            drline = p_drtrace;
-
-            /*****************************/
-            /** INSTR 0xa-0x10 and 0x1e **/
-            /*****************************/
-            if (((drline->type >= 0xa) && (drline->type <= 0x10)) || (drline->type == 0x1e)) {
-
-                //iaddr
-                iaddr = drline->addr;
-
-                //nops
-                opcodes++;
-                did_opcode = 1;
-
-                /***********************/
-                /** MEM 0x00 and 0x01 **/
-                /***********************/
-            } else if ((drline->type == 0x0) || (drline->type == 0x1)) {
-
-                w_rw_idx = drline->type;
-
-                //printf("M DRTRACE -- iaddr: %016lx addr: %016lx cl_start: %d bytes: %d\n",
-                //     iaddr,  drline->addr, drline->addr % 64, drline->size);
-
-                if ((++mcnt % PERSAMPLE) == 0) {
-    #if SAMPLE
-                    break;
-    #endif
-                    printf(".");
-                    fflush(stdout);
-                }
-
-                //is iaddr in window
-                w_idx = -1;
-                for (i = 0; i < IWINDOW; i++) {
-
-                    //new iaddr
-                    if (w_iaddrs[w_rw_idx][i] == -1) {
-                        w_idx = i;
-                        break;
-
-                        //iaddr exists
-                    } else if (w_iaddrs[w_rw_idx][i] == iaddr) {
-                        w_idx = i;
-                        break;
-                    }
-                }
-
-                //new window
-                if ((w_idx == -1) || (w_bytes[w_rw_idx][w_idx] >= VBYTES) ||
-                    (w_cnt[w_rw_idx][w_idx] >= VBYTES)) {
-
-                    /***************************/
-                    //do analysis
-                    /***************************/
-                    //i = each window
-                    for (w = 0; w < 2; w++) {  // 2
-
-                        for (i = 0; i < IWINDOW; i++) {  // 1024
-
-                            if (w_iaddrs[w][i] == -1)
-                                break;
-
-                            byte = w_bytes[w][i] / w_cnt[w][i];
-
-                            //First pass
-                            //Determine
-                            //gather/scatter?
-                            gs = -1;
-                            for (j = 0; j < w_cnt[w][i]; j++) {
-
-                                //address and cl
-                                maddr = w_maddr[w][i][j];
-                                assert(maddr > -1);
-
-                                //previous addr
-                                if (j == 0)
-                                    maddr_prev = maddr - 1;
-
-                                //gather / scatter
-                                if (maddr != maddr_prev) {
-                                    if ((gs == -1) && (abs(maddr - maddr_prev) > 1))
-                                        gs = w;
-                                }
-                                maddr_prev = maddr;
-                            }
-
-                            for (j = 0; j < w_cnt[w][i]; j++) {
-
-                                if (gs == -1) {
-                                    other_cnt++;
-                                    continue;
-                                }
-                            }
-
-                            if (gs == 0) {  // GATHER
-
-                                gather_occ_avg += w_cnt[w][i];
-                                gather_metrics.cnt += 1.0;
-
-                                for (k = 0; k < NGS; k++) {
-                                    if (gather_iaddrs[k] == 0) {
-                                        gather_iaddrs[k] = w_iaddrs[w][i];
-                                        gather_icnt[k]++;
-                                        gather_occ[k] += w_cnt[w][i];
-                                        break;
-                                    }
-
-                                    if (gather_iaddrs[k] == w_iaddrs[w][i]) {
-                                        gather_icnt[k]++;
-                                        gather_occ[k] += w_cnt[w][i];
-                                        break;
-                                    }
-
-                                }
-
-                            } else if (gs == 1) { // SCATTER
-
-                                scatter_occ_avg += w_cnt[w][i];
-                                scatter_metrics.cnt += 1.0;
-
-                                for (k = 0; k < NGS; k++) {
-                                    if (scatter_iaddrs[k] == 0) {
-                                        scatter_iaddrs[k] = w_iaddrs[w][i];
-                                        scatter_icnt[k]++;
-                                        scatter_occ[k] += w_cnt[w][i];
-                                        break;
-                                    }
-
-                                    if (scatter_iaddrs[k] == w_iaddrs[w][i]) {
-                                        scatter_icnt[k]++;
-                                        scatter_occ[k] += w_cnt[w][i];
-                                        break;
-                                    }
-                                }
-                            }
-                        } //WINDOW i
-
-                        w_idx = 0;
-
-                        //reset windows
-                        for (i = 0; i < IWINDOW; i++) {
-                            w_iaddrs[w][i] = -1;
-                            w_bytes[w][i] = 0;
-                            w_cnt[w][i] = 0;
-                            for (j = 0; j < VBYTES; j++)
-                                w_maddr[w][i][j] = -1;
-                        }
-                    } // rw w
-                } //analysis
-
-                //Set window values
-                w_iaddrs[w_rw_idx][w_idx] = iaddr;
-                w_maddr[w_rw_idx][w_idx][w_cnt[w_rw_idx][w_idx]] = drline->addr / drline->size;
-                w_bytes[w_rw_idx][w_idx] += drline->size;
-
-                //num access per iaddr in loop
-                w_cnt[w_rw_idx][w_idx]++;
-
-                if (did_opcode) {
-
-                    opcodes_mem++;
-                    addrs++;
-                    did_opcode = 0;
-
-                } else {
-                    addrs++;
-                }
-
-                /***********************/
-                /** SOMETHING ELSE **/
-                /***********************/
-            } else {
-                other++;
-            }
-
-            p_drtrace++;
-            drtrace_lines++;
-
-        } //while drtrace
-
+        first_pass(trace_info, gather_iinfo, scatter_iinfo, gather_metrics, scatter_metrics, fp_drtrace);
 
         //metrics
-        gather_occ_avg /= gather_metrics.cnt;
-        scatter_occ_avg /= scatter_metrics.cnt;
+        trace_info.gather_occ_avg /= gather_metrics.cnt;
+        trace_info.scatter_occ_avg /= scatter_metrics.cnt;
 
         printf("\n RESULTS \n");
 
@@ -825,35 +795,35 @@ int main(int argc, char **argv) {
         gzclose(fp_drtrace);
 
         printf("DRTRACE STATS\n");
-        printf("DRTRACE LINES:        %16lu\n", drtrace_lines);
-        printf("OPCODES:              %16lu\n", opcodes);
-        printf("MEMOPCODES:           %16lu\n", opcodes_mem);
-        printf("LOAD/STORES:          %16lu\n", addrs);
-        printf("OTHER:                %16lu\n", other);
+        printf("DRTRACE LINES:        %16lu\n", trace_info.drtrace_lines);
+        printf("OPCODES:              %16lu\n", trace_info.opcodes);
+        printf("MEMOPCODES:           %16lu\n", trace_info.opcodes_mem);
+        printf("LOAD/STORES:          %16lu\n", trace_info.addrs);
+        printf("OTHER:                %16lu\n", trace_info.other);
 
         printf("\n");
 
         printf("GATHER/SCATTER STATS: \n");
-        printf("LOADS per GATHER:     %16.3f\n", gather_occ_avg);
-        printf("STORES per SCATTER:   %16.3f\n", scatter_occ_avg);
+        printf("LOADS per GATHER:     %16.3f\n", trace_info.gather_occ_avg);
+        printf("STORES per SCATTER:   %16.3f\n", trace_info.scatter_occ_avg);
         printf("GATHER COUNT:         %16.3f (log2)\n", log(gather_metrics.cnt) / log(2.0));
         printf("SCATTER COUNT:        %16.3f (log2)\n", log(scatter_metrics.cnt) / log(2.0));
-        printf("OTHER  COUNT:         %16.3f (log2)\n", log(other_cnt) / log(2.0));
+        printf("OTHER  COUNT:         %16.3f (log2)\n", log(trace_info.other_cnt) / log(2.0));
 
         // Find source lines for gathers - Must have symbol
         printf("\nSymbol table lookup for gathers...");
         fflush(stdout);
-        gather_metrics.cnt = update_source_lines(gather_iaddrs, gather_icnt, gather_metrics, binary);
+        gather_metrics.cnt = update_source_lines(gather_iinfo, gather_metrics, binary);
 
-        //Get top gathers
-        gather_metrics.ntop = get_top_target(gather_icnt, gather_iaddrs, gather_metrics);
+        // Get top gathers
+        gather_metrics.ntop = get_top_target(gather_iinfo, gather_metrics);
 
         // Find source lines for scatters
         printf("Symbol table lookup for scatters...");
-        scatter_metrics.cnt = update_source_lines(scatter_iaddrs, scatter_icnt, scatter_metrics, binary);
+        scatter_metrics.cnt = update_source_lines(scatter_iinfo, scatter_metrics, binary);
 
-        //Get top scatters
-        scatter_metrics.ntop = get_top_target(scatter_icnt, scatter_iaddrs, scatter_metrics);
+        // Get top scatters
+        scatter_metrics.ntop = get_top_target(scatter_iinfo, scatter_metrics);
 
         // ----------------- Second Pass -----------------
 
@@ -864,7 +834,7 @@ int main(int argc, char **argv) {
             exit(-1);
         }
 
-        second_pass(fp_drtrace, drtrace, p_drtrace, gather_metrics, scatter_metrics);
+        second_pass(fp_drtrace, gather_metrics, scatter_metrics);
 
         gzclose(fp_drtrace);
         printf("\n");
