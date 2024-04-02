@@ -185,49 +185,6 @@ int drline_read(gzFile fp, trace_entry_t *val, trace_entry_t **p_val, int *edx) 
     return 1;
 }
 
-void create_metrics_file(FILE *fp, FILE *fp2, const char* trace_file_name, Metrics & target_metrics, bool & first_spatter);
-
-void create_spatter_file(const char* trace_file_name, Metrics & gather_metrics, Metrics & scatter_metrics)
-{
-    //Create spatter file
-    FILE *fp, *fp2;
-    char *json_name, *gs_info;
-    json_name = (char*)str_replace(trace_file_name, ".gz", ".json");
-    if (strstr(json_name, ".json") == 0) {
-        strncat(json_name, ".json", strlen(".json")+1);
-    }
-
-    fp = fopen(json_name, "w");
-    if (fp == NULL) {
-        printf("ERROR: Could not open %s!\n", json_name);
-        exit(-1);
-    }
-    gs_info = (char*)str_replace(trace_file_name, ".gz", ".txt");
-    if (strstr(gs_info, ".json") == 0) {
-        strncat(gs_info, ".txt", strlen(".txt")+1);
-    }
-
-    fp2 = fopen(gs_info, "w");
-    if (fp2 == NULL) {
-        printf("ERROR: Could not open %s!\n", gs_info);
-        exit(-1);
-    }
-
-    //Header
-    fprintf(fp, "[ ");
-    fprintf(fp2, "#sourceline, g/s, indices, percentage of g/s in trace\n");
-
-    bool first_spatter = true;
-    create_metrics_file(fp, fp2, trace_file_name, gather_metrics, first_spatter);
-
-    create_metrics_file(fp, fp2, trace_file_name, scatter_metrics, first_spatter);
-
-    //Footer
-    fprintf(fp, " ]");
-    fclose(fp);
-    fclose(fp2);
-}
-
 void create_metrics_file(FILE *fp, FILE *fp2, const char* trace_file_name, Metrics & target_metrics, bool & first_spatter)
 {
     int i = 0;
@@ -342,6 +299,47 @@ void create_metrics_file(FILE *fp, FILE *fp2, const char* trace_file_name, Metri
     }
 }
 
+void create_spatter_file(const char* trace_file_name, Metrics & gather_metrics, Metrics & scatter_metrics)
+{
+    //Create spatter file
+    FILE *fp, *fp2;
+    char *json_name, *gs_info;
+    json_name = (char*)str_replace(trace_file_name, ".gz", ".json");
+    if (strstr(json_name, ".json") == 0) {
+        strncat(json_name, ".json", strlen(".json")+1);
+    }
+
+    fp = fopen(json_name, "w");
+    if (fp == NULL) {
+        printf("ERROR: Could not open %s!\n", json_name);
+        exit(-1);
+    }
+    gs_info = (char*)str_replace(trace_file_name, ".gz", ".txt");
+    if (strstr(gs_info, ".json") == 0) {
+        strncat(gs_info, ".txt", strlen(".txt")+1);
+    }
+
+    fp2 = fopen(gs_info, "w");
+    if (fp2 == NULL) {
+        printf("ERROR: Could not open %s!\n", gs_info);
+        exit(-1);
+    }
+
+    //Header
+    fprintf(fp, "[ ");
+    fprintf(fp2, "#sourceline, g/s, indices, percentage of g/s in trace\n");
+
+    bool first_spatter = true;
+    create_metrics_file(fp, fp2, trace_file_name, gather_metrics, first_spatter);
+
+    create_metrics_file(fp, fp2, trace_file_name, scatter_metrics, first_spatter);
+
+    //Footer
+    fprintf(fp, " ]");
+    fclose(fp);
+    fclose(fp2);
+}
+
 void normalize_stats(Metrics & target_metrics)
 {
     //Normalize
@@ -364,7 +362,7 @@ void normalize_stats(Metrics & target_metrics)
     }
 }
 
-double update_source_lines(InstrInfo & target_iinfo, Metrics & target_metrics, const char* binary_file_name)
+double update_source_lines_from_binary(InstrInfo & target_iinfo, Metrics & target_metrics, const char* binary_file_name)
 {
     double scatter_cnt = 0.0;
 
@@ -386,6 +384,7 @@ double update_source_lines(InstrInfo & target_iinfo, Metrics & target_metrics, c
     return scatter_cnt;
 }
 
+// Second Pass
 void second_pass(gzFile fp_drtrace, Metrics & gather_metrics, Metrics & scatter_metrics)
 {
     uint64_t mcnt = 0;  // used our own local mcnt while iterating over file in this method.
@@ -414,15 +413,13 @@ void second_pass(gzFile fp_drtrace, Metrics & gather_metrics, Metrics & scatter_
         /** INSTR 0xa-0x10 and 0x1e **/
         /*****************************/
         if (((drline->type >= 0xa) && (drline->type <= 0x10)) || (drline->type == 0x1e)) {
-
-            //iaddr
             iaddr = drline->addr;
-
 
             /***********************/
             /** MEM 0x00 and 0x01 **/
             /***********************/
-        } else if ((drline->type == 0x0) || (drline->type == 0x1)) {
+        }
+        else if ((drline->type == 0x0) || (drline->type == 0x1)) {
 
             maddr = drline->addr / drline->size;
 
@@ -434,7 +431,7 @@ void second_pass(gzFile fp_drtrace, Metrics & gather_metrics, Metrics & scatter_
                 fflush(stdout);
             }
 
-            //gather ?
+            // gather ?
             if (drline->type == 0x0) {
 
                 for (i = 0; i < gather_metrics.ntop; i++) {
@@ -456,9 +453,9 @@ void second_pass(gzFile fp_drtrace, Metrics & gather_metrics, Metrics & scatter_
                         break;
                     }
                 }
-
-                //scatter ?
-            } else {
+            }
+            // scatter ?
+            else {
 
                 for (i = 0; i < scatter_metrics.ntop; i++) {
 
@@ -479,8 +476,7 @@ void second_pass(gzFile fp_drtrace, Metrics & gather_metrics, Metrics & scatter_
                     }
                 }
             }
-
-        } //MEM
+        } // MEM
 
         p_drtrace++;
 
@@ -716,17 +712,37 @@ void handle_trace_entry(
     } else {
         trace_info.other++;
     }
-
 }
 
-void first_pass(
+void display_stats(TraceInfo & trace_info, Metrics &  gather_metrics, Metrics & scatter_metrics)
+{
+    printf("\n RESULTS \n");
+
+    printf("DRTRACE STATS\n");
+    printf("DRTRACE LINES:        %16lu\n", trace_info.drtrace_lines);
+    printf("OPCODES:              %16lu\n", trace_info.opcodes);
+    printf("MEMOPCODES:           %16lu\n", trace_info.opcodes_mem);
+    printf("LOAD/STORES:          %16lu\n", trace_info.addrs);
+    printf("OTHER:                %16lu\n", trace_info.other);
+
+    printf("\n");
+
+    printf("GATHER/SCATTER STATS: \n");
+    printf("LOADS per GATHER:     %16.3f\n", trace_info.gather_occ_avg);
+    printf("STORES per SCATTER:   %16.3f\n", trace_info.scatter_occ_avg);
+    printf("GATHER COUNT:         %16.3f (log2)\n", log(gather_metrics.cnt) / log(2.0));
+    printf("SCATTER COUNT:        %16.3f (log2)\n", log(scatter_metrics.cnt) / log(2.0));
+    printf("OTHER  COUNT:         %16.3f (log2)\n", log(trace_info.other_cnt) / log(2.0));
+}
+
+// First Pass
+void process_traces(
         TraceInfo & trace_info,
         InstrInfo & gather_iinfo,
         InstrInfo & scatter_iinfo,
         Metrics & gather_metrics,
         Metrics & scatter_metrics,
-        gzFile & fp_drtrace
-)
+        gzFile & fp_drtrace)
 {
     int iret = 0;
     trace_entry_t *drline;
@@ -748,14 +764,59 @@ void first_pass(
         trace_info.drtrace_lines++;
 
     } //while drtrace
+
+    //metrics
+    trace_info.gather_occ_avg /= gather_metrics.cnt;
+    trace_info.scatter_occ_avg /= scatter_metrics.cnt;
+
+    display_stats(trace_info, gather_metrics, scatter_metrics);
+
 }
+
+void update_source_lines(
+        InstrInfo & gather_iinfo,
+        InstrInfo & scatter_iinfo,
+        Metrics & gather_metrics,
+        Metrics & scatter_metrics,
+        const char * binary)
+{
+    // Find source lines for gathers - Must have symbol
+    printf("\nSymbol table lookup for gathers...");
+    gather_metrics.cnt = update_source_lines_from_binary(gather_iinfo, gather_metrics, binary);
+
+    // Find source lines for scatters
+    printf("Symbol table lookup for scatters...");
+    scatter_metrics.cnt = update_source_lines_from_binary(scatter_iinfo, scatter_metrics, binary);
+}
+
+void update_metrics(
+        InstrInfo & gather_iinfo,
+        InstrInfo & scatter_iinfo,
+        Metrics & gather_metrics,
+        Metrics & scatter_metrics,
+        gzFile & fp_drtrace)
+{
+    // Get top gathers
+    gather_metrics.ntop = get_top_target(gather_iinfo, gather_metrics);
+
+    // Get top scatters
+    scatter_metrics.ntop = get_top_target(scatter_iinfo, scatter_metrics);
+
+    // ----------------- Second Pass -----------------
+
+    second_pass(fp_drtrace, gather_metrics, scatter_metrics);
+
+    // ----------------- Normalize -----------------
+
+    normalize_stats(gather_metrics);
+    normalize_stats(scatter_metrics);
+}
+
 
 int main(int argc, char **argv) {
 
-    int ret;
     char binary[1024];
     gzFile fp_drtrace;
-    FILE *fp_gs;
 
     if (argc == 3) {
 
@@ -782,51 +843,17 @@ int main(int argc, char **argv) {
 
         TraceInfo trace_info;
 
-        // ----------------- First Pass -----------------
+        // ----------------- Process Traces -----------------
 
-        first_pass(trace_info, gather_iinfo, scatter_iinfo, gather_metrics, scatter_metrics, fp_drtrace);
-
-        //metrics
-        trace_info.gather_occ_avg /= gather_metrics.cnt;
-        trace_info.scatter_occ_avg /= scatter_metrics.cnt;
-
-        printf("\n RESULTS \n");
-
+        process_traces(trace_info, gather_iinfo, scatter_iinfo, gather_metrics, scatter_metrics, fp_drtrace);
         //close files
         gzclose(fp_drtrace);
 
-        printf("DRTRACE STATS\n");
-        printf("DRTRACE LINES:        %16lu\n", trace_info.drtrace_lines);
-        printf("OPCODES:              %16lu\n", trace_info.opcodes);
-        printf("MEMOPCODES:           %16lu\n", trace_info.opcodes_mem);
-        printf("LOAD/STORES:          %16lu\n", trace_info.addrs);
-        printf("OTHER:                %16lu\n", trace_info.other);
-
-        printf("\n");
-
-        printf("GATHER/SCATTER STATS: \n");
-        printf("LOADS per GATHER:     %16.3f\n", trace_info.gather_occ_avg);
-        printf("STORES per SCATTER:   %16.3f\n", trace_info.scatter_occ_avg);
-        printf("GATHER COUNT:         %16.3f (log2)\n", log(gather_metrics.cnt) / log(2.0));
-        printf("SCATTER COUNT:        %16.3f (log2)\n", log(scatter_metrics.cnt) / log(2.0));
-        printf("OTHER  COUNT:         %16.3f (log2)\n", log(trace_info.other_cnt) / log(2.0));
-
-        // Find source lines for gathers - Must have symbol
-        printf("\nSymbol table lookup for gathers...");
         fflush(stdout);
-        gather_metrics.cnt = update_source_lines(gather_iinfo, gather_metrics, binary);
 
-        // Get top gathers
-        gather_metrics.ntop = get_top_target(gather_iinfo, gather_metrics);
+        // ----------------- Update Source Lines -----------------
 
-        // Find source lines for scatters
-        printf("Symbol table lookup for scatters...");
-        scatter_metrics.cnt = update_source_lines(scatter_iinfo, scatter_metrics, binary);
-
-        // Get top scatters
-        scatter_metrics.ntop = get_top_target(scatter_iinfo, scatter_metrics);
-
-        // ----------------- Second Pass -----------------
+        update_source_lines(gather_iinfo, scatter_iinfo, gather_metrics, scatter_metrics, binary);
 
         //Open trace
         fp_drtrace = gzopen(argv[1], "hrb");
@@ -835,15 +862,12 @@ int main(int argc, char **argv) {
             exit(-1);
         }
 
-        second_pass(fp_drtrace, gather_metrics, scatter_metrics);
+        // ----------------- Update Metrics -----------------
+
+        update_metrics(gather_iinfo, scatter_iinfo, gather_metrics, scatter_metrics, fp_drtrace);
 
         gzclose(fp_drtrace);
         printf("\n");
-
-        // ----------------- Normalize -----------------
-
-        normalize_stats(gather_metrics);
-        normalize_stats(scatter_metrics);
 
         // ----------------- Create Spatter File -----------------
 
