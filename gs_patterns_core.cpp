@@ -177,7 +177,7 @@ void create_metrics_file(FILE *fp, FILE *fp2, const char* trace_file_name, Metri
     }
 }
 
-void create_spatter_file(const char* trace_file_name, Metrics & gather_metrics, Metrics & scatter_metrics)
+void create_spatter_file(MemPatterns & mp, const char *trace_file_name)
 {
     //Create spatter file
     FILE *fp, *fp2;
@@ -206,9 +206,9 @@ void create_spatter_file(const char* trace_file_name, Metrics & gather_metrics, 
     fprintf(fp2, "#sourceline, g/s, indices, percentage of g/s in trace\n");
 
     bool first_spatter = true;
-    create_metrics_file(fp, fp2, trace_file_name, gather_metrics, first_spatter);
+    create_metrics_file(fp, fp2, trace_file_name, mp.get_gather_metrics(), first_spatter);
 
-    create_metrics_file(fp, fp2, trace_file_name, scatter_metrics, first_spatter);
+    create_metrics_file(fp, fp2, trace_file_name, mp.get_scatter_metrics(), first_spatter);
 
     //Footer
     fprintf(fp, " ]");
@@ -238,19 +238,19 @@ void normalize_stats(Metrics & target_metrics)
     }
 }
 
-void handle_trace_entry(
-        trace_entry_t *drline,
-        TraceInfo &   trace_info,
-        InstrInfo &   gather_iinfo,
-        InstrInfo &   scatter_iinfo,
-        Metrics &     gather_metrics,
-        Metrics &     scatter_metrics,
-        InstrWindow & iw)
+void handle_trace_entry(MemPatterns & mp, const trace_entry_t *drline)
 {
     int i, j, k, w;
     int w_rw_idx;
     int w_idx;
     int gs;
+
+    auto & trace_info = mp.get_trace_info();
+    auto & gather_iinfo = mp.get_gather_iinfo();
+    auto & scatter_iinfo = mp.get_scatter_iinfo();
+    auto & gather_metrics = mp.get_gather_metrics();
+    auto & scatter_metrics = mp.get_scatter_metrics();
+    auto & iw = mp.get_instr_window();
 
     if (drline->type == 0 && drline->size == 0) {
         std::ostringstream os;
@@ -434,25 +434,25 @@ void handle_trace_entry(
     trace_info.drtrace_lines++;
 }
 
-void display_stats(TraceInfo & trace_info, Metrics &  gather_metrics, Metrics & scatter_metrics)
+void display_stats(MemPatterns & mp)
 {
     printf("\n RESULTS \n");
 
     printf("DRTRACE STATS\n");
-    printf("DRTRACE LINES:        %16lu\n", trace_info.drtrace_lines);
-    printf("OPCODES:              %16lu\n", trace_info.opcodes);
-    printf("MEMOPCODES:           %16lu\n", trace_info.opcodes_mem);
-    printf("LOAD/STORES:          %16lu\n", trace_info.addrs);
-    printf("OTHER:                %16lu\n", trace_info.other);
+    printf("DRTRACE LINES:        %16lu\n", mp.get_trace_info().drtrace_lines);
+    printf("OPCODES:              %16lu\n", mp.get_trace_info().opcodes);
+    printf("MEMOPCODES:           %16lu\n", mp.get_trace_info().opcodes_mem);
+    printf("LOAD/STORES:          %16lu\n", mp.get_trace_info().addrs);
+    printf("OTHER:                %16lu\n", mp.get_trace_info().other);
 
     printf("\n");
 
     printf("GATHER/SCATTER STATS: \n");
-    printf("LOADS per GATHER:     %16.3f\n", trace_info.gather_occ_avg);
-    printf("STORES per SCATTER:   %16.3f\n", trace_info.scatter_occ_avg);
-    printf("GATHER COUNT:         %16.3f (log2)\n", log(gather_metrics.cnt) / log(2.0));
-    printf("SCATTER COUNT:        %16.3f (log2)\n", log(scatter_metrics.cnt) / log(2.0));
-    printf("OTHER  COUNT:         %16.3f (log2)\n", log(trace_info.other_cnt) / log(2.0));
+    printf("LOADS per GATHER:     %16.3f\n", mp.get_trace_info().gather_occ_avg);
+    printf("STORES per SCATTER:   %16.3f\n", mp.get_trace_info().scatter_occ_avg);
+    printf("GATHER COUNT:         %16.3f (log2)\n", log(mp.get_gather_metrics().cnt) / log(2.0));
+    printf("SCATTER COUNT:        %16.3f (log2)\n", log(mp.get_scatter_metrics().cnt) / log(2.0));
+    printf("OTHER  COUNT:         %16.3f (log2)\n", log(mp.get_trace_info().other_cnt) / log(2.0));
 }
 
 
@@ -597,29 +597,3 @@ void second_pass(gzFile fp_drtrace, Metrics & gather_metrics, Metrics & scatter_
 
     } //while drtrace
 }
-
-void update_metrics(
-        InstrInfo & gather_iinfo,
-        InstrInfo & scatter_iinfo,
-        Metrics & gather_metrics,
-        Metrics & scatter_metrics,
-        gzFile & fp_drtrace)
-{
-    // Get top gathers
-    gather_metrics.ntop = get_top_target(gather_iinfo, gather_metrics);
-
-    // Get top scatters
-    scatter_metrics.ntop = get_top_target(scatter_iinfo, scatter_metrics);
-
-    // ----------------- Second Pass -----------------
-
-    second_pass(fp_drtrace, gather_metrics, scatter_metrics);
-
-    // ----------------- Normalize -----------------
-
-    normalize_stats(gather_metrics);
-    normalize_stats(scatter_metrics);
-}
-
-
-

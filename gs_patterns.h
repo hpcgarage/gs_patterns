@@ -219,5 +219,28 @@ public:
     addr_t   iaddr;
     int64_t  maddr_prev;
     int64_t  maddr;
+};
+
+class MemPatterns
+{
+public:
+    MemPatterns() { }
+    virtual ~MemPatterns() { };
+
+    MemPatterns(const MemPatterns &) = delete;
+    MemPatterns & operator=(const MemPatterns &) = delete;
+
+    virtual void handle_trace_entry(const trace_entry_t * te) = 0;
+    virtual void generate_patterns() = 0;
+
+    //virtual void update_metrics(const std::string & binary_file_name) = 0;
+    //virtual void create_spatter_file(const std::string & file_prefix) = 0;
+
+    virtual Metrics &     get_gather_metrics()  = 0;
+    virtual Metrics &     get_scatter_metrics() = 0;
+    virtual InstrInfo &   get_gather_iinfo()    = 0;
+    virtual InstrInfo &   get_scatter_iinfo()   = 0;
+    virtual TraceInfo &   get_trace_info()      = 0;
+    virtual InstrWindow & get_instr_window()    = 0;
 
 };
