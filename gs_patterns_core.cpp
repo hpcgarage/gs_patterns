@@ -4,34 +4,12 @@
 
 #include <assert.h> /// TODO: use cassert instead
 #include <math.h>
-#include <zlib.h>
 
 #include <string>
 #include <sstream>
 
 #include "utils.h"
 #include "gs_patterns.h"
-
-int drline_read(gzFile fp, trace_entry_t *val, trace_entry_t **p_val, int *edx) {
-
-    int idx;
-
-    idx = (*edx) / sizeof(trace_entry_t);
-    //first read
-    if (*p_val == NULL) {
-        *edx = gzread(fp, val, sizeof(trace_entry_t) * NBUFS);
-        *p_val = val;
-
-    } else if (*p_val == &val[idx]) {
-        *edx = gzread(fp, val, sizeof(trace_entry_t) * NBUFS);
-        *p_val = val;
-    }
-
-    if (*edx == 0)
-        return 0;
-
-    return 1;
-}
 
 void translate_iaddr(const std::string & binary, char *source_line, addr_t iaddr) {
 
@@ -499,101 +477,84 @@ int get_top_target(InstrInfo & target_iinfo, Metrics & target_metrics)
     return target_ntop;
 }
 
-// Second Pass
-void second_pass(gzFile fp_drtrace, Metrics & gather_metrics, Metrics & scatter_metrics)
+bool handle_2nd_pass_trace_entry(trace_entry_t * drline,
+                                 Metrics & gather_metrics, Metrics & scatter_metrics,
+                                 addr_t & iaddr, int64_t & maddr, uint64_t & mcnt,
+                                 addr_t * gather_base, addr_t * scatter_base)
 {
-    uint64_t mcnt = 0;  // used our own local mcnt while iterating over file in this method.
     int iret = 0;
-    trace_entry_t* drline;
-    addr_t iaddr;
-    int64_t maddr;
     int i = 0;
 
-    addr_t gather_base[NTOP] = {0};
-    addr_t scatter_base[NTOP] = {0};
-
     bool breakout = false;
-    printf("\nSecond pass to fill gather / scatter subtraces\n");
-    fflush(stdout);
 
-    trace_entry_t* p_drtrace = NULL;
-    trace_entry_t drtrace[NBUFS];   // was static (1024 bytes)
+    /*****************************/
+    /** INSTR 0xa-0x10 and 0x1e **/
+    /*****************************/
+    if (((drline->type >= 0xa) && (drline->type <= 0x10)) || (drline->type == 0x1e)) {
+        iaddr = drline->addr;
 
-    while (drline_read(fp_drtrace, drtrace, &p_drtrace, &iret) && !breakout) {
+        /***********************/
+        /** MEM 0x00 and 0x01 **/
+        /***********************/
+    }
+    else if ((drline->type == 0x0) || (drline->type == 0x1)) {
 
-        //decode drtrace
-        drline = p_drtrace;
+        maddr = drline->addr / drline->size;
 
-        /*****************************/
-        /** INSTR 0xa-0x10 and 0x1e **/
-        /*****************************/
-        if (((drline->type >= 0xa) && (drline->type <= 0x10)) || (drline->type == 0x1e)) {
-            iaddr = drline->addr;
-
-            /***********************/
-            /** MEM 0x00 and 0x01 **/
-            /***********************/
-        }
-        else if ((drline->type == 0x0) || (drline->type == 0x1)) {
-
-            maddr = drline->addr / drline->size;
-
-            if ((++mcnt % PERSAMPLE) == 0) {
+        if ((++mcnt % PERSAMPLE) == 0) {
 #if SAMPLE
-                break;
+            break;
 #endif
-                printf(".");
-                fflush(stdout);
-            }
+            printf(".");
+            fflush(stdout);
+        }
 
-            // gather ?
-            if (drline->type == 0x0) {
+        // gather ?
+        if (drline->type == 0x0) {
 
-                for (i = 0; i < gather_metrics.ntop; i++) {
+            for (i = 0; i < gather_metrics.ntop; i++) {
 
-                    //found it
-                    if (iaddr == gather_metrics.top[i]) {
+                //found it
+                if (iaddr == gather_metrics.top[i]) {
 
-                        if (gather_base[i] == 0)
-                            gather_base[i] = maddr;
+                    if (gather_base[i] == 0)
+                        gather_base[i] = maddr;
 
-                        //Add index
-                        if (gather_metrics.offset[i] >= PSIZE) {
-                            printf("WARNING: Need to increase PSIZE. Truncating trace...\n");
-                            breakout = true;
-                        }
-                        //printf("g -- %d % d\n", i, gather_offset[i]); fflush(stdout);
-                        gather_metrics.patterns[i][gather_metrics.offset[i]++] = (int64_t) (maddr - gather_base[i]);
-
-                        break;
+                    //Add index
+                    if (gather_metrics.offset[i] >= PSIZE) {
+                        printf("WARNING: Need to increase PSIZE. Truncating trace...\n");
+                        breakout = true;
                     }
+                    //printf("g -- %d % d\n", i, gather_offset[i]); fflush(stdout);
+                    gather_metrics.patterns[i][gather_metrics.offset[i]++] = (int64_t) (maddr - gather_base[i]);
+
+                    break;
                 }
             }
-                // scatter ?
-            else {
+        }
+            // scatter ?
+        else {
 
-                for (i = 0; i < scatter_metrics.ntop; i++) {
+            for (i = 0; i < scatter_metrics.ntop; i++) {
 
-                    //found it
-                    if (iaddr == scatter_metrics.top[i]) {
+                //found it
+                if (iaddr == scatter_metrics.top[i]) {
 
-                        //set base
-                        if (scatter_base[i] == 0)
-                            scatter_base[i] = maddr;
+                    //set base
+                    if (scatter_base[i] == 0)
+                        scatter_base[i] = maddr;
 
-                        //Add index
-                        if (scatter_metrics.offset[i] >= PSIZE) {
-                            printf("WARNING: Need to increase PSIZE. Truncating trace...\n");
-                            breakout = true;
-                        }
-                        scatter_metrics.patterns[i][scatter_metrics.offset[i]++] = (int64_t) (maddr - scatter_base[i]);
-                        break;
+                    //Add index
+                    if (scatter_metrics.offset[i] >= PSIZE) {
+                        printf("WARNING: Need to increase PSIZE. Truncating trace...\n");
+                        breakout = true;
                     }
+                    scatter_metrics.patterns[i][scatter_metrics.offset[i]++] = (int64_t) (maddr - scatter_base[i]);
+                    break;
                 }
             }
-        } // MEM
+        }
+    } // MEM
 
-        p_drtrace++;
-
-    } //while drtrace
+    return breakout;
 }

@@ -33,6 +33,12 @@ int64_t InstrWindow::w_maddr[2][IWINDOW][VBYTES];
 int64_t InstrWindow::w_cnt[2][IWINDOW];
 #endif
 
+// Forward declarations
+class MemPatternsForPin;
+
+void update_source_lines(MemPatternsForPin & mp);
+void process_second_pass(gzFile & fp_drtrace, MemPatternsForPin & mp);
+
 gzFile open_trace_file(const std::string & trace_file_name)
 {
     gzFile fp;
@@ -47,6 +53,27 @@ gzFile open_trace_file(const std::string & trace_file_name)
 void close_trace_file (gzFile & fp)
 {
     gzclose(fp);
+}
+
+int drline_read(gzFile fp, trace_entry_t *val, trace_entry_t **p_val, int *edx) {
+
+    int idx;
+
+    idx = (*edx) / sizeof(trace_entry_t);
+    //first read
+    if (*p_val == NULL) {
+        *edx = gzread(fp, val, sizeof(trace_entry_t) * NBUFS);
+        *p_val = val;
+
+    } else if (*p_val == &val[idx]) {
+        *edx = gzread(fp, val, sizeof(trace_entry_t) * NBUFS);
+        *p_val = val;
+    }
+
+    if (*edx == 0)
+        return 0;
+
+    return 1;
 }
 
 class MemPatternsForPin : public MemPatterns
@@ -87,8 +114,6 @@ private:
     std::string                     _binary_file_name;
 };
 
-void update_source_lines(MemPatternsForPin & mp);
-
 void MemPatternsForPin::handle_trace_entry(const trace_entry_t *tentry)
 {
     // Call libgs_patterns
@@ -123,7 +148,8 @@ void MemPatternsForPin::update_metrics()
 
     // ----------------- Second Pass -----------------
 
-    ::second_pass(fp_drtrace, get_gather_metrics(), get_scatter_metrics());
+    //::second_pass(fp_drtrace, get_gather_metrics(), get_scatter_metrics());
+    ::process_second_pass(fp_drtrace, *this);
 
     // ----------------- Normalize -----------------
 
@@ -187,6 +213,37 @@ void process_traces(MemPatternsForPin & mp)
 
     display_stats(mp);
 
+}
+
+void process_second_pass(gzFile & fp_drtrace, MemPatternsForPin & mp)
+{
+    uint64_t mcnt = 0;  // used our own local mcnt while iterating over file in this method.
+    int iret = 0;
+    trace_entry_t *drline;
+
+    // State carried thru
+    addr_t iaddr;
+    int64_t maddr;
+    addr_t gather_base[NTOP] = {0};
+    addr_t scatter_base[NTOP] = {0};
+
+    bool breakout = false;
+    printf("\nSecond pass to fill gather / scatter subtraces\n");
+    fflush(stdout);
+
+    trace_entry_t *p_drtrace = NULL;
+    trace_entry_t drtrace[NBUFS];   // was static (1024 bytes)
+
+    while (drline_read(fp_drtrace, drtrace, &p_drtrace, &iret) && !breakout) {
+
+        //decode drtrace
+        drline = p_drtrace;
+
+        breakout = ::handle_2nd_pass_trace_entry(drline, mp.get_gather_metrics(), mp.get_scatter_metrics(),
+                                                  iaddr, maddr, mcnt, gather_base, scatter_base);
+
+        p_drtrace++;
+    }  //while drtrace
 }
 
 void update_source_lines(MemPatternsForPin & mp)
