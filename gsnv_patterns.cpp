@@ -2,6 +2,8 @@
 // Created by christopher on 4/3/24.
 //
 
+#include <vector>
+
 #include "gs_patterns.h"
 #include "gs_patterns_core.h"
 
@@ -35,7 +37,7 @@ public:
 
     void update_metrics();
 
-    void process_traces();
+    //void process_traces();
     void update_source_lines();
     double update_source_lines_from_binary(metrics_type);
     void process_second_pass();
@@ -48,6 +50,8 @@ private:
 
     std::string                     _binary_file_name;
     std::string                     _file_prefix;
+
+    std::vector<trace_entry_t>      _traces;
 };
 
 
@@ -81,6 +85,10 @@ void MemPatternsForNV::handle_trace_entry(const trace_entry_t *tentry)
 {
     // Call libgs_patterns
     ::handle_trace_entry(*this, tentry);
+
+    _traces.push_back(*tentry);
+
+    // TODO: Determine how to get source lines
 }
 
 void MemPatternsForNV::generate_patterns()
@@ -117,4 +125,29 @@ void MemPatternsForNV::update_metrics()
     ::normalize_stats(get_scatter_metrics());
 }
 
+
+void MemPatternsForNV::process_second_pass()
+{
+    uint64_t mcnt = 0;  // used our own local mcnt while iterating over file in this method.
+    int iret = 0;
+    trace_entry_t *drline;
+
+    // State carried thru
+    addr_t iaddr;
+    int64_t maddr;
+    addr_t gather_base[NTOP] = {0};
+    addr_t scatter_base[NTOP] = {0};
+
+    bool breakout = false;
+    printf("\nSecond pass to fill gather / scatter subtraces\n");
+    fflush(stdout);
+
+    for (auto itr = _traces.begin(); itr != _traces.end(); ++itr)
+    {
+        trace_entry_t & drline = *itr;
+
+        breakout = ::handle_2nd_pass_trace_entry(&drline, get_gather_metrics(), get_scatter_metrics(),
+                                                 iaddr, maddr, mcnt, gather_base, scatter_base);
+    }
+}
 
