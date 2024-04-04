@@ -14,6 +14,7 @@ add_library(gs_patterns_core STATIC
         gs_patterns.h
         gs_patterns_core.h
         gs_patterns_core.cpp
+        gsnv_patterns.cpp
 )
 
 add_executable( gs_patterns

@@ -233,11 +233,14 @@ public:
     virtual void handle_trace_entry(const trace_entry_t * te) = 0;
     virtual void generate_patterns() = 0;
 
-    virtual Metrics &     get_gather_metrics()  = 0;
-    virtual Metrics &     get_scatter_metrics() = 0;
-    virtual InstrInfo &   get_gather_iinfo()    = 0;
-    virtual InstrInfo &   get_scatter_iinfo()   = 0;
-    virtual TraceInfo &   get_trace_info()      = 0;
-    virtual InstrWindow & get_instr_window()    = 0;
+    virtual Metrics &     get_metrics(metrics_type) = 0;
+    virtual InstrInfo &   get_iinfo(metrics_type)   = 0;
+
+    virtual Metrics &     get_gather_metrics()      = 0;
+    virtual Metrics &     get_scatter_metrics()     = 0;
+    virtual InstrInfo &   get_gather_iinfo()        = 0;
+    virtual InstrInfo &   get_scatter_iinfo()       = 0;
+    virtual TraceInfo &   get_trace_info()          = 0;
+    virtual InstrWindow & get_instr_window()        = 0;
 
 };

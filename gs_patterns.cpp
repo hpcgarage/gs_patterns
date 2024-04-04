@@ -11,6 +11,7 @@
 
 #include "gs_patterns.h"
 #include "gs_patterns_core.h"
+#include "utils.h"
 
 //Terminal colors
 #define KNRM  "\x1B[0m"
@@ -32,12 +33,6 @@ int64_t InstrWindow::w_bytes[2][IWINDOW];
 int64_t InstrWindow::w_maddr[2][IWINDOW][VBYTES];
 int64_t InstrWindow::w_cnt[2][IWINDOW];
 #endif
-
-// Forward declarations
-class MemPatternsForPin;
-
-void update_source_lines(MemPatternsForPin & mp);
-void process_second_pass(gzFile & fp_drtrace, MemPatternsForPin & mp);
 
 gzFile open_trace_file(const std::string & trace_file_name)
 {
@@ -89,6 +84,9 @@ public:
     void handle_trace_entry(const trace_entry_t * tentry) override;
     void generate_patterns() override;
 
+    Metrics &     get_metrics(metrics_type) override;
+    InstrInfo &   get_iinfo(metrics_type) override;
+
     Metrics &     get_gather_metrics() override  { return _metrics.first;  }
     Metrics &     get_scatter_metrics() override { return _metrics.second; }
     InstrInfo &   get_gather_iinfo () override   { return _iinfo.first;    }
@@ -106,6 +104,11 @@ public:
 
     std::string get_trace_file_prefix ();
 
+    void process_traces();
+    void update_source_lines();
+    double update_source_lines_from_binary(metrics_type);
+    void process_second_pass(gzFile & fp_drtrace);
+
 private:
     std::pair<Metrics, Metrics>     _metrics;
     std::pair<InstrInfo, InstrInfo> _iinfo;
@@ -115,6 +118,32 @@ private:
     std::string                     _trace_file_name;
     std::string                     _binary_file_name;
 };
+
+Metrics & MemPatternsForPin::get_metrics(metrics_type m)
+{
+    switch (m)
+    {
+        case GATHER : return _metrics.first;
+            break;
+        case SCATTER : return _metrics.second;
+            break;
+        default:
+            throw GSError("Unable to get Metrics - Invalid Metrics Type: " + m);
+    }
+}
+
+InstrInfo & MemPatternsForPin::get_iinfo(metrics_type m)
+{
+    switch (m)
+    {
+        case GATHER : return _iinfo.first;
+            break;
+        case SCATTER : return _iinfo.second;
+            break;
+        default:
+            throw GSError("Unable to get InstrInfo - Invalid Metrics Type: " + m);
+    }
+}
 
 void MemPatternsForPin::handle_trace_entry(const trace_entry_t *tentry)
 {
@@ -126,7 +155,7 @@ void MemPatternsForPin::generate_patterns()
 {
     // ----------------- Update Source Lines -----------------
 
-    ::update_source_lines(*this);
+    update_source_lines();
 
     // ----------------- Update Metrics -----------------
 
@@ -150,8 +179,7 @@ void MemPatternsForPin::update_metrics()
 
     // ----------------- Second Pass -----------------
 
-    //::second_pass(fp_drtrace, get_gather_metrics(), get_scatter_metrics());
-    ::process_second_pass(fp_drtrace, *this);
+    process_second_pass(fp_drtrace);
 
     // ----------------- Normalize -----------------
 
@@ -172,9 +200,12 @@ std::string MemPatternsForPin::get_trace_file_prefix()
     return prefix;
 }
 
-double update_source_lines_from_binary(InstrInfo & target_iinfo, Metrics & target_metrics, const std::string & binary_file_name)
+double MemPatternsForPin::update_source_lines_from_binary(metrics_type mType)
 {
     double scatter_cnt = 0.0;
+
+    InstrInfo & target_iinfo   = get_iinfo(mType);
+    Metrics &   target_metrics = get_metrics(mType);
 
     //Check it is not a library
     for (int k = 0; k < NGS; k++) {
@@ -182,7 +213,7 @@ double update_source_lines_from_binary(InstrInfo & target_iinfo, Metrics & targe
         if (0 == target_iinfo.get_iaddrs()[k]) {
             break;
         }
-        translate_iaddr(binary_file_name, target_metrics.get_srcline()[k], target_iinfo.get_iaddrs()[k]);
+        translate_iaddr(get_binary_file_name(), target_metrics.get_srcline()[k], target_iinfo.get_iaddrs()[k]);
         if (startswith(target_metrics.get_srcline()[k], "?"))
             target_iinfo.get_icnt()[k] = 0;
 
@@ -194,13 +225,13 @@ double update_source_lines_from_binary(InstrInfo & target_iinfo, Metrics & targe
 }
 
 // First Pass
-void process_traces(MemPatternsForPin & mp)
+void MemPatternsForPin::process_traces()
 {
     int iret = 0;
     trace_entry_t *drline;
     InstrWindow iw;
 
-    gzFile fp_drtrace = open_trace_file(mp.get_trace_file_name());
+    gzFile fp_drtrace = open_trace_file(get_trace_file_name());
 
     printf("First pass to find top gather / scatter iaddresses\n");
     fflush(stdout);
@@ -213,7 +244,7 @@ void process_traces(MemPatternsForPin & mp)
         drline = p_drtrace;
 
         //handle_trace_entry(drline, trace_info, gather_iinfo, scatter_iinfo, gather_metrics, scatter_metrics, iw);
-        mp.handle_trace_entry(drline);
+        handle_trace_entry(drline);
 
         p_drtrace++;
     }
@@ -221,14 +252,14 @@ void process_traces(MemPatternsForPin & mp)
     close_trace_file(fp_drtrace);
 
     //metrics
-    mp.get_trace_info().gather_occ_avg /= mp.get_gather_metrics().cnt;
-    mp.get_trace_info().scatter_occ_avg /= mp.get_scatter_metrics().cnt;
+    get_trace_info().gather_occ_avg /= get_gather_metrics().cnt;
+    get_trace_info().scatter_occ_avg /= get_scatter_metrics().cnt;
 
-    display_stats(mp);
+    display_stats(*this);
 
 }
 
-void process_second_pass(gzFile & fp_drtrace, MemPatternsForPin & mp)
+void MemPatternsForPin::process_second_pass(gzFile & fp_drtrace)
 {
     uint64_t mcnt = 0;  // used our own local mcnt while iterating over file in this method.
     int iret = 0;
@@ -252,26 +283,26 @@ void process_second_pass(gzFile & fp_drtrace, MemPatternsForPin & mp)
         //decode drtrace
         drline = p_drtrace;
 
-        breakout = ::handle_2nd_pass_trace_entry(drline, mp.get_gather_metrics(), mp.get_scatter_metrics(),
+        breakout = ::handle_2nd_pass_trace_entry(drline, get_gather_metrics(), get_scatter_metrics(),
                                                   iaddr, maddr, mcnt, gather_base, scatter_base);
 
         p_drtrace++;
     }  //while drtrace
 }
 
-void update_source_lines(MemPatternsForPin & mp)
+void MemPatternsForPin::update_source_lines()
 {
     // Find source lines for gathers - Must have symbol
     printf("\nSymbol table lookup for gathers...");
     fflush(stdout);
 
-    mp.get_gather_metrics().cnt = update_source_lines_from_binary(mp.get_gather_iinfo(), mp.get_gather_metrics(), mp.get_binary_file_name());
+    get_gather_metrics().cnt = update_source_lines_from_binary(GATHER);
 
     // Find source lines for scatters
     printf("Symbol table lookup for scatters...");
     fflush(stdout);
 
-    mp.get_scatter_metrics().cnt = update_source_lines_from_binary(mp.get_scatter_iinfo(), mp.get_scatter_metrics(), mp.get_binary_file_name());
+    get_scatter_metrics().cnt = update_source_lines_from_binary(SCATTER);
 }
 
 int main(int argc, char **argv)
@@ -289,7 +320,7 @@ int main(int argc, char **argv)
 
         // ----------------- Process Traces -----------------
 
-        process_traces(mp);
+        mp.process_traces();
 
         // ----------------- Generate Patterns -----------------
 

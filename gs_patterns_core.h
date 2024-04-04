@@ -8,7 +8,6 @@
 #include <zlib.h>
 #include <string>
 
-#include "utils.h"
 #include "gs_patterns.h"
 
 int drline_read(gzFile           fp,
