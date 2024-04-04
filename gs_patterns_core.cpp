@@ -23,7 +23,7 @@ void translate_iaddr(const std::string & binary, char *source_line, addr_t iaddr
 
     /* Open the command for reading. */
     fp = popen(cmd, "r");
-    if (fp == NULL) {
+    if (NULL == fp) {
         throw GSError("Failed to run command");
     }
 
@@ -40,7 +40,7 @@ void translate_iaddr(const std::string & binary, char *source_line, addr_t iaddr
 }
 
 
-void create_metrics_file(FILE *fp, FILE *fp2, const char* trace_file_name, Metrics & target_metrics, bool & first_spatter)
+void create_metrics_file(FILE *fp, FILE *fp2, const std::string & file_prefix, Metrics & target_metrics, bool & first_spatter)
 {
     int i = 0;
     int j = 0;
@@ -82,14 +82,10 @@ void create_metrics_file(FILE *fp, FILE *fp2, const char* trace_file_name, Metri
 
             //create a binary file
             FILE *fp_bin;
-            char *bin_name;
-            bin_name = (char*)str_replace(trace_file_name, ".gz", ".sbin");
-            if (strstr(bin_name, ".sbin") == 0) {
-                strncat(bin_name, ".sbin", strlen(".sbin")+1);
-            }
-            printf("%s\n", bin_name);
-            fp_bin = fopen(bin_name, "w");
-            if (fp_bin == NULL) {
+            std::string bin_name = file_prefix + ".sbin";
+            printf("%s\n", bin_name.c_str());
+            fp_bin = fopen(bin_name.c_str(), "w");
+            if (NULL == fp_bin) {
                 throw GSFileError("Could not open " + std::string(bin_name) + "!");
             }
 
@@ -105,16 +101,16 @@ void create_metrics_file(FILE *fp, FILE *fp2, const char* trace_file_name, Metri
                 if (j < 39) {
                     printf("%10ld ", target_metrics.patterns[i][j]);
                     fflush(stdout);
-                    if ((++nlcnt % 13) == 0)
+                    if (0 == (++nlcnt % 13))
                         printf("\n");
 
                 } else if (j >= (target_metrics.offset[i] - 39)) {
                     printf("%10ld ", target_metrics.patterns[i][j]);
                     fflush(stdout);
-                    if ((++nlcnt % 13) == 0)
+                    if (0 == (++nlcnt % 13))
                         printf("\n");
 
-                } else if (j == 39)
+                } else if (39 == j)
                     printf("...\n");
             }
             printf("\n");
@@ -122,9 +118,9 @@ void create_metrics_file(FILE *fp, FILE *fp2, const char* trace_file_name, Metri
 
             for (j = 0; j < 1027; j++) {
                 if (n_stride[j] > 0) {
-                    if (j == 0)
+                    if (0 == j)
                         printf("%6s: %ld\n", "< -512", n_stride[j]);
-                    else if (j == 1026)
+                    else if (1026 == j)
                         printf("%6s: %ld\n", ">  512", n_stride[j]);
                     else
                         printf("%6d: %ld\n", j - 513, n_stride[j]);
@@ -155,28 +151,21 @@ void create_metrics_file(FILE *fp, FILE *fp2, const char* trace_file_name, Metri
     }
 }
 
-void create_spatter_file(MemPatterns & mp, const char *trace_file_name)
+void create_spatter_file(MemPatterns & mp, const std::string & file_prefix)
 {
-    //Create spatter file
+    // Create spatter file
     FILE *fp, *fp2;
-    char *json_name, *gs_info;
-    json_name = (char*)str_replace(trace_file_name, ".gz", ".json");
-    if (strstr(json_name, ".json") == 0) {
-        strncat(json_name, ".json", strlen(".json")+1);
+
+    std::string json_name = file_prefix + ".json";
+    fp = fopen(json_name.c_str(), "w");
+    if (NULL == fp) {
+        throw GSFileError("Could not open " + json_name + "!");
     }
 
-    fp = fopen(json_name, "w");
-    if (fp == NULL) {
-        throw GSFileError("Could not open " + std::string(json_name) + "!");
-    }
-    gs_info = (char*)str_replace(trace_file_name, ".gz", ".txt");
-    if (strstr(gs_info, ".json") == 0) {
-        strncat(gs_info, ".txt", strlen(".txt")+1);
-    }
-
-    fp2 = fopen(gs_info, "w");
-    if (fp2 == NULL) {
-        throw GSFileError("Could not open " + std::string(gs_info) + "!");
+    std::string gs_info = file_prefix + ".txt";
+    fp2 = fopen(gs_info.c_str(), "w");
+    if (NULL == fp2) {
+        throw GSFileError("Could not open " + gs_info + "!");
     }
 
     //Header
@@ -184,9 +173,9 @@ void create_spatter_file(MemPatterns & mp, const char *trace_file_name)
     fprintf(fp2, "#sourceline, g/s, indices, percentage of g/s in trace\n");
 
     bool first_spatter = true;
-    create_metrics_file(fp, fp2, trace_file_name, mp.get_gather_metrics(), first_spatter);
+    create_metrics_file(fp, fp2, file_prefix, mp.get_gather_metrics(), first_spatter);
 
-    create_metrics_file(fp, fp2, trace_file_name, mp.get_scatter_metrics(), first_spatter);
+    create_metrics_file(fp, fp2, file_prefix, mp.get_scatter_metrics(), first_spatter);
 
     //Footer
     fprintf(fp, " ]");
@@ -230,7 +219,7 @@ void handle_trace_entry(MemPatterns & mp, const trace_entry_t *drline)
     auto & scatter_metrics = mp.get_scatter_metrics();
     auto & iw = mp.get_instr_window();
 
-    if (drline->type == 0 && drline->size == 0) {
+    if (0 == drline->type && 0 == drline->size) {
         std::ostringstream os;
         os << "Invalid trace entry: type: [" << drline->type << "] size: [" << drline->size << "]";
         throw GSDataError(os.str());

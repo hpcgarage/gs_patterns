@@ -20,13 +20,13 @@ void translate_iaddr(const std::string & binary,
                      char *              source_line,
                      addr_t              iaddr);
 
-void create_metrics_file(FILE *      fp,
-                         FILE *      fp2,
-                         const char* trace_file_name,
-                         Metrics &   target_metrics,
-                         bool &      first_spatter);
+void create_metrics_file(FILE *              fp,
+                         FILE *              fp2,
+                         const std::string & file_prefix,
+                         Metrics &           target_metrics,
+                         bool &              first_spatter);
 
-void create_spatter_file(MemPatterns & mp, const char *trace_file_name);
+void create_spatter_file(MemPatterns & mp, const std::string & file_prefix);
 
 void handle_trace_entry(MemPatterns & mp, const trace_entry_t *drline);
 

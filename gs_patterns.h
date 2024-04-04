@@ -233,9 +233,6 @@ public:
     virtual void handle_trace_entry(const trace_entry_t * te) = 0;
     virtual void generate_patterns() = 0;
 
-    //virtual void update_metrics(const std::string & binary_file_name) = 0;
-    //virtual void create_spatter_file(const std::string & file_prefix) = 0;
-
     virtual Metrics &     get_gather_metrics()  = 0;
     virtual Metrics &     get_scatter_metrics() = 0;
     virtual InstrInfo &   get_gather_iinfo()    = 0;

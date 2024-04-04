@@ -44,7 +44,7 @@ gzFile open_trace_file(const std::string & trace_file_name)
     gzFile fp;
 
     fp = gzopen(trace_file_name.c_str(), "hrb");
-    if (fp == NULL) {
+    if (NULL == fp) {
         throw GSFileError("Could not open " + trace_file_name + "!");
     }
     return fp;
@@ -61,7 +61,7 @@ int drline_read(gzFile fp, trace_entry_t *val, trace_entry_t **p_val, int *edx) 
 
     idx = (*edx) / sizeof(trace_entry_t);
     //first read
-    if (*p_val == NULL) {
+    if (NULL == *p_val) {
         *edx = gzread(fp, val, sizeof(trace_entry_t) * NBUFS);
         *p_val = val;
 
@@ -70,7 +70,7 @@ int drline_read(gzFile fp, trace_entry_t *val, trace_entry_t **p_val, int *edx) 
         *p_val = val;
     }
 
-    if (*edx == 0)
+    if (0 == *edx)
         return 0;
 
     return 1;
@@ -104,6 +104,8 @@ public:
 
     void update_metrics();
 
+    std::string get_trace_file_prefix ();
+
 private:
     std::pair<Metrics, Metrics>     _metrics;
     std::pair<InstrInfo, InstrInfo> _iinfo;
@@ -132,7 +134,7 @@ void MemPatternsForPin::generate_patterns()
 
     // ----------------- Create Spatter File -----------------
 
-    ::create_spatter_file(*this, _trace_file_name.c_str());
+    ::create_spatter_file(*this, get_trace_file_prefix());
 
 }
 
@@ -159,6 +161,17 @@ void MemPatternsForPin::update_metrics()
     close_trace_file(fp_drtrace);
 }
 
+std::string MemPatternsForPin::get_trace_file_prefix()
+{
+    std::string prefix = _trace_file_name;
+    size_t pos = std::string::npos;
+    while (std::string::npos != (pos = prefix.find(".gz")))
+    {
+        prefix.replace(pos, 3, "");
+    }
+    return prefix;
+}
+
 double update_source_lines_from_binary(InstrInfo & target_iinfo, Metrics & target_metrics, const std::string & binary_file_name)
 {
     double scatter_cnt = 0.0;
@@ -166,7 +179,7 @@ double update_source_lines_from_binary(InstrInfo & target_iinfo, Metrics & targe
     //Check it is not a library
     for (int k = 0; k < NGS; k++) {
 
-        if (target_iinfo.get_iaddrs()[k] == 0) {
+        if (0 == target_iinfo.get_iaddrs()[k]) {
             break;
         }
         translate_iaddr(binary_file_name, target_metrics.get_srcline()[k], target_iinfo.get_iaddrs()[k]);
