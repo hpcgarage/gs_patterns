@@ -34,6 +34,18 @@ int64_t InstrWindow::w_maddr[2][IWINDOW][VBYTES];
 int64_t InstrWindow::w_cnt[2][IWINDOW];
 #endif
 
+//FROM DR SOURCE
+//DR trace
+struct _trace_entry_t {
+    unsigned short type; // 2 bytes: trace_type_t
+    unsigned short size;
+    union {
+        addr_t addr;
+        unsigned char length[sizeof(addr_t)];
+    };
+}  __attribute__((packed));
+typedef struct _trace_entry_t trace_entry_t;
+
 gzFile open_trace_file(const std::string & trace_file_name)
 {
     gzFile fp;
@@ -116,7 +128,7 @@ public:
                           _iinfo(GATHER, SCATTER) { }
     virtual ~MemPatternsForPin() override { }
 
-    void handle_trace_entry(const trace_entry_t * tentry) override;
+    void handle_trace_entry(const InstrAddressInfo & ia) override;
     void generate_patterns() override;
 
     Metrics &     get_metrics(mem_access_type) override;
@@ -180,10 +192,10 @@ InstrInfo & MemPatternsForPin::get_iinfo(mem_access_type m)
     }
 }
 
-void MemPatternsForPin::handle_trace_entry(const trace_entry_t * tentry)
+void MemPatternsForPin::handle_trace_entry(const InstrAddressInfo & ia)
 {
     // Call libgs_patterns
-    ::handle_trace_entry(*this, InstrAddressInfoForPin(tentry));
+    ::handle_trace_entry(*this, ia);
 }
 
 void MemPatternsForPin::generate_patterns()
@@ -278,7 +290,7 @@ void MemPatternsForPin::process_traces()
         //decode drtrace
         drline = p_drtrace;
 
-        handle_trace_entry(drline);
+        handle_trace_entry(InstrAddressInfoForPin(drline));
 
         p_drtrace++;
     }

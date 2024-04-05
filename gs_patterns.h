@@ -42,18 +42,6 @@
 
 typedef uintptr_t addr_t;
 
-//FROM DR SOURCE
-//DR trace
-struct _trace_entry_t {
-    unsigned short type; // 2 bytes: trace_type_t
-    unsigned short size;
-    union {
-        addr_t addr;
-        unsigned char length[sizeof(addr_t)];
-    };
-}  __attribute__((packed));
-typedef struct _trace_entry_t trace_entry_t;
-
 typedef enum { GATHER=0, SCATTER } mem_access_type;
 
 class GSError : public std::exception
@@ -258,7 +246,7 @@ public:
     MemPatterns(const MemPatterns &) = delete;
     MemPatterns & operator=(const MemPatterns &) = delete;
 
-    virtual void handle_trace_entry(const trace_entry_t * te) = 0;
+    virtual void handle_trace_entry(const InstrAddressInfo & ia) = 0;
     virtual void generate_patterns() = 0;
 
     virtual Metrics &     get_metrics(mem_access_type) = 0;

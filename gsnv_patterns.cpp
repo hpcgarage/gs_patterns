@@ -8,6 +8,17 @@
 #include "gs_patterns.h"
 #include "gs_patterns_core.h"
 
+struct _trace_entry_t {
+    unsigned short type; // 2 bytes: trace_type_t
+    unsigned short size;
+    union {
+        addr_t addr;
+        unsigned char length[sizeof(addr_t)];
+    };
+}  __attribute__((packed));
+typedef struct _trace_entry_t trace_entry_t;
+
+// An adapter for trace_entry_t (temporaritly untl replaced with nvbit memory detail type)
 class InstrAddressInfoForNV : public InstrAddressInfo
 {
 public:
@@ -52,7 +63,7 @@ public:
 
     virtual ~MemPatternsForNV() override { }
 
-    void handle_trace_entry(const trace_entry_t * tentry) override;
+    void handle_trace_entry(const InstrAddressInfo & ia) override;
     void generate_patterns() override;
 
     Metrics &     get_metrics(mem_access_type) override;
@@ -79,15 +90,15 @@ public:
     void process_second_pass();
 
 private:
-    std::pair<Metrics, Metrics>     _metrics;
-    std::pair<InstrInfo, InstrInfo> _iinfo;
-    TraceInfo                       _trace_info;
-    InstrWindow                     _iw;
+    std::pair<Metrics, Metrics>        _metrics;
+    std::pair<InstrInfo, InstrInfo>    _iinfo;
+    TraceInfo                          _trace_info;
+    InstrWindow                        _iw;
 
-    std::string                     _binary_file_name;
-    std::string                     _file_prefix;
+    std::string                        _binary_file_name;
+    std::string                        _file_prefix;
 
-    std::vector<trace_entry_t>      _traces;
+    std::vector<InstrAddressInfoForNV> _traces;
 };
 
 
@@ -117,12 +128,13 @@ InstrInfo & MemPatternsForNV::get_iinfo(mem_access_type m)
     }
 }
 
-void MemPatternsForNV::handle_trace_entry(const trace_entry_t * tentry)
+void MemPatternsForNV::handle_trace_entry(const InstrAddressInfo & ia)
 {
     // Call libgs_patterns
-    ::handle_trace_entry(*this, InstrAddressInfoForNV(tentry));
+    ::handle_trace_entry(*this, ia);
 
-    _traces.push_back(*tentry);
+    const InstrAddressInfoForNV & ianv = dynamic_cast<const InstrAddressInfoForNV &> (ia);
+    _traces.push_back(ianv);
 
     // TODO: Determine how to get source lines
 }
@@ -180,9 +192,9 @@ void MemPatternsForNV::process_second_pass()
 
     for (auto itr = _traces.begin(); itr != _traces.end(); ++itr)
     {
-        trace_entry_t & drline = *itr;
+        InstrAddressInfo & ia = *itr;
 
-        breakout = ::handle_2nd_pass_trace_entry(InstrAddressInfoForNV(&drline), get_gather_metrics(), get_scatter_metrics(),
+        breakout = ::handle_2nd_pass_trace_entry(ia, get_gather_metrics(), get_scatter_metrics(),
                                                  iaddr, maddr, mcnt, gather_base, scatter_base);
     }
 }
