@@ -1,6 +1,3 @@
-//
-// Created by christopher on 4/2/24.
-//
 
 #include <assert.h> /// TODO: use cassert instead
 #include <math.h>

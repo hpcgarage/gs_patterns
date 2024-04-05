@@ -1,6 +1,5 @@
-//
-// Created by christopher on 4/3/24.
-//
+
+#pragma  once
 
 #include <vector>
 #include <ostream>
@@ -85,8 +84,8 @@ public:
     void update_metrics();
 
     //void process_traces();
-    void update_source_lines();
-    double update_source_lines_from_binary(mem_access_type);
+    void update_source_lines() { }
+    double update_source_lines_from_binary(mem_access_type) { return 0.0; }
     void process_second_pass();
 
 private:
@@ -198,4 +197,3 @@ void MemPatternsForNV::process_second_pass()
                                                  iaddr, maddr, mcnt, gather_base, scatter_base);
     }
 }
-

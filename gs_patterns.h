@@ -1,6 +1,3 @@
-//
-// Created by christopher on 3/31/24.
-//
 
 #pragma once
 
@@ -119,6 +116,8 @@ public:
         for (int i = 0; i < NTOP; i++) {
             free(patterns[i]);
         }
+
+        delete [] srcline;
     }
 
     Metrics(const Metrics &) = delete;
@@ -141,7 +140,7 @@ public:
     int64_t* patterns[NTOP] = {0};
 
 private:
-    static char srcline[2][NGS][MAX_LINE_LENGTH]; // was static (may move out and have 1 per type)
+    char (*srcline)[NGS][MAX_LINE_LENGTH] = new char[2][NGS][MAX_LINE_LENGTH];
 
     mem_access_type _mType;
 };
@@ -151,7 +150,11 @@ class InstrInfo
 {
 public:
     InstrInfo(mem_access_type mType) : _mType(mType) { }
-    ~InstrInfo() { }
+    ~InstrInfo() {
+        delete [] iaddrs;
+        delete [] icnt;
+        delete [] occ;
+    }
 
     InstrInfo(const InstrInfo &) = delete;
     InstrInfo & operator=(const InstrInfo & right) = delete;
@@ -161,9 +164,9 @@ public:
     int64_t* get_occ()    { return occ[_mType]; }
 
 private:
-    static addr_t iaddrs[2][NGS];
-    static int64_t icnt[2][NGS];
-    static int64_t occ[2][NGS];
+    addr_t (*iaddrs)[NGS] = new addr_t[2][NGS];
+    int64_t (*icnt)[NGS]  = new int64_t[2][NGS];
+    int64_t (*occ)[NGS]   = new int64_t[2][NGS];
 
     mem_access_type _mType;
 };
@@ -210,19 +213,12 @@ public:
     InstrWindow(const InstrWindow &) = delete;
     InstrWindow & operator=(const InstrWindow & right) = delete;
 
-#if 0
-    static int64_t w_iaddrs[2][IWINDOW];
-    static int64_t w_bytes[2][IWINDOW];
-    static int64_t w_maddr[2][IWINDOW][VBYTES];
-    static int64_t w_cnt[2][IWINDOW];
-#else
     // moved from static storage to instance variables (watch out for stack overflow)
     // Revisit and move to heap if an issue - estimate of 2k*3 + 128k
     int64_t w_iaddrs[2][IWINDOW];
     int64_t w_bytes[2][IWINDOW];
     int64_t w_maddr[2][IWINDOW][VBYTES];
     int64_t w_cnt[2][IWINDOW];
-#endif
 
     // State which must be carried with each call to handle a trace
     addr_t   iaddr;

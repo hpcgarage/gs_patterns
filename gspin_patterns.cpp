@@ -25,19 +25,6 @@
 #define ADDREND   (0xFFFFFFFFFFFFFFFFUL)
 #define ADDRUSYNC (0xFFFFFFFFFFFFFFFEUL)
 
-// Class Static data initialization
-char    Metrics::srcline[2][NGS][MAX_LINE_LENGTH];
-addr_t  InstrInfo::iaddrs[2][NGS];
-int64_t InstrInfo::icnt[2][NGS];
-int64_t InstrInfo::occ[2][NGS];
-
-#if 0
-int64_t InstrWindow::w_iaddrs[2][IWINDOW];
-int64_t InstrWindow::w_bytes[2][IWINDOW];
-int64_t InstrWindow::w_maddr[2][IWINDOW][VBYTES];
-int64_t InstrWindow::w_cnt[2][IWINDOW];
-#endif
-
 //FROM DR SOURCE
 //DR trace
 struct _trace_entry_t {
