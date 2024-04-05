@@ -205,7 +205,7 @@ void normalize_stats(Metrics & target_metrics)
     }
 }
 
-void handle_trace_entry(MemPatterns & mp, const trace_entry_t *drline)
+void handle_trace_entry(MemPatterns & mp, const InstrAddressInfo & ia)
 {
     int i, j, k, w;
     int w_rw_idx;
@@ -219,18 +219,18 @@ void handle_trace_entry(MemPatterns & mp, const trace_entry_t *drline)
     auto & scatter_metrics = mp.get_scatter_metrics();
     auto & iw = mp.get_instr_window();
 
-    if (0 == drline->type && 0 == drline->size) {
+    if (!ia.is_valid()) {
         std::ostringstream os;
-        os << "Invalid trace entry: type: [" << drline->type << "] size: [" << drline->size << "]";
+        os << "Invalid " << ia;
         throw GSDataError(os.str());
     }
 
     /*****************************/
     /** INSTR 0xa-0x10 and 0x1e **/
     /*****************************/
-    if (((drline->type >= 0xa) && (drline->type <= 0x10)) || (drline->type == 0x1e)) {
+    if (ia.is_other_instr()) {
 
-        iw.iaddr = drline->addr;
+        iw.iaddr = ia.get_address();
 
         //nops
         trace_info.opcodes++;
@@ -239,9 +239,9 @@ void handle_trace_entry(MemPatterns & mp, const trace_entry_t *drline)
         /***********************/
         /** MEM 0x00 and 0x01 **/
         /***********************/
-    } else if ((drline->type == 0x0) || (drline->type == 0x1)) {
+    } else if (ia.is_mem_instr()) {
 
-        w_rw_idx = drline->type;
+        w_rw_idx = ia.get_type();
 
         //printf("M DRTRACE -- iaddr: %016lx addr: %016lx cl_start: %d bytes: %d\n",
         //     iaddr,  drline->addr, drline->addr % 64, drline->size);
@@ -375,8 +375,8 @@ void handle_trace_entry(MemPatterns & mp, const trace_entry_t *drline)
 
         //Set window values
         iw.w_iaddrs[w_rw_idx][w_idx] = iw.iaddr;
-        iw.w_maddr[w_rw_idx][w_idx][iw.w_cnt[w_rw_idx][w_idx]] = drline->addr / drline->size;
-        iw.w_bytes[w_rw_idx][w_idx] += drline->size;
+        iw.w_maddr[w_rw_idx][w_idx][iw.w_cnt[w_rw_idx][w_idx]] = ia.get_address() / ia.get_size();
+        iw.w_bytes[w_rw_idx][w_idx] += ia.get_size();
 
         //num access per iaddr in loop
         iw.w_cnt[w_rw_idx][w_idx]++;
@@ -466,7 +466,7 @@ int get_top_target(InstrInfo & target_iinfo, Metrics & target_metrics)
     return target_ntop;
 }
 
-bool handle_2nd_pass_trace_entry(trace_entry_t * drline,
+bool handle_2nd_pass_trace_entry(const InstrAddressInfo & ia,
                                  Metrics & gather_metrics, Metrics & scatter_metrics,
                                  addr_t & iaddr, int64_t & maddr, uint64_t & mcnt,
                                  addr_t * gather_base, addr_t * scatter_base)
@@ -479,16 +479,22 @@ bool handle_2nd_pass_trace_entry(trace_entry_t * drline,
     /*****************************/
     /** INSTR 0xa-0x10 and 0x1e **/
     /*****************************/
-    if (((drline->type >= 0xa) && (drline->type <= 0x10)) || (drline->type == 0x1e)) {
-        iaddr = drline->addr;
+    if (!ia.is_valid()) {
+        std::ostringstream os;
+        os << "Invalid " << ia;
+        throw GSDataError(os.str());
+    }
+
+    if (ia.is_other_instr()) {
+        iaddr = ia.get_address();
 
         /***********************/
         /** MEM 0x00 and 0x01 **/
         /***********************/
     }
-    else if ((drline->type == 0x0) || (drline->type == 0x1)) {
+    else if (ia.is_mem_instr()) {
 
-        maddr = drline->addr / drline->size;
+        maddr = ia.get_address() / ia.get_size();
 
         if ((++mcnt % PERSAMPLE) == 0) {
 #if SAMPLE
@@ -499,7 +505,7 @@ bool handle_2nd_pass_trace_entry(trace_entry_t * drline,
         }
 
         // gather ?
-        if (drline->type == 0x0) {
+        if (ia.get_mem_instr_type() == GATHER) {
 
             for (i = 0; i < gather_metrics.ntop; i++) {
 
@@ -521,8 +527,8 @@ bool handle_2nd_pass_trace_entry(trace_entry_t * drline,
                 }
             }
         }
-            // scatter ?
-        else {
+        // scatter ?
+        else if (ia.get_mem_instr_type() == SCATTER) {
 
             for (i = 0; i < scatter_metrics.ntop; i++) {
 
@@ -543,7 +549,16 @@ bool handle_2nd_pass_trace_entry(trace_entry_t * drline,
                 }
             }
         }
+        else { // belt and suspenders, yep = but helps to validate correct logic in children of InstrAddresInfo
+            throw GSDataError("Unknown Memory Instruction Type: " + ia.get_mem_instr_type());
+        }
     } // MEM
 
     return breakout;
+}
+
+std::ostream & operator<<(std::ostream & os, const InstrAddressInfo & ia)
+{
+    ia.output(os);
+    return os;
 }

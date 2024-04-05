@@ -3,9 +3,45 @@
 //
 
 #include <vector>
+#include <ostream>
 
 #include "gs_patterns.h"
 #include "gs_patterns_core.h"
+
+class InstrAddressInfoForNV : public InstrAddressInfo
+{
+public:
+    InstrAddressInfoForNV(const trace_entry_t * te)
+    {
+        _te.type = te->type;
+        _te.size = te->size;
+        _te.addr = te->addr;
+    }
+    InstrAddressInfoForNV(const trace_entry_t te) : _te(te) { }
+
+    virtual ~InstrAddressInfoForNV() { }
+
+    virtual bool is_valid() const override       { return false; }
+    virtual bool is_mem_instr() const override   { return false; }
+    virtual bool is_other_instr() const override { return false; }
+
+
+    virtual mem_access_type get_mem_instr_type() const override
+    {
+        return GATHER; //  UNSUPPORTED <=-=-------------------------------------- FIX ME
+    }
+
+    virtual size_t get_size() const override         { return _te.size; } // TODO: FIX conversion <----------------------------------------
+    virtual addr_t get_address() const override      { return _te.addr; };
+    virtual unsigned short get_type() const override { return _te.type; }
+
+    virtual void output(std::ostream & os) const override {
+        os << "InstrAddressInfoForNV: trace entry: type: [" << _te.type << "] size: [" << _te.size << "]";
+    }
+
+private:
+    trace_entry_t _te;
+};
 
 class MemPatternsForNV : public MemPatterns
 {
@@ -19,8 +55,8 @@ public:
     void handle_trace_entry(const trace_entry_t * tentry) override;
     void generate_patterns() override;
 
-    Metrics &     get_metrics(metrics_type) override;
-    InstrInfo &   get_iinfo(metrics_type) override;
+    Metrics &     get_metrics(mem_access_type) override;
+    InstrInfo &   get_iinfo(mem_access_type) override;
 
     Metrics &     get_gather_metrics() override  { return _metrics.first;  }
     Metrics &     get_scatter_metrics() override { return _metrics.second; }
@@ -39,7 +75,7 @@ public:
 
     //void process_traces();
     void update_source_lines();
-    double update_source_lines_from_binary(metrics_type);
+    double update_source_lines_from_binary(mem_access_type);
     void process_second_pass();
 
 private:
@@ -55,7 +91,7 @@ private:
 };
 
 
-Metrics & MemPatternsForNV::get_metrics(metrics_type m)
+Metrics & MemPatternsForNV::get_metrics(mem_access_type m)
 {
     switch (m)
     {
@@ -68,7 +104,7 @@ Metrics & MemPatternsForNV::get_metrics(metrics_type m)
     }
 }
 
-InstrInfo & MemPatternsForNV::get_iinfo(metrics_type m)
+InstrInfo & MemPatternsForNV::get_iinfo(mem_access_type m)
 {
     switch (m)
     {
@@ -81,10 +117,10 @@ InstrInfo & MemPatternsForNV::get_iinfo(metrics_type m)
     }
 }
 
-void MemPatternsForNV::handle_trace_entry(const trace_entry_t *tentry)
+void MemPatternsForNV::handle_trace_entry(const trace_entry_t * tentry)
 {
     // Call libgs_patterns
-    ::handle_trace_entry(*this, tentry);
+    ::handle_trace_entry(*this, InstrAddressInfoForNV(tentry));
 
     _traces.push_back(*tentry);
 
@@ -146,7 +182,7 @@ void MemPatternsForNV::process_second_pass()
     {
         trace_entry_t & drline = *itr;
 
-        breakout = ::handle_2nd_pass_trace_entry(&drline, get_gather_metrics(), get_scatter_metrics(),
+        breakout = ::handle_2nd_pass_trace_entry(InstrAddressInfoForNV(&drline), get_gather_metrics(), get_scatter_metrics(),
                                                  iaddr, maddr, mcnt, gather_base, scatter_base);
     }
 }

@@ -71,21 +71,56 @@ int drline_read(gzFile fp, trace_entry_t *val, trace_entry_t **p_val, int *edx) 
     return 1;
 }
 
+// An adapter for trace_entry_t
+class InstrAddressInfoForPin : public InstrAddressInfo
+{
+public:
+    InstrAddressInfoForPin(const trace_entry_t * te)
+    {
+        /// TODO: do we need to copy this, will we outlive trace_entry_t which is passed in ?
+        _te.type = te->type;
+        _te.size = te->size;
+        _te.addr = te->addr;
+    }
+    InstrAddressInfoForPin(const trace_entry_t te) : _te(te) { }
+
+    virtual ~InstrAddressInfoForPin() { }
+
+    virtual bool is_valid() const override       { return !(0 == _te.type && 0 == _te.size);        }
+    virtual bool is_mem_instr() const override   { return ((_te.type == 0x0) || (_te.type == 0x1)); }
+    virtual bool is_other_instr() const override { return ((_te.type >= 0xa) && (_te.type <= 0x10)) || (_te.type == 0x1e); }
+
+    virtual mem_access_type get_mem_instr_type() const override {
+        if (!is_mem_instr()) throw GSDataError("Not a Memory Instruction - unable to determine Instruction");
+        // Must be 0x0 or 0x1
+        if (_te.type == 0x0) return GATHER;
+        else return SCATTER;
+    }
+
+    virtual size_t get_size() const override         { return _te.size; } // TODO: FIX conversion <----------------------------------------
+    virtual addr_t get_address() const override      { return _te.addr; };
+    virtual unsigned short get_type() const override { return _te.type; }
+
+    virtual void output(std::ostream & os) const override {
+        os << "InstrAddressInfoForPin: trace entry: type: [" << _te.type << "] size: [" << _te.size << "]";
+    }
+
+private:
+    trace_entry_t _te;
+};
+
 class MemPatternsForPin : public MemPatterns
 {
 public:
     MemPatternsForPin() : _metrics(GATHER, SCATTER),
-                          _iinfo(GATHER, SCATTER)
-    {
-    }
-
+                          _iinfo(GATHER, SCATTER) { }
     virtual ~MemPatternsForPin() override { }
 
     void handle_trace_entry(const trace_entry_t * tentry) override;
     void generate_patterns() override;
 
-    Metrics &     get_metrics(metrics_type) override;
-    InstrInfo &   get_iinfo(metrics_type) override;
+    Metrics &     get_metrics(mem_access_type) override;
+    InstrInfo &   get_iinfo(mem_access_type) override;
 
     Metrics &     get_gather_metrics() override  { return _metrics.first;  }
     Metrics &     get_scatter_metrics() override { return _metrics.second; }
@@ -106,7 +141,7 @@ public:
 
     void process_traces();
     void update_source_lines();
-    double update_source_lines_from_binary(metrics_type);
+    double update_source_lines_from_binary(mem_access_type);
     void process_second_pass(gzFile & fp_drtrace);
 
 private:
@@ -119,7 +154,7 @@ private:
     std::string                     _binary_file_name;
 };
 
-Metrics & MemPatternsForPin::get_metrics(metrics_type m)
+Metrics & MemPatternsForPin::get_metrics(mem_access_type m)
 {
     switch (m)
     {
@@ -132,7 +167,7 @@ Metrics & MemPatternsForPin::get_metrics(metrics_type m)
     }
 }
 
-InstrInfo & MemPatternsForPin::get_iinfo(metrics_type m)
+InstrInfo & MemPatternsForPin::get_iinfo(mem_access_type m)
 {
     switch (m)
     {
@@ -145,10 +180,10 @@ InstrInfo & MemPatternsForPin::get_iinfo(metrics_type m)
     }
 }
 
-void MemPatternsForPin::handle_trace_entry(const trace_entry_t *tentry)
+void MemPatternsForPin::handle_trace_entry(const trace_entry_t * tentry)
 {
     // Call libgs_patterns
-    ::handle_trace_entry(*this, tentry);
+    ::handle_trace_entry(*this, InstrAddressInfoForPin(tentry));
 }
 
 void MemPatternsForPin::generate_patterns()
@@ -200,7 +235,7 @@ std::string MemPatternsForPin::get_trace_file_prefix()
     return prefix;
 }
 
-double MemPatternsForPin::update_source_lines_from_binary(metrics_type mType)
+double MemPatternsForPin::update_source_lines_from_binary(mem_access_type mType)
 {
     double scatter_cnt = 0.0;
 
@@ -243,7 +278,6 @@ void MemPatternsForPin::process_traces()
         //decode drtrace
         drline = p_drtrace;
 
-        //handle_trace_entry(drline, trace_info, gather_iinfo, scatter_iinfo, gather_metrics, scatter_metrics, iw);
         handle_trace_entry(drline);
 
         p_drtrace++;
@@ -279,15 +313,14 @@ void MemPatternsForPin::process_second_pass(gzFile & fp_drtrace)
     trace_entry_t drtrace[NBUFS];   // was static (1024 bytes)
 
     while (drline_read(fp_drtrace, drtrace, &p_drtrace, &iret) && !breakout) {
-
         //decode drtrace
         drline = p_drtrace;
 
-        breakout = ::handle_2nd_pass_trace_entry(drline, get_gather_metrics(), get_scatter_metrics(),
+        breakout = ::handle_2nd_pass_trace_entry(InstrAddressInfoForPin(drline), get_gather_metrics(), get_scatter_metrics(),
                                                   iaddr, maddr, mcnt, gather_base, scatter_base);
 
         p_drtrace++;
-    }  //while drtrace
+    }
 }
 
 void MemPatternsForPin::update_source_lines()

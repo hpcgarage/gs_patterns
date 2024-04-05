@@ -54,7 +54,7 @@ struct _trace_entry_t {
 }  __attribute__((packed));
 typedef struct _trace_entry_t trace_entry_t;
 
-typedef enum { GATHER=0, SCATTER } metrics_type;
+typedef enum { GATHER=0, SCATTER } mem_access_type;
 
 class GSError : public std::exception
 {
@@ -88,10 +88,38 @@ public:
     ~GSAllocError() {}
 };
 
+class InstrAddressInfo
+{
+public:
+    InstrAddressInfo() { }
+    virtual ~InstrAddressInfo() { }
+
+    virtual bool is_valid() const                      = 0;
+    virtual bool is_mem_instr() const                  = 0;
+    virtual bool is_other_instr() const                = 0;
+    virtual mem_access_type get_mem_instr_type() const = 0;
+
+    virtual size_t get_size() const                   = 0;
+    virtual addr_t get_address() const                = 0;
+    virtual unsigned short get_type() const           = 0;
+    // multiple?
+
+    virtual bool is_gather() const
+    { return (is_valid() && is_mem_instr() && GATHER == get_mem_instr_type()) ? true : false; }
+
+    virtual bool is_scatter() const
+    { return (is_valid() && is_mem_instr() && SCATTER == get_mem_instr_type()) ? true : false; }
+
+    virtual void output(std::ostream & os) const      = 0;
+};
+
+std::ostream & operator<<(std::ostream & os, const InstrAddressInfo & ia);
+
+
 class Metrics
 {
 public:
-    Metrics(metrics_type mType) : _mType(mType)
+    Metrics(mem_access_type mType) : _mType(mType)
     {
         /// TODO: Convert to new/free
         for (int j = 0; j < NTOP; j++) {
@@ -133,14 +161,14 @@ public:
 private:
     static char srcline[2][NGS][MAX_LINE_LENGTH]; // was static (may move out and have 1 per type)
 
-    metrics_type _mType;
+    mem_access_type _mType;
 };
 
 
 class InstrInfo
 {
 public:
-    InstrInfo(metrics_type mType) : _mType(mType) { }
+    InstrInfo(mem_access_type mType) : _mType(mType) { }
     ~InstrInfo() { }
 
     InstrInfo(const InstrInfo &) = delete;
@@ -155,7 +183,7 @@ private:
     static int64_t icnt[2][NGS];
     static int64_t occ[2][NGS];
 
-    metrics_type _mType;
+    mem_access_type _mType;
 };
 
 class TraceInfo  // Stats
@@ -233,8 +261,8 @@ public:
     virtual void handle_trace_entry(const trace_entry_t * te) = 0;
     virtual void generate_patterns() = 0;
 
-    virtual Metrics &     get_metrics(metrics_type) = 0;
-    virtual InstrInfo &   get_iinfo(metrics_type)   = 0;
+    virtual Metrics &     get_metrics(mem_access_type) = 0;
+    virtual InstrInfo &   get_iinfo(mem_access_type)   = 0;
 
     virtual Metrics &     get_gather_metrics()      = 0;
     virtual Metrics &     get_scatter_metrics()     = 0;
@@ -242,5 +270,4 @@ public:
     virtual InstrInfo &   get_scatter_iinfo()       = 0;
     virtual TraceInfo &   get_trace_info()          = 0;
     virtual InstrWindow & get_instr_window()        = 0;
-
 };
