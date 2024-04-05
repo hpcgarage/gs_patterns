@@ -205,7 +205,7 @@ void normalize_stats(Metrics & target_metrics)
     }
 }
 
-void handle_trace_entry(MemPatterns & mp, const InstrAddressInfo & ia)
+void handle_trace_entry(MemPatterns & mp, const InstrAddrAdapter & ia)
 {
     int i, j, k, w;
     int w_rw_idx;
@@ -466,7 +466,7 @@ int get_top_target(InstrInfo & target_iinfo, Metrics & target_metrics)
     return target_ntop;
 }
 
-bool handle_2nd_pass_trace_entry(const InstrAddressInfo & ia,
+bool handle_2nd_pass_trace_entry(const InstrAddrAdapter & ia,
                                  Metrics & gather_metrics, Metrics & scatter_metrics,
                                  addr_t & iaddr, int64_t & maddr, uint64_t & mcnt,
                                  addr_t * gather_base, addr_t * scatter_base)
@@ -557,7 +557,7 @@ bool handle_2nd_pass_trace_entry(const InstrAddressInfo & ia,
     return breakout;
 }
 
-std::ostream & operator<<(std::ostream & os, const InstrAddressInfo & ia)
+std::ostream & operator<<(std::ostream & os, const InstrAddrAdapter & ia)
 {
     ia.output(os);
     return os;

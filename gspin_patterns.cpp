@@ -88,19 +88,19 @@ int drline_read(gzFile fp, trace_entry_t *val, trace_entry_t **p_val, int *edx) 
 }
 
 // An adapter for trace_entry_t
-class InstrAddressInfoForPin : public InstrAddressInfo
+class InstrAddrAdapterForPin : public InstrAddrAdapter
 {
 public:
-    InstrAddressInfoForPin(const trace_entry_t * te)
+    InstrAddrAdapterForPin(const trace_entry_t * te)
     {
         /// TODO: do we need to copy this, will we outlive trace_entry_t which is passed in ?
         _te.type = te->type;
         _te.size = te->size;
         _te.addr = te->addr;
     }
-    InstrAddressInfoForPin(const trace_entry_t te) : _te(te) { }
+    InstrAddrAdapterForPin(const trace_entry_t te) : _te(te) { }
 
-    virtual ~InstrAddressInfoForPin() { }
+    virtual ~InstrAddrAdapterForPin() { }
 
     virtual bool is_valid() const override       { return !(0 == _te.type && 0 == _te.size);        }
     virtual bool is_mem_instr() const override   { return ((_te.type == 0x0) || (_te.type == 0x1)); }
@@ -118,7 +118,7 @@ public:
     virtual unsigned short get_type() const override { return _te.type; }
 
     virtual void output(std::ostream & os) const override {
-        os << "InstrAddressInfoForPin: trace entry: type: [" << _te.type << "] size: [" << _te.size << "]";
+        os << "InstrAddrAdapterForPin: trace entry: type: [" << _te.type << "] size: [" << _te.size << "]";
     }
 
 private:
@@ -132,7 +132,7 @@ public:
                           _iinfo(GATHER, SCATTER) { }
     virtual ~MemPatternsForPin() override { }
 
-    void handle_trace_entry(const InstrAddressInfo & ia) override;
+    void handle_trace_entry(const InstrAddrAdapter & ia) override;
     void generate_patterns() override;
 
     Metrics &     get_metrics(mem_access_type) override;
@@ -196,7 +196,7 @@ InstrInfo & MemPatternsForPin::get_iinfo(mem_access_type m)
     }
 }
 
-void MemPatternsForPin::handle_trace_entry(const InstrAddressInfo & ia)
+void MemPatternsForPin::handle_trace_entry(const InstrAddrAdapter & ia)
 {
     // Call libgs_patterns
     ::handle_trace_entry(*this, ia);
@@ -294,7 +294,7 @@ void MemPatternsForPin::process_traces()
         //decode drtrace
         drline = p_drtrace;
 
-        handle_trace_entry(InstrAddressInfoForPin(drline));
+        handle_trace_entry(InstrAddrAdapterForPin(drline));
 
         p_drtrace++;
     }
@@ -332,8 +332,8 @@ void MemPatternsForPin::process_second_pass(gzFile & fp_drtrace)
         //decode drtrace
         drline = p_drtrace;
 
-        breakout = ::handle_2nd_pass_trace_entry(InstrAddressInfoForPin(drline), get_gather_metrics(), get_scatter_metrics(),
-                                                  iaddr, maddr, mcnt, gather_base, scatter_base);
+        breakout = ::handle_2nd_pass_trace_entry(InstrAddrAdapterForPin(drline), get_gather_metrics(), get_scatter_metrics(),
+                                                 iaddr, maddr, mcnt, gather_base, scatter_base);
 
         p_drtrace++;
     }

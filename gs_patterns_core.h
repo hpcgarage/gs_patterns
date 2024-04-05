@@ -11,7 +11,7 @@
 
 void translate_iaddr(const std::string & binary, char * source_line, addr_t iaddr);
 
-void handle_trace_entry(MemPatterns & mp, const InstrAddressInfo & ia);
+void handle_trace_entry(MemPatterns & mp, const InstrAddrAdapter & ia);
 
 void display_stats(MemPatterns & mp);
 
@@ -19,7 +19,7 @@ int get_top_target(InstrInfo & target_iinfo, Metrics & target_metrics);
 
 void normalize_stats(Metrics & target_metrics);
 
-bool handle_2nd_pass_trace_entry(const InstrAddressInfo & ia,
+bool handle_2nd_pass_trace_entry(const InstrAddrAdapter & ia,
                                  Metrics & gather_metrics, Metrics & scatter_metrics,
                                  addr_t & iaddr, int64_t & maddr, uint64_t & mcnt,
                                  addr_t * gather_base, addr_t * scatter_base);

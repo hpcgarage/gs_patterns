@@ -18,7 +18,7 @@ add_library(gs_patterns_core STATIC
 )
 
 add_executable( gs_patterns
-        gs_patterns.cpp )
+        gspin_patterns.cpp)
 
 target_link_libraries(gs_patterns gs_patterns_core)
 

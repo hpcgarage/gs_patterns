@@ -19,18 +19,18 @@ struct _trace_entry_t {
 typedef struct _trace_entry_t trace_entry_t;
 
 // An adapter for trace_entry_t (temporaritly untl replaced with nvbit memory detail type)
-class InstrAddressInfoForNV : public InstrAddressInfo
+class InstrAddrAdapterForNV : public InstrAddrAdapter
 {
 public:
-    InstrAddressInfoForNV(const trace_entry_t * te)
+    InstrAddrAdapterForNV(const trace_entry_t * te)
     {
         _te.type = te->type;
         _te.size = te->size;
         _te.addr = te->addr;
     }
-    InstrAddressInfoForNV(const trace_entry_t te) : _te(te) { }
+    InstrAddrAdapterForNV(const trace_entry_t te) : _te(te) { }
 
-    virtual ~InstrAddressInfoForNV() { }
+    virtual ~InstrAddrAdapterForNV() { }
 
     virtual bool is_valid() const override       { return false; }
     virtual bool is_mem_instr() const override   { return false; }
@@ -47,7 +47,7 @@ public:
     virtual unsigned short get_type() const override { return _te.type; }
 
     virtual void output(std::ostream & os) const override {
-        os << "InstrAddressInfoForNV: trace entry: type: [" << _te.type << "] size: [" << _te.size << "]";
+        os << "InstrAddrAdapterForNV: trace entry: type: [" << _te.type << "] size: [" << _te.size << "]";
     }
 
 private:
@@ -63,7 +63,7 @@ public:
 
     virtual ~MemPatternsForNV() override { }
 
-    void handle_trace_entry(const InstrAddressInfo & ia) override;
+    void handle_trace_entry(const InstrAddrAdapter & ia) override;
     void generate_patterns() override;
 
     Metrics &     get_metrics(mem_access_type) override;
@@ -98,7 +98,7 @@ private:
     std::string                        _binary_file_name;
     std::string                        _file_prefix;
 
-    std::vector<InstrAddressInfoForNV> _traces;
+    std::vector<InstrAddrAdapterForNV> _traces;
 };
 
 
@@ -128,12 +128,12 @@ InstrInfo & MemPatternsForNV::get_iinfo(mem_access_type m)
     }
 }
 
-void MemPatternsForNV::handle_trace_entry(const InstrAddressInfo & ia)
+void MemPatternsForNV::handle_trace_entry(const InstrAddrAdapter & ia)
 {
     // Call libgs_patterns
     ::handle_trace_entry(*this, ia);
 
-    const InstrAddressInfoForNV & ianv = dynamic_cast<const InstrAddressInfoForNV &> (ia);
+    const InstrAddrAdapterForNV & ianv = dynamic_cast<const InstrAddrAdapterForNV &> (ia);
     _traces.push_back(ianv);
 
     // TODO: Determine how to get source lines
@@ -192,7 +192,7 @@ void MemPatternsForNV::process_second_pass()
 
     for (auto itr = _traces.begin(); itr != _traces.end(); ++itr)
     {
-        InstrAddressInfo & ia = *itr;
+        InstrAddrAdapter & ia = *itr;
 
         breakout = ::handle_2nd_pass_trace_entry(ia, get_gather_metrics(), get_scatter_metrics(),
                                                  iaddr, maddr, mcnt, gather_base, scatter_base);

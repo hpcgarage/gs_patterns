@@ -71,11 +71,11 @@ public:
     ~GSAllocError() {}
 };
 
-class InstrAddressInfo
+class InstrAddrAdapter
 {
 public:
-    InstrAddressInfo() { }
-    virtual ~InstrAddressInfo() { }
+    InstrAddrAdapter() { }
+    virtual ~InstrAddrAdapter() { }
 
     virtual bool is_valid() const                      = 0;
     virtual bool is_mem_instr() const                  = 0;
@@ -96,7 +96,7 @@ public:
     virtual void output(std::ostream & os) const      = 0;
 };
 
-std::ostream & operator<<(std::ostream & os, const InstrAddressInfo & ia);
+std::ostream & operator<<(std::ostream & os, const InstrAddrAdapter & ia);
 
 
 class Metrics
@@ -239,7 +239,7 @@ public:
     MemPatterns(const MemPatterns &) = delete;
     MemPatterns & operator=(const MemPatterns &) = delete;
 
-    virtual void handle_trace_entry(const InstrAddressInfo & ia) = 0;
+    virtual void handle_trace_entry(const InstrAddrAdapter & ia) = 0;
     virtual void generate_patterns() = 0;
 
     virtual Metrics &     get_metrics(mem_access_type) = 0;
