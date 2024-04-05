@@ -34,14 +34,9 @@
 //DONT CHANGE
 #define VBYTES (VBITS/8)
 
-//address status
-#define ADDREND   (0xFFFFFFFFFFFFFFFFUL)
-#define ADDRUSYNC (0xFFFFFFFFFFFFFFFEUL)
-
 #define MAX_LINE_LENGTH 1024
 
 typedef uintptr_t addr_t;
-
 typedef enum { GATHER=0, SCATTER } mem_access_type;
 
 class GSError : public std::exception
@@ -135,7 +130,6 @@ public:
 
     auto get_srcline() { return srcline[_mType]; }
 
-//private:
     int      ntop = 0;
     double   cnt = 0.0;
     int      offset[NTOP]  = {0};
@@ -193,7 +187,6 @@ public:
     double  scatter_occ_avg = 0.0;
 
     uint64_t     mcnt  = 0;
-
 };
 
 class InstrWindow

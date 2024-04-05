@@ -21,6 +21,10 @@
 #define KMAG  "\x1B[35m"
 #define KCYN  "\x1B[36m"
 
+//address status
+#define ADDREND   (0xFFFFFFFFFFFFFFFFUL)
+#define ADDRUSYNC (0xFFFFFFFFFFFFFFFEUL)
+
 // Class Static data initialization
 char    Metrics::srcline[2][NGS][MAX_LINE_LENGTH];
 addr_t  InstrInfo::iaddrs[2][NGS];

@@ -5,7 +5,6 @@
 #pragma once
 
 #include <stdio.h>
-#include <zlib.h>
 #include <string>
 
 #include "gs_patterns.h"
