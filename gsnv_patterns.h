@@ -280,7 +280,7 @@ public:
     }
 #endif
 
-    std::vector<trace_entry_t> convert_to_trace_entry(const mem_access_t & ma)
+    std::vector<trace_entry_t> convert_to_trace_entry(const mem_access_t & ma, bool ignore_partial_warps)
     {
         // opcode : forms LD.E.64, ST.E.64
         //std::string mem_type;
@@ -309,6 +309,11 @@ public:
             {
                 trace_entry_t te { mem_type_code, mem_size, ma.addrs[i] };
                 te_list.push_back(te);
+            }
+            else if (ignore_partial_warps)
+            {
+                // Ignore memory_accesses which have less than MemPatternsForNV::CTA_LENGTH
+                return std::vector<trace_entry_t>();
             }
         }
         return std::move(te_list);
@@ -541,18 +546,22 @@ void MemPatternsForNV::handle_cta_memory_access(const mem_access_t * ma)
 #if 0
     std::stringstream ss;
     //ss << "CTX " << HEX(ctx) << " - grid_launch_id "
-    ss << "GSNV_PATTERNS: CTX " << " - grid_launch_id "
+    ss << "GSNV_TRACE: CTX " << " - grid_launch_id "
        << ma->grid_launch_id << " - CTA " << ma->cta_id_x << "," << ma->cta_id_y << "," << ma->cta_id_z
-       << " - warp " << ma->warp_id << " - " << get_opcode(ma->opcode_id) << " - ";
+       << " - warp " << ma->warp_id << " - " << get_opcode(ma->opcode_id)
+       << " - shortOpcode: " << ma->opcode_short_id
+       << " isLoad: " << ma->is_load << " isStore: " << ma->is_store << " - ";
+
     for (int i = 0; i < MemPatternsForNV::CTA_LENGTH; i++) {
         ss << HEX(ma->addrs[i]) << " ";
     }
     std::cout << ss.str() << std::endl;
 #endif
 
-    std::vector<trace_entry_t> te_list = convert_to_trace_entry(*ma);
+    // Convert to vector of trace_entry_t if full warp. ignore partial warps.
+    std::vector<trace_entry_t> te_list = convert_to_trace_entry(*ma, true);
     uint64_t min_size = !te_list.empty() ? (te_list[0].size) + 1 : 0;
-    if (valid_gs_stride(te_list, min_size))
+    if (min_size > 0 && valid_gs_stride(te_list, min_size))
     {
         for (auto it = te_list.begin(); it != te_list.end(); it++)
         {

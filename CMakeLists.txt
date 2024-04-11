@@ -22,10 +22,10 @@ add_library(gs_patterns_core SHARED
 add_executable( gs_patterns
         gspin_patterns.cpp)
 
-add_executable(test gsnv_test.cpp)
+add_executable(gsnv_test gsnv_test.cpp)
 
 target_link_libraries(gs_patterns gs_patterns_core)
-target_link_libraries(test gs_patterns_core)
+target_link_libraries(gsnv_test gs_patterns_core)
 
 
 set(CMAKE_CXX_STANDARD_LIBRARIES "-lm -lz ${CMAKE_CXX_STANDARD_LIBRARIES}")
