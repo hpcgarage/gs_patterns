@@ -45,7 +45,12 @@
 #include "utils/channel.hpp"
 
 /* contains definition of the mem_access_t structure */
-#include "common.h"
+//#include "common.h"
+
+#include <gs_patterns.h>
+#include <gs_patterns_core.h>
+#include <gsnv_patterns.h>
+
 
 #define HEX(x)                                                            \
     "0x" << std::setfill('0') << std::setw(16) << std::hex << (uint64_t)x \
@@ -81,6 +86,11 @@ int verbose = 0;
 std::map<std::string, int> opcode_to_id_map;
 std::map<int, std::string> id_to_opcode_map;
 
+// Instantiate GSPatterns for NVBit
+std::unique_ptr<MemPatternsForNV> mp(new MemPatternsForNV);
+
+
+
 /* grid launch id, incremented at every launch */
 uint64_t grid_launch_id = 0;
 
@@ -101,6 +111,8 @@ void nvbit_at_init() {
     pthread_mutexattr_init(&attr);
     pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
     pthread_mutex_init(&mutex, &attr);
+
+    // -- init #1
 }
 
 /* Set used to avoid re-instrumenting the same functions multiple times */
@@ -149,14 +161,16 @@ void instrument_function_if_needed(CUcontext ctx, CUfunction func) {
                 instr->printDecoded();
             }
 
-            if (opcode_to_id_map.find(instr->getOpcode()) ==
-                opcode_to_id_map.end()) {
+            if (opcode_to_id_map.find(instr->getOpcode()) == opcode_to_id_map.end()) {
                 int opcode_id = opcode_to_id_map.size();
                 opcode_to_id_map[instr->getOpcode()] = opcode_id;
                 id_to_opcode_map[opcode_id] = std::string(instr->getOpcode());
             }
 
             int opcode_id = opcode_to_id_map[instr->getOpcode()];
+
+            mp->add_or_update_opcode(opcode_id, instr->getOpcode());
+
             int mref_idx = 0;
             /* iterate on the operands */
             for (int i = 0; i < instr->getNumOperands(); i++) {
@@ -254,6 +268,11 @@ void nvbit_at_cuda_event(CUcontext ctx, int is_exit, nvbit_api_cuda_t cbid,
                 p->gridDimY, p->gridDimZ, p->blockDimX, p->blockDimY,
                 p->blockDimZ, nregs, shmem_static_nbytes + p->sharedMemBytes,
                 (uint64_t)p->hStream);
+
+            // Dont add NVBit here
+            //trace_entry_t te { 1, 0, 0 };
+            //mp->handle_trace_entry(InstrAddrAdapterForNV( te ));
+
         }
     }
     skip_callback_flag = false;
@@ -302,8 +321,22 @@ void* recv_thread_fun(void* args) {
                     ss << HEX(ma->addrs[i]) << " ";
                 }
 
-                printf("MEMTRACE: %s\n", ss.str().c_str());
+                //printf("MEMTRACE: %s\n", ss.str().c_str());
                 num_processed_bytes += sizeof(mem_access_t);
+
+                try
+                {
+                    // Handle trace update here >> ---
+                    mp->add_or_update_opcode(ma->opcode_id, id_to_opcode_map[ma->opcode_id]);
+                    mp->handle_cta_memory_access(ma);
+                }
+                catch (std::exception & ex)
+                {
+                    std::cerr << "ERROR: " << ex.what() << std::endl;
+                }
+
+                // << ----------------------------
+
             }
         }
     }
@@ -324,6 +357,13 @@ void nvbit_at_ctx_init(CUcontext ctx) {
                                  ctx_state->channel_dev, recv_thread_fun, ctx);
     nvbit_set_tool_pthread(ctx_state->channel_host.get_thread());
     pthread_mutex_unlock(&mutex);
+
+    // -- init #2 - whats the difference
+    /// TODO: pull from env variables and set
+    if (1)
+    {
+        mp->set_trace_out_file("./trace_file.nvbit");
+    }
 }
 
 void nvbit_at_ctx_term(CUcontext ctx) {
@@ -347,4 +387,8 @@ void nvbit_at_ctx_term(CUcontext ctx) {
     skip_callback_flag = false;
     delete ctx_state;
     pthread_mutex_unlock(&mutex);
+
+    // Generate GS Pattern output fle
+    mp->generate_patterns();
+
 }

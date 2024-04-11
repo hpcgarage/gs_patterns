@@ -9,9 +9,11 @@ $(error ERROR: nvcc version >= $(NVCC_VER_REQ) required to compile an nvbit tool
 endif
 
 NVBIT_PATH=../../core
-INCLUDES=-I$(NVBIT_PATH)
+GSPATTERNS_CORE_PATH=../../../gs_patterns
+INCLUDES=-I$(NVBIT_PATH) -I$(GSPATTERNS_CORE_PATH)
 
-LIBS=-L$(NVBIT_PATH) -lnvbit
+
+LIBS=-L$(NVBIT_PATH) -lnvbit -L$(GSPATTERNS_CORE_PATH)/build -lgs_patterns_core
 NVCC_PATH=-L $(subst bin/nvcc,lib64,$(shell which nvcc | tr -s /))
 
 SOURCES=$(wildcard *.cu)
@@ -28,13 +30,15 @@ all: $(NVBIT_TOOL)
 
 $(NVBIT_TOOL): $(OBJECTS) $(NVBIT_PATH)/libnvbit.a
 	$(NVCC) -arch=sm_$(ARCH) -O3 $(OBJECTS) $(LIBS) $(NVCC_PATH) -lcuda -lcudart_static -shared -o $@
+#	$(NVCC) -arch=sm_$(ARCH) --device-debug -O3 -g $(OBJECTS) $(LIBS) $(NVCC_PATH) -lcuda -lcudart_static -shared -o $@
 
 %.o: %.cu
-	$(NVCC) -dc -c -std=c++11 $(INCLUDES) -Xptxas -cloning=no -Xcompiler -Wall -arch=sm_$(ARCH) -O3 -Xcompiler -fPIC $< -o $@
+	$(NVCC) -dc -c -std=c++17 $(INCLUDES) -Xptxas -cloning=no -Xcompiler -Wall -arch=sm_$(ARCH) -O3 -Xcompiler -fPIC $< -o $@
+#	$(NVCC) -dc -c -std=c++17 $(INCLUDES) -Xptxas -cloning=no -Xcompiler -Wall -arch=sm_$(ARCH) -O3 -Xcompiler -fPIC $< -o $@
 
 inject_funcs.o: inject_funcs.cu
-	#$(NVCC) $(INCLUDES) -maxrregcount=24 -Xptxas -astoolspatch --keep-device-functions -arch=sm_$(ARCH) -Xcompiler -Wall -Xcompiler -fPIC -c $< -o $@
 	$(NVCC) $(INCLUDES) -maxrregcount=16 -Xptxas -astoolspatch --keep-device-functions -arch=sm_$(ARCH) -Xcompiler -Wall -Xcompiler -fPIC -c $< -o $@
+#	$(NVCC) $(INCLUDES) -maxrregcount=24 -Xptxas -astoolspatch --keep-device-functions -arch=sm_$(ARCH) -Xcompiler -Wall -Xcompiler -fPIC -c $< -o $@
 
 clean:
 	rm -f *.so *.o
