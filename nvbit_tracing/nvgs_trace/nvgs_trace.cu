@@ -91,7 +91,6 @@ std::map<std::string, int> opcode_short_to_id_map;
 std::unique_ptr<MemPatternsForNV> mp(new MemPatternsForNV);
 
 
-
 /* grid launch id, incremented at every launch */
 uint64_t grid_launch_id = 0;
 

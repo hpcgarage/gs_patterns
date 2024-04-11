@@ -20,6 +20,9 @@ int main(int argc, char **argv)
         mp.add_or_update_opcode(0, "LD.E.64");
         mp.add_or_update_opcode(1, "ST.E.64");
 
+        mp.add_or_update_opcode_short(0, "LD");
+        mp.add_or_update_opcode_short(1, "ST");
+
         mp.process_traces();
 
         // ----------------- Generate Patterns -----------------

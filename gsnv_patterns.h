@@ -19,22 +19,6 @@
          << std::dec
 
 #include "nvbit_tracing/nvgs_trace/common.h"
-// Copying to redudce dependency on nvgs_patterns
-#if 0
-typedef struct {
-    uint64_t grid_launch_id;
-    int cta_id_x;
-    int cta_id_y;
-    int cta_id_z;
-    int warp_id;
-    int opcode_id;
-    int opcode_short_id;
-    int is_load;
-    int is_store;
-    int size;
-    uint64_t addrs[32];
-} mem_access_t;
-#endif
 
 struct _trace_entry_t {
     unsigned short type; // 2 bytes: trace_type_t
@@ -98,7 +82,7 @@ public:
 
     virtual mem_access_type get_mem_instr_type() const override { return (_te.type == 0) ? GATHER : SCATTER; }
 
-    virtual size_t get_size() const override         {  return _te.size / 8; } // in bytes
+    virtual size_t get_size() const override         {  return _te.size;  } // in bytes
     virtual addr_t get_address() const override      {  return _te.addr;  }
     virtual unsigned short get_type() const override {  return _te.type;  } // must be 0 for GATHER, 1 for SCATTER !!
 
@@ -130,6 +114,11 @@ public:
         std::cout << "-- OPCODE_ID to OPCODE MAPPING -- " << std::endl;
         for (auto itr = id_to_opcode_map.begin(); itr != id_to_opcode_map.end(); itr++) {
             std::cout << "OPCODE: " << itr->first << " -> " << itr->second << std::endl;
+        }
+
+        std::cout << "-- OPCODE_SHORT_ID to OPCODE_SHORT MAPPING -- " << std::endl;
+        for (auto itr = id_to_opcode_short_map.begin(); itr != id_to_opcode_short_map.end(); itr++) {
+            std::cout << "OPCODE_SHORT: " << itr->first << " -> " << itr->second << std::endl;
         }
 #endif
     }
@@ -226,6 +215,7 @@ public:
         throw GSDataError(ss.str());
     }
 
+#if 0
     std::vector<trace_entry_t> convert_to_trace_entry(const mem_access_t & ma)
     {
         // opcode : forms LD.E.64, ST.E.64
@@ -252,7 +242,7 @@ public:
                 case 1: mem_type = token;
                     if ("LD" == mem_type)      { mem_type_code = 0; }
                     else if ("ST" == mem_type) { mem_type_code = 1; }
-                    else throw GSDataError ("Invalid mem_type must be LD(1) or ST(1)");
+                    else throw GSDataError ("Invalid mem_type must be LD(0) or ST(1)");
                     break;
 
                 case 2: mem_attr = token;
@@ -288,55 +278,27 @@ public:
         }
         return std::move(te_list);
     }
+#endif
 
-    std::vector<trace_entry_t> convert_to_trace_entry_2(const mem_access_t & ma)
+    std::vector<trace_entry_t> convert_to_trace_entry(const mem_access_t & ma)
     {
         // opcode : forms LD.E.64, ST.E.64
+        //std::string mem_type;
+        uint16_t mem_size = ma.size;
+        uint16_t mem_type_code;
+        //uint16_t mem_attr_code = 0;
 
-        std::string mem_type;
-        std::string mem_attr;
-        uint16_t    mem_size = 0;
-        int count = 0;
-        uint16_t mem_type_code = 0;
-        uint16_t mem_attr_code = 0;
+        if (ma.is_load)
+            mem_type_code = GATHER;
+        else if (ma.is_store)
+            mem_type_code = SCATTER;
+        else
+            throw GSDataError ("Invalid mem_type must be LD(0) or ST(1)");
 
         //const char * m = reinterpret_cast<const char*>(&ma.opcode);
         //const std::string opcode(m, 8);
         std::string opcode = get_opcode(ma.opcode_id);
-
-        size_t start=0, pos = 0;
-        while (std::string::npos != (pos = opcode.find(".", start)))
-        {
-            count++;
-            std::string token = opcode.substr(start, pos-start);
-            uint64_t s;
-            switch (count)
-            {
-                case 1: mem_type = token;
-                    if ("LD" == mem_type)      { mem_type_code = 0; }
-                    else if ("ST" == mem_type) { mem_type_code = 1; }
-                    else throw GSDataError ("Invalid mem_type must be LD(1) or ST(1)");
-                    break;
-
-                case 2: mem_attr = token;
-                    if ("E" == mem_attr)      { mem_attr_code = 1; }
-                    else                      { mem_attr_code = 2; }
-                    break;
-
-                default:
-                    throw GSDataError("Unsupported opcode: " + opcode);
-            }
-            start = pos+1;
-        }
-        // Snag the rest as mem_size
-        if (start < opcode.length()) {
-            std::string token = opcode.substr(start, opcode.length());
-            int s = atoi(token.c_str());
-            mem_size = (uint16_t) s;
-        }
-        else {
-            throw GSDataError("Unsupported opcode: " + opcode);
-        }
+        std::string opcode_short = get_opcode_short(ma.opcode_short_id);
 
         // TODO: This is a SLOW way of doing this
         std::vector<trace_entry_t> te_list;
@@ -589,7 +551,7 @@ void MemPatternsForNV::handle_cta_memory_access(const mem_access_t * ma)
 #endif
 
     std::vector<trace_entry_t> te_list = convert_to_trace_entry(*ma);
-    uint64_t min_size = !te_list.empty() ? (te_list[0].size / 8) + 1 : 0;
+    uint64_t min_size = !te_list.empty() ? (te_list[0].size) + 1 : 0;
     if (valid_gs_stride(te_list, min_size))
     {
         for (auto it = te_list.begin(); it != te_list.end(); it++)
@@ -617,6 +579,8 @@ bool MemPatternsForNV::valid_gs_stride(const std::vector<trace_entry_t> & te_lis
         uint64_t diff = std::labs (last_addr - (uint64_t)te.addr);
         if (diff < min_stride_found)
             min_stride_found = diff;
+
+        last_addr = te.addr;
     }
 
     return min_stride_found >= min_stride;
