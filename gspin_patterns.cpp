@@ -100,9 +100,9 @@ public:
         else return SCATTER;
     }
 
-    virtual size_t get_size() const override         { return _te.size; } // TODO: FIX conversion <----------------------------------------
-    virtual addr_t get_address() const override      { return _te.addr; };
-    virtual unsigned short get_type() const override { return _te.type; }
+    virtual size_t get_size() const override         { return _te.size; }
+    virtual addr_t get_address() const override      { return _te.addr; }
+    virtual unsigned short get_type() const override { return _te.type; } // must be 0 for GATHER, 1 for SCATTER !!
 
     virtual void output(std::ostream & os) const override {
         os << "InstrAddrAdapterForPin: trace entry: type: [" << _te.type << "] size: [" << _te.size << "]";
@@ -140,7 +140,7 @@ public:
 
     void update_metrics();
 
-    std::string get_trace_file_prefix ();
+    std::string get_file_prefix ();
 
     void process_traces();
     void update_source_lines();
@@ -201,7 +201,7 @@ void MemPatternsForPin::generate_patterns()
 
     // ----------------- Create Spatter File -----------------
 
-    ::create_spatter_file(*this, get_trace_file_prefix());
+    ::create_spatter_file(*this, get_file_prefix());
 
 }
 
@@ -227,7 +227,7 @@ void MemPatternsForPin::update_metrics()
     close_trace_file(fp_drtrace);
 }
 
-std::string MemPatternsForPin::get_trace_file_prefix()
+std::string MemPatternsForPin::get_file_prefix()
 {
     std::string prefix = _trace_file_name;
     size_t pos = std::string::npos;

@@ -2,10 +2,35 @@
 #pragma  once
 
 #include <vector>
-#include <ostream>
+#include <iostream>
+#include <fstream>
+#include <iomanip>
+#include <zlib.h>
+#include <map>
+#include <stdlib.h>
+#include <cmath>
 
 #include "gs_patterns.h"
 #include "gs_patterns_core.h"
+#include "utils.h"
+
+#define HEX(x)                                                            \
+    "0x" << std::setfill('0') << std::setw(16) << std::hex << (uint64_t)x \
+         << std::dec
+
+//#include "common.h"
+// Copying to redudce dependency on nvgs_patterns
+#if 1
+typedef struct {
+    uint64_t grid_launch_id;
+    int cta_id_x;
+    int cta_id_y;
+    int cta_id_z;
+    int warp_id;
+    int opcode_id;
+    uint64_t addrs[32];
+} mem_access_t;
+#endif
 
 struct _trace_entry_t {
     unsigned short type; // 2 bytes: trace_type_t
@@ -17,50 +42,91 @@ struct _trace_entry_t {
 }  __attribute__((packed));
 typedef struct _trace_entry_t trace_entry_t;
 
+gzFile open_trace_file(const std::string & trace_file_name)
+{
+    gzFile fp;
+
+    fp = gzopen(trace_file_name.c_str(), "hrb");
+    if (NULL == fp) {
+        throw GSFileError("Could not open " + trace_file_name + "!");
+    }
+    return fp;
+}
+
+void close_trace_file (gzFile & fp)
+{
+    gzclose(fp);
+}
+
+int tline_read(gzFile fp, mem_access_t * val, mem_access_t **p_val, int *edx) {
+
+    int idx;
+
+    idx = (*edx) / sizeof(trace_entry_t);
+    //first read
+    if (NULL == *p_val) {
+        *edx = gzread(fp, val, sizeof(mem_access_t) * NBUFS);
+        *p_val = val;
+
+    } else if (*p_val == &val[idx]) {
+        *edx = gzread(fp, val, sizeof(mem_access_t) * NBUFS);
+        *p_val = val;
+    }
+
+    if (0 == *edx)
+        return 0;
+
+    return 1;
+}
+
 // An adapter for trace_entry_t (temporaritly untl replaced with nvbit memory detail type)
 class InstrAddrAdapterForNV : public InstrAddrAdapter
 {
 public:
-    InstrAddrAdapterForNV(const trace_entry_t * te)
-    {
-        _te.type = te->type;
-        _te.size = te->size;
-        _te.addr = te->addr;
-    }
+    InstrAddrAdapterForNV(const trace_entry_t * te) : _te(*te) { }
     InstrAddrAdapterForNV(const trace_entry_t te) : _te(te) { }
 
     virtual ~InstrAddrAdapterForNV() { }
 
-    virtual bool is_valid() const override       { return false; }
-    virtual bool is_mem_instr() const override   { return false; }
+    virtual bool is_valid() const override       { return true;  }
+    virtual bool is_mem_instr() const override   { return true;  }
     virtual bool is_other_instr() const override { return false; }
 
+    virtual mem_access_type get_mem_instr_type() const override { return (_te.type == 0) ? GATHER : SCATTER; }
 
-    virtual mem_access_type get_mem_instr_type() const override
-    {
-        return GATHER; //  UNSUPPORTED <=-=-------------------------------------- FIX ME
-    }
+    virtual size_t get_size() const override         {  return _te.size / 8; } // in bytes
+    virtual addr_t get_address() const override      {  return _te.addr;  }
+    virtual unsigned short get_type() const override {  return _te.type;  } // must be 0 for GATHER, 1 for SCATTER !!
 
-    virtual size_t get_size() const override         { return _te.size; } // TODO: FIX conversion <----------------------------------------
-    virtual addr_t get_address() const override      { return _te.addr; };
-    virtual unsigned short get_type() const override { return _te.type; }
-
-    virtual void output(std::ostream & os) const override {
-        os << "InstrAddrAdapterForNV: trace entry: type: [" << _te.type << "] size: [" << _te.size << "]";
-    }
+    virtual void output(std::ostream & os) const override {     os << "InstrAddrAdapterForNV: trace entry: type: [" << _te.type << "] size: [" << _te.size << "]";}
 
 private:
     trace_entry_t _te;
+    //mem_access_t _ma;
 };
 
 class MemPatternsForNV : public MemPatterns
 {
 public:
     MemPatternsForNV(): _metrics(GATHER, SCATTER),
-                        _iinfo(GATHER, SCATTER)
+                        _iinfo(GATHER, SCATTER),
+                        _ofs()
     { }
 
-    virtual ~MemPatternsForNV() override { }
+    virtual ~MemPatternsForNV() override {
+        if (_write_trace_file) {
+            _ofs.flush();
+            _ofs.close();
+        }
+
+        /// TODO: COMPRESS trace_file on exit
+#if 1
+        std::cout << "-- OPCODE_ID to OPCODE MAPPING -- " << std::endl;
+        for (auto itr = id_to_opcode_map.begin(); itr != id_to_opcode_map.end(); itr++) {
+            std::cout << "OPCODE: " << itr->first << " -> " << itr->second << std::endl;
+        }
+#endif
+    }
 
     void handle_trace_entry(const InstrAddrAdapter & ia) override;
     void generate_patterns() override;
@@ -75,29 +141,143 @@ public:
     TraceInfo &   get_trace_info() override      { return _trace_info;     }
     InstrWindow & get_instr_window() override    { return _iw;             }
 
-    //void set_binary_file(const std::string & binary_file_name) { _binary_file_name = binary_file_name; }
-    //const std::string & get_binary_file_name() { return _binary_file_name; }
+    void set_trace_file(const std::string & trace_file_name) { _trace_file_name = trace_file_name; }
+    const std::string & get_trace_file_name() { return _trace_file_name; }
+
+    void set_binary_file(const std::string & binary_file_name) { _binary_file_name = binary_file_name; }
+    const std::string & get_binary_file_name() { return _binary_file_name; }
 
     void set_file_prefix(const std::string & prefix) { _file_prefix = prefix; }
-    const std::string & get_file_prefix() { return _file_prefix; }
+    std::string get_file_prefix();
 
     void update_metrics();
 
-    //void process_traces();
-    void update_source_lines() { }
-    double update_source_lines_from_binary(mem_access_type) { return 0.0; }
+    std::string get_trace_file_prefix ();
+
+    void process_traces();
+    void update_source_lines();
+    double update_source_lines_from_binary(mem_access_type);
     void process_second_pass();
 
+    void set_trace_out_file(const std::string & trace_file_name) {
+        _trace_out_file_name = trace_file_name;
+
+        try
+        {
+            _ofs.open(trace_file_name, std::ios::binary);
+            if (_ofs.is_open()) _write_trace_file = true;
+        }
+        catch (...)
+        {
+            throw GSFileError("Unable to open " + trace_file_name + " for writing");
+        }
+    }
+
+    // Handle an nvbit CTA memory update
+    void handle_cta_memory_access(const mem_access_t * ma);
+    // Validate cta stride is within minimum
+    bool valid_gs_stride(const std::vector<trace_entry_t> & te_list, const uint32_t min_stride);
+
+    // store opcode mappings
+    bool add_or_update_opcode(int opcode_id, const std::string & opcode) {
+        auto it = id_to_opcode_map.find(opcode_id);
+        if (it == id_to_opcode_map.end()) {
+            id_to_opcode_map[opcode_id] = opcode;
+            //std::cout << "OPCODE: " << opcode_id << " -> " << opcode << std::endl;
+            return true;
+        }
+        return false;
+    }
+    // retreive opcode mapping by opcode_id
+    const std::string & get_opcode(int opcode_id) {
+        auto result = id_to_opcode_map.find(opcode_id);
+        if (result != id_to_opcode_map.end()) {
+            return result->second;
+        }
+        std::stringstream ss;
+        ss << "Unknown opcode_id: " << opcode_id;
+        throw GSDataError(ss.str());
+    }
+
+    std::vector<trace_entry_t> convert_to_trace_entry(const mem_access_t & ma)
+    {
+        // opcode : forms LD.E.64, ST.E.64
+
+        std::string mem_type;
+        std::string mem_attr;
+        uint16_t    mem_size = 0;
+        int count = 0;
+        uint16_t mem_type_code = 0;
+        uint16_t mem_attr_code = 0;
+
+        //const char * m = reinterpret_cast<const char*>(&ma.opcode);
+        //const std::string opcode(m, 8);
+        std::string opcode = get_opcode(ma.opcode_id);
+
+        size_t start=0, pos = 0;
+        while (std::string::npos != (pos = opcode.find(".", start)))
+        {
+            count++;
+            std::string token = opcode.substr(start, pos-start);
+            uint64_t s;
+            switch (count)
+            {
+                case 1: mem_type = token;
+                    if ("LD" == mem_type)      { mem_type_code = 0; }
+                    else if ("ST" == mem_type) { mem_type_code = 1; }
+                    else throw GSDataError ("Invalid mem_type must be LD(1) or ST(1)");
+                    break;
+
+                case 2: mem_attr = token;
+                    if ("E" == mem_attr)      { mem_attr_code = 1; }
+                    else                      { mem_attr_code = 2; }
+                    break;
+
+                default:
+                    throw GSDataError("Unsupported opcode: " + opcode);
+            }
+            start = pos+1;
+        }
+        // Snag the rest as mem_size
+        if (start < opcode.length()) {
+            std::string token = opcode.substr(start, opcode.length());
+            int s = atoi(token.c_str());
+            mem_size = (uint16_t) s;
+        }
+        else {
+            throw GSDataError("Unsupported opcode: " + opcode);
+        }
+
+        std::vector<trace_entry_t> te_list;
+        for (int i = 0; i < 32; i++)
+        {
+            if (ma.addrs[i] != 0)
+            {
+                trace_entry_t te { mem_type_code, mem_size, ma.addrs[i] };
+                te_list.push_back(te);
+            }
+        }
+        return std::move(te_list);
+    }
+
 private:
+
     std::pair<Metrics, Metrics>        _metrics;
     std::pair<InstrInfo, InstrInfo>    _iinfo;
     TraceInfo                          _trace_info;
     InstrWindow                        _iw;
 
+    std::string                        _trace_file_name;
     std::string                        _binary_file_name;
     std::string                        _file_prefix;
 
+    std::string                        _trace_out_file_name;
+    bool                               _write_trace_file = false;
+    std::ofstream                      _ofs;
     std::vector<InstrAddrAdapterForNV> _traces;
+
+    //std::map<std::string, int> opcode_to_id_map;
+    std::map<int, std::string> id_to_opcode_map;
 };
 
 
@@ -172,12 +352,111 @@ void MemPatternsForNV::update_metrics()
     ::normalize_stats(get_scatter_metrics());
 }
 
+std::string MemPatternsForNV::get_file_prefix()
+{
+    if (!_file_prefix.empty()) return _file_prefix;
+
+    // If no file_prefix was set try extracting one from trace_file
+    std::string prefix = _trace_file_name;
+    size_t pos = std::string::npos;
+    while (std::string::npos != (pos = prefix.find(".gz")))
+    {
+        prefix.replace(pos, 3, "");
+    }
+    return prefix;
+}
+
+// First Pass
+void MemPatternsForNV::process_traces()
+{
+    int iret = 0;
+    mem_access_t * t_line;
+    InstrWindow iw;
+
+    gzFile fp_trace = open_trace_file(get_trace_file_name());
+
+    printf("First pass to find top gather / scatter iaddresses\n");
+    fflush(stdout);
+
+    mem_access_t * p_trace = NULL;
+    mem_access_t trace_buff[NBUFS]; // was static (1024 bytes)
+
+    while (tline_read(fp_trace, trace_buff, &p_trace, &iret)) {
+        //decode drtrace
+        t_line = p_trace;
+
+        if (-1 == t_line->cta_id_x) { break; }
+
+        try
+        {
+            handle_cta_memory_access(t_line);
+
+            p_trace++;
+        }
+        catch (const GSError & ex) {
+            std::cerr << "ERROR: " << ex.what() << std::endl;
+            throw;
+        }
+    }
+
+    close_trace_file(fp_trace);
+
+    //metrics
+    get_trace_info().gather_occ_avg /= get_gather_metrics().cnt;
+    get_trace_info().scatter_occ_avg /= get_scatter_metrics().cnt;
+
+    display_stats(*this);
+
+}
+
+
+// TRY
+void MemPatternsForNV::update_source_lines()
+{
+    // Find source lines for gathers - Must have symbol
+    printf("\nSymbol table lookup for gathers...");
+    fflush(stdout);
+
+    get_gather_metrics().cnt = update_source_lines_from_binary(GATHER);
+
+    // Find source lines for scatters
+    printf("Symbol table lookup for scatters...");
+    fflush(stdout);
+
+    get_scatter_metrics().cnt = update_source_lines_from_binary(SCATTER);
+}
+
+// TRY
+double MemPatternsForNV::update_source_lines_from_binary(mem_access_type mType)
+{
+    double scatter_cnt = 0.0;
+
+    InstrInfo & target_iinfo   = get_iinfo(mType);
+    Metrics &   target_metrics = get_metrics(mType);
+
+    //Check it is not a library
+    for (int k = 0; k < NGS; k++) {
+
+        if (0 == target_iinfo.get_iaddrs()[k]) {
+            break;
+        }
+        translate_iaddr(get_binary_file_name(), target_metrics.get_srcline()[k], target_iinfo.get_iaddrs()[k]);
+        if (startswith(target_metrics.get_srcline()[k], "?"))
+            target_iinfo.get_icnt()[k] = 0;
+
+        scatter_cnt += target_iinfo.get_icnt()[k];
+    }
+    printf("done.\n");
+
+    return scatter_cnt;
+
+}
 
 void MemPatternsForNV::process_second_pass()
 {
     uint64_t mcnt = 0;  // used our own local mcnt while iterating over file in this method.
     int iret = 0;
-    trace_entry_t *drline;
+//    trace_entry_t *drline;
 
     // State carried thru
     addr_t iaddr;
@@ -196,4 +475,56 @@ void MemPatternsForNV::process_second_pass()
         breakout = ::handle_2nd_pass_trace_entry(ia, get_gather_metrics(), get_scatter_metrics(),
                                                  iaddr, maddr, mcnt, gather_base, scatter_base);
     }
+}
+
+void MemPatternsForNV::handle_cta_memory_access(const mem_access_t * ma)
+{
+    if (_write_trace_file && _ofs.is_open()) {
+        // Write entry to trace_output file
+        _ofs.write(reinterpret_cast<const char*>(ma), sizeof *ma);
+    }
+#if 0
+    std::stringstream ss;
+    //ss << "CTX " << HEX(ctx) << " - grid_launch_id "
+    ss << "GSNV_PATTERNS: CTX " << " - grid_launch_id "
+       << ma->grid_launch_id << " - CTA " << ma->cta_id_x << "," << ma->cta_id_y << "," << ma->cta_id_z
+       << " - warp " << ma->warp_id << " - " << get_opcode(ma->opcode_id) << " - ";
+    for (int i = 0; i < 32; i++) {
+        ss << HEX(ma->addrs[i]) << " ";
+    }
+    std::cout << ss.str() << std::endl;
+#endif
+
+    std::vector<trace_entry_t> te_list = convert_to_trace_entry(*ma);
+    uint64_t min_size = !te_list.empty() ? (te_list[0].size / 8) + 1 : 0;
+    if (valid_gs_stride(te_list, min_size))
+    {
+        for (auto it = te_list.begin(); it != te_list.end(); it++)
+        {
+            handle_trace_entry(InstrAddrAdapterForNV(*it));
+        }
+    }
+}
+
+bool MemPatternsForNV::valid_gs_stride(const std::vector<trace_entry_t> & te_list, const uint32_t min_stride)
+{
+    bool valid_stride = false;
+    uint32_t min_stride_found = INT32_MAX;
+    uint64_t last_addr = 0;
+    bool first = true;
+    for (auto it = te_list.begin(); it != te_list.end(); it++)
+    {
+        const trace_entry_t & te = *it;
+        if (first) {
+            first = false;
+            last_addr = te.addr;
+            continue;
+        }
+
+        uint64_t diff = std::labs (last_addr - (uint64_t)te.addr);
+        if (diff < min_stride_found)
+            min_stride_found = diff;
+    }
+
+    return min_stride_found >= min_stride;
 }

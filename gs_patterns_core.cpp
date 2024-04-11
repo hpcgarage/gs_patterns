@@ -37,7 +37,7 @@ void translate_iaddr(const std::string & binary, char *source_line, addr_t iaddr
 }
 
 
-void create_metrics_file(FILE *fp, FILE *fp2, const std::string & file_prefix, Metrics & target_metrics, bool & first_spatter)
+static void create_metrics_file(FILE *fp, FILE *fp2, const std::string & file_prefix, Metrics & target_metrics, bool & first_spatter)
 {
     int i = 0;
     int j = 0;
@@ -48,6 +48,8 @@ void create_metrics_file(FILE *fp, FILE *fp2, const std::string & file_prefix, M
     int64_t idx, pidx;
     int64_t n_stride[1027];
     double outbounds;
+
+    if (file_prefix.empty()) throw GSFileError ("Empty file prefix provided.");
 
     if (first_spatter) printf("\n");
 
@@ -153,6 +155,8 @@ void create_spatter_file(MemPatterns & mp, const std::string & file_prefix)
     // Create spatter file
     FILE *fp, *fp2;
 
+    if (file_prefix.empty()) throw GSFileError ("Empty file prefix provided.");
+
     std::string json_name = file_prefix + ".json";
     fp = fopen(json_name.c_str(), "w");
     if (NULL == fp) {
@@ -204,8 +208,8 @@ void normalize_stats(Metrics & target_metrics)
 
 void handle_trace_entry(MemPatterns & mp, const InstrAddrAdapter & ia)
 {
-    int i, j, k, w;
-    int w_rw_idx;
+    int i, j, k, w = 0;
+    int w_rw_idx;   // Index into instruction window first dimension (RW: 0=Gather(R) or 1=Scatter(W))
     int w_idx;
     int gs;
 
@@ -300,57 +304,39 @@ void handle_trace_entry(MemPatterns & mp, const InstrAddrAdapter & ia)
 
                         //gather / scatter
                         if (iw.maddr != iw.maddr_prev) {
-                            if ((gs == -1) && (abs(iw.maddr - iw.maddr_prev) > 1))
+                            if ((gs == -1) && (abs(iw.maddr - iw.maddr_prev) > 1))  // ? > 1 stride (non-contiguous)   <--------------------
                                 gs = w;
                         }
                         iw.maddr_prev = iw.maddr;
                     }
 
-                    for (j = 0; j < iw.w_cnt[w][i]; j++) {
+                    // Update other_cnt
+                    if (gs == -1) trace_info.other_cnt += iw.w_cnt[w][i];
 
-                        if (gs == -1) {
-                            trace_info.other_cnt++;
-                            continue;
+                    // GATHER or SCATTER handling
+                    if (gs == 0 || gs == 1) {
+                        InstrInfo & target_iinfo = (gs == 0) ? gather_iinfo : scatter_iinfo;
+
+                        if (gs == 0) {
+                            trace_info.gather_occ_avg += iw.w_cnt[w][i];
+                            gather_metrics.cnt += 1.0;
                         }
-                    }
-
-                    if (gs == 0) {  // GATHER
-
-                        trace_info.gather_occ_avg += iw.w_cnt[w][i];
-                        gather_metrics.cnt += 1.0;
-
-                        for (k = 0; k < NGS; k++) {
-                            if (gather_iinfo.get_iaddrs()[k] == 0) {
-                                gather_iinfo.get_iaddrs()[k] = iw.w_iaddrs[w][i];
-                                (gather_iinfo.get_icnt()[k])++;
-                                gather_iinfo.get_occ()[k] += iw.w_cnt[w][i];
-                                break;
-                            }
-
-                            if (gather_iinfo.get_iaddrs()[k] == iw.w_iaddrs[w][i]) {
-                                (gather_iinfo.get_icnt()[k])++;
-                                gather_iinfo.get_occ()[k] += iw.w_cnt[w][i];
-                                break;
-                            }
-
+                        else {
+                            trace_info.scatter_occ_avg += iw.w_cnt[w][i];
+                            scatter_metrics.cnt += 1.0;
                         }
 
-                    } else if (gs == 1) { // SCATTER
-
-                        trace_info.scatter_occ_avg += iw.w_cnt[w][i];
-                        scatter_metrics.cnt += 1.0;
-
                         for (k = 0; k < NGS; k++) {
-                            if (scatter_iinfo.get_iaddrs()[k] == 0) {
-                                scatter_iinfo.get_iaddrs()[k] = iw.w_iaddrs[w][i];
-                                (scatter_iinfo.get_icnt()[k])++;
-                                scatter_iinfo.get_occ()[k] += iw.w_cnt[w][i];
+                            if (target_iinfo.get_iaddrs()[k] == 0) {
+                                target_iinfo.get_iaddrs()[k] = iw.w_iaddrs[w][i];
+                                (target_iinfo.get_icnt()[k])++;
+                                target_iinfo.get_occ()[k] += iw.w_cnt[w][i];
                                 break;
                             }
 
-                            if (scatter_iinfo.get_iaddrs()[k] == iw.w_iaddrs[w][i]) {
-                                (scatter_iinfo.get_icnt()[k])++;
-                                scatter_iinfo.get_occ()[k] += iw.w_cnt[w][i];
+                            if (target_iinfo.get_iaddrs()[k] == iw.w_iaddrs[w][i]) {
+                                (target_iinfo.get_icnt()[k])++;
+                                target_iinfo.get_occ()[k] += iw.w_cnt[w][i];
                                 break;
                             }
                         }

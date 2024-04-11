@@ -81,7 +81,7 @@ public:
 
     virtual size_t get_size() const                   = 0;
     virtual addr_t get_address() const                = 0;
-    virtual unsigned short get_type() const           = 0;
+    virtual unsigned short get_type() const           = 0; // must be 0 for GATHER, 1 for SCATTER !!
     // multiple?
 
     virtual bool is_gather() const
@@ -215,6 +215,7 @@ public:
 
     // moved from static storage to instance variables (watch out for stack overflow)
     // Revisit and move to heap if an issue - estimate of 2k*3 + 128k
+    // First dimension is 0=GATHER/1=SCATTER
     int64_t w_iaddrs[2][IWINDOW];
     int64_t w_bytes[2][IWINDOW];
     int64_t w_maddr[2][IWINDOW][VBYTES];
