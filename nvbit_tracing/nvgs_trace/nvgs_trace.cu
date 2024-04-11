@@ -85,6 +85,7 @@ int verbose = 0;
 /* opcode to id map and reverse map  */
 std::map<std::string, int> opcode_to_id_map;
 std::map<int, std::string> id_to_opcode_map;
+std::map<std::string, int> opcode_short_to_id_map;
 
 // Instantiate GSPatterns for NVBit
 std::unique_ptr<MemPatternsForNV> mp(new MemPatternsForNV);
@@ -169,7 +170,15 @@ void instrument_function_if_needed(CUcontext ctx, CUfunction func) {
 
             int opcode_id = opcode_to_id_map[instr->getOpcode()];
 
+            if (opcode_short_to_id_map.find(instr->getOpcodeShort()) == opcode_short_to_id_map.end()) {
+                int opcode_short_id = opcode_short_to_id_map.size();
+                opcode_short_to_id_map[instr->getOpcodeShort()] = opcode_short_id;
+                //id_to_opcode_map[opcode_id] = std::string(instr->getOpcode());
+            }
+            int opcode_short_id = opcode_short_to_id_map[instr->getOpcodeShort()];
+
             mp->add_or_update_opcode(opcode_id, instr->getOpcode());
+            mp->add_or_update_opcode_short(opcode_short_id, instr->getOpcodeShort());
 
             int mref_idx = 0;
             /* iterate on the operands */
@@ -185,6 +194,16 @@ void instrument_function_if_needed(CUcontext ctx, CUfunction func) {
                     nvbit_add_call_arg_guard_pred_val(instr);
                     /* opcode id */
                     nvbit_add_call_arg_const_val32(instr, opcode_id);
+
+                    /* opcode short id */
+                    nvbit_add_call_arg_const_val32(instr, opcode_short_id);
+                    /* isLoad */
+                    nvbit_add_call_arg_const_val32(instr, instr->isLoad());
+                    /* isStore */
+                    nvbit_add_call_arg_const_val32(instr, instr->isStore());
+                    /* size */
+                    nvbit_add_call_arg_const_val32(instr, instr->getSize());
+
                     /* memory reference 64 bit address */
                     nvbit_add_call_arg_mref_addr64(instr, mref_idx);
                     /* add "space" for kernel function pointer that will be set
@@ -327,7 +346,7 @@ void* recv_thread_fun(void* args) {
                 try
                 {
                     // Handle trace update here >> ---
-                    mp->add_or_update_opcode(ma->opcode_id, id_to_opcode_map[ma->opcode_id]);
+                    //mp->add_or_update_opcode(ma->opcode_id, id_to_opcode_map[ma->opcode_id]);
                     mp->handle_cta_memory_access(ma);
                 }
                 catch (std::exception & ex)

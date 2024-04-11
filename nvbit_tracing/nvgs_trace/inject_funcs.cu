@@ -36,7 +36,12 @@
 /* contains definition of the mem_access_t structure */
 #include "common.h"
 
-extern "C" __device__ __noinline__ void instrument_mem(int pred, int opcode_id,
+extern "C" __device__ __noinline__ void instrument_mem(int pred,
+                                                       int opcode_id,
+                                                       int opcode_short_id,
+                                                       int is_load,
+                                                       int is_store,
+                                                       int size,
                                                        uint64_t addr,
                                                        uint64_t grid_launch_id,
                                                        uint64_t pchannel_dev) {
@@ -63,6 +68,11 @@ extern "C" __device__ __noinline__ void instrument_mem(int pred, int opcode_id,
     ma.cta_id_z = cta.z;
     ma.warp_id = get_warpid();
     ma.opcode_id = opcode_id;
+    ma.opcode_short_id = opcode_short_id;
+    ma.is_load = is_load;
+    ma.is_store = is_store;
+    ma.size = size;
+
 
     /* first active lane pushes information on the channel */
     if (first_laneid == laneid) {

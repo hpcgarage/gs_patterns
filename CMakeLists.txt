@@ -16,6 +16,7 @@ add_library(gs_patterns_core SHARED
         gs_patterns_core.cpp
         gsnv_patterns.h
         gsnv_test.cpp
+#       nv_opcodes.h
 )
 
 add_executable( gs_patterns

@@ -36,5 +36,9 @@ typedef struct {
     int cta_id_z;
     int warp_id;
     int opcode_id;
+    int opcode_short_id;
+    int is_load;
+    int is_store;
+    int size;
     uint64_t addrs[32];
 } mem_access_t;

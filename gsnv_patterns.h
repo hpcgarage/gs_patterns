@@ -18,9 +18,9 @@
     "0x" << std::setfill('0') << std::setw(16) << std::hex << (uint64_t)x \
          << std::dec
 
-//#include "common.h"
+#include "nvbit_tracing/nvgs_trace/common.h"
 // Copying to redudce dependency on nvgs_patterns
-#if 1
+#if 0
 typedef struct {
     uint64_t grid_launch_id;
     int cta_id_x;
@@ -28,6 +28,10 @@ typedef struct {
     int cta_id_z;
     int warp_id;
     int opcode_id;
+    int opcode_short_id;
+    int is_load;
+    int is_store;
+    int size;
     uint64_t addrs[32];
 } mem_access_t;
 #endif
@@ -108,6 +112,8 @@ private:
 class MemPatternsForNV : public MemPatterns
 {
 public:
+    static const uint8_t CTA_LENGTH = 32;
+
     MemPatternsForNV(): _metrics(GATHER, SCATTER),
                         _iinfo(GATHER, SCATTER),
                         _ofs()
@@ -199,6 +205,27 @@ public:
         throw GSDataError(ss.str());
     }
 
+    // store opcode_short mappings
+    bool add_or_update_opcode_short(int opcode_short_id, const std::string & opcode_short) {
+        auto it = id_to_opcode_short_map.find(opcode_short_id);
+        if (it == id_to_opcode_short_map.end()) {
+            id_to_opcode_short_map[opcode_short_id] = opcode_short;
+            //std::cout << "OPCODE: " << opcode_id << " -> " << opcode << std::endl;
+            return true;
+        }
+        return false;
+    }
+    // retreive opcode_short mapping by opcode_short_id
+    const std::string & get_opcode_short(int opcode_short_id) {
+        auto result = id_to_opcode_short_map.find(opcode_short_id);
+        if (result != id_to_opcode_short_map.end()) {
+            return result->second;
+        }
+        std::stringstream ss;
+        ss << "Unknown opcode_short_id: " << opcode_short_id;
+        throw GSDataError(ss.str());
+    }
+
     std::vector<trace_entry_t> convert_to_trace_entry(const mem_access_t & ma)
     {
         // opcode : forms LD.E.64, ST.E.64
@@ -248,8 +275,73 @@ public:
             throw GSDataError("Unsupported opcode: " + opcode);
         }
 
+        // TODO: This is a SLOW way of doing this
         std::vector<trace_entry_t> te_list;
-        for (int i = 0; i < 32; i++)
+        te_list.reserve(MemPatternsForNV::CTA_LENGTH);
+        for (int i = 0; i < MemPatternsForNV::CTA_LENGTH; i++)
+        {
+            if (ma.addrs[i] != 0)
+            {
+                trace_entry_t te { mem_type_code, mem_size, ma.addrs[i] };
+                te_list.push_back(te);
+            }
+        }
+        return std::move(te_list);
+    }
+
+    std::vector<trace_entry_t> convert_to_trace_entry_2(const mem_access_t & ma)
+    {
+        // opcode : forms LD.E.64, ST.E.64
+
+        std::string mem_type;
+        std::string mem_attr;
+        uint16_t    mem_size = 0;
+        int count = 0;
+        uint16_t mem_type_code = 0;
+        uint16_t mem_attr_code = 0;
+
+        //const char * m = reinterpret_cast<const char*>(&ma.opcode);
+        //const std::string opcode(m, 8);
+        std::string opcode = get_opcode(ma.opcode_id);
+
+        size_t start=0, pos = 0;
+        while (std::string::npos != (pos = opcode.find(".", start)))
+        {
+            count++;
+            std::string token = opcode.substr(start, pos-start);
+            uint64_t s;
+            switch (count)
+            {
+                case 1: mem_type = token;
+                    if ("LD" == mem_type)      { mem_type_code = 0; }
+                    else if ("ST" == mem_type) { mem_type_code = 1; }
+                    else throw GSDataError ("Invalid mem_type must be LD(1) or ST(1)");
+                    break;
+
+                case 2: mem_attr = token;
+                    if ("E" == mem_attr)      { mem_attr_code = 1; }
+                    else                      { mem_attr_code = 2; }
+                    break;
+
+                default:
+                    throw GSDataError("Unsupported opcode: " + opcode);
+            }
+            start = pos+1;
+        }
+        // Snag the rest as mem_size
+        if (start < opcode.length()) {
+            std::string token = opcode.substr(start, opcode.length());
+            int s = atoi(token.c_str());
+            mem_size = (uint16_t) s;
+        }
+        else {
+            throw GSDataError("Unsupported opcode: " + opcode);
+        }
+
+        // TODO: This is a SLOW way of doing this
+        std::vector<trace_entry_t> te_list;
+        te_list.reserve(MemPatternsForNV::CTA_LENGTH);
+        for (int i = 0; i < MemPatternsForNV::CTA_LENGTH; i++)
         {
             if (ma.addrs[i] != 0)
             {
@@ -278,6 +370,7 @@ private:
 
     //std::map<std::string, int> opcode_to_id_map;
     std::map<int, std::string> id_to_opcode_map;
+    std::map<int, std::string> id_to_opcode_short_map;
 };
 
 
@@ -489,7 +582,7 @@ void MemPatternsForNV::handle_cta_memory_access(const mem_access_t * ma)
     ss << "GSNV_PATTERNS: CTX " << " - grid_launch_id "
        << ma->grid_launch_id << " - CTA " << ma->cta_id_x << "," << ma->cta_id_y << "," << ma->cta_id_z
        << " - warp " << ma->warp_id << " - " << get_opcode(ma->opcode_id) << " - ";
-    for (int i = 0; i < 32; i++) {
+    for (int i = 0; i < MemPatternsForNV::CTA_LENGTH; i++) {
         ss << HEX(ma->addrs[i]) << " ";
     }
     std::cout << ss.str() << std::endl;
