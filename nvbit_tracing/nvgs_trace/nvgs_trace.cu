@@ -143,7 +143,7 @@ void instrument_function_if_needed(CUcontext ctx, CUfunction func) {
 
         if (verbose) {
             printf(
-                "MEMTRACE: CTX %p, Inspecting CUfunction %p name %s at address "
+                "NVGS_TRACE: CTX %p, Inspecting CUfunction %p name %s at address "
                 "0x%lx\n",
                 ctx, f, nvbit_get_func_name(ctx, f), nvbit_get_func_addr(f));
         }
@@ -279,7 +279,7 @@ void nvbit_at_cuda_event(CUcontext ctx, int is_exit, nvbit_api_cuda_t cbid,
             nvbit_enable_instrumented(ctx, p->f, true);
 
             printf(
-                "MEMTRACE: CTX 0x%016lx - LAUNCH - Kernel pc 0x%016lx - Kernel "
+                "NVGS_TRACE: CTX 0x%016lx - LAUNCH - Kernel pc 0x%016lx - Kernel "
                 "name %s - grid launch id %ld - grid size %d,%d,%d - block "
                 "size %d,%d,%d - nregs %d - shmem %d - cuda stream id %ld\n",
                 (uint64_t)ctx, pc, func_name, grid_launch_id, p->gridDimX,
@@ -334,7 +334,7 @@ void* recv_thread_fun(void* args) {
                     ss << HEX(ma->addrs[i]) << " ";
                 }
 
-                //printf("MEMTRACE: %s\n", ss.str().c_str());
+                //printf("NVGS_TRACE: %s\n", ss.str().c_str());
                 num_processed_bytes += sizeof(mem_access_t);
 
                 try
@@ -356,7 +356,7 @@ void* recv_thread_fun(void* args) {
 void nvbit_at_ctx_init(CUcontext ctx) {
     pthread_mutex_lock(&mutex);
     if (verbose) {
-        printf("MEMTRACE: STARTING CONTEXT %p\n", ctx);
+        printf("NVGS_TRACE: STARTING CONTEXT %p\n", ctx);
     }
     CTXstate* ctx_state = new CTXstate;
     assert(ctx_state_map.find(ctx) == ctx_state_map.end());
@@ -386,7 +386,7 @@ void nvbit_at_ctx_term(CUcontext ctx) {
     pthread_mutex_lock(&mutex);
     skip_callback_flag = true;
     if (verbose) {
-        printf("MEMTRACE: TERMINATING CONTEXT %p\n", ctx);
+        printf("NVGS_TRACE: TERMINATING CONTEXT %p\n", ctx);
     }
     /* get context state from map */
     assert(ctx_state_map.find(ctx) != ctx_state_map.end());

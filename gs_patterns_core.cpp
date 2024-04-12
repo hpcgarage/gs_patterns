@@ -381,7 +381,7 @@ void handle_trace_entry(MemPatterns & mp, const InstrAddrAdapter & ia)
         trace_info.other++;
     }
 
-    trace_info.drtrace_lines++;
+    trace_info.trace_lines++;
 }
 
 void display_stats(MemPatterns & mp)
@@ -389,7 +389,7 @@ void display_stats(MemPatterns & mp)
     printf("\n RESULTS \n");
 
     printf("DRTRACE STATS\n");
-    printf("DRTRACE LINES:        %16lu\n", mp.get_trace_info().drtrace_lines);
+    printf("DRTRACE LINES:        %16lu\n", mp.get_trace_info().trace_lines);
     printf("OPCODES:              %16lu\n", mp.get_trace_info().opcodes);
     printf("MEMOPCODES:           %16lu\n", mp.get_trace_info().opcodes_mem);
     printf("LOAD/STORES:          %16lu\n", mp.get_trace_info().addrs);

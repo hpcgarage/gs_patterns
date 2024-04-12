@@ -176,12 +176,12 @@ class TraceInfo  // Stats
 public:
     /// TODO: need a reset method to zero out counters
 
-    uint64_t opcodes      = 0;
-    uint64_t opcodes_mem  = 0;
-    uint64_t addrs        = 0;
-    uint64_t other        = 0;
-    int64_t  ngs          = 0;
-    int64_t drtrace_lines = 0;
+    uint64_t opcodes     = 0;
+    uint64_t opcodes_mem = 0;
+    uint64_t addrs       = 0;
+    uint64_t other       = 0;
+    int64_t  ngs         = 0;
+    int64_t trace_lines  = 0;
 
     bool    did_opcode  = false; // revist this ---------------
     double  other_cnt       = 0.0;

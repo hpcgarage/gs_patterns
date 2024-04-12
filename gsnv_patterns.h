@@ -276,7 +276,7 @@ public:
                 te_list.push_back(te);
             }
         }
-        return std::move(te_list);
+        return te_list;
     }
 #endif
 
@@ -316,7 +316,7 @@ public:
                 return std::vector<trace_entry_t>();
             }
         }
-        return std::move(te_list);
+        return te_list;
     }
 
 private:
@@ -332,6 +332,7 @@ private:
 
     std::string                        _trace_out_file_name;
     bool                               _write_trace_file = false;
+    bool                               _first_access     = true;
     std::ofstream                      _ofs;
     std::vector<InstrAddrAdapterForNV> _traces;
 
@@ -426,7 +427,7 @@ std::string MemPatternsForNV::get_file_prefix()
     return prefix;
 }
 
-// First Pass
+// First Pass - Used by gsnv_test using a trace file
 void MemPatternsForNV::process_traces()
 {
     int iret = 0;
@@ -435,8 +436,8 @@ void MemPatternsForNV::process_traces()
 
     gzFile fp_trace = open_trace_file(get_trace_file_name());
 
-    printf("First pass to find top gather / scatter iaddresses\n");
-    fflush(stdout);
+    //printf("First pass to find top gather / scatter iaddresses\n");
+    //fflush(stdout);
 
     mem_access_t * p_trace = NULL;
     mem_access_t trace_buff[NBUFS]; // was static (1024 bytes)
@@ -539,6 +540,12 @@ void MemPatternsForNV::process_second_pass()
 
 void MemPatternsForNV::handle_cta_memory_access(const mem_access_t * ma)
 {
+    if (_first_access) {
+        _first_access = false;
+        printf("First pass to find top gather / scatter iaddresses\n");
+        fflush(stdout);
+    }
+
     if (_write_trace_file && _ofs.is_open()) {
         // Write entry to trace_output file
         _ofs.write(reinterpret_cast<const char*>(ma), sizeof *ma);
