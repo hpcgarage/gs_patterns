@@ -550,7 +550,8 @@ void MemPatternsForNV::handle_cta_memory_access(const mem_access_t * ma)
        << ma->grid_launch_id << " - CTA " << ma->cta_id_x << "," << ma->cta_id_y << "," << ma->cta_id_z
        << " - warp " << ma->warp_id << " - " << get_opcode(ma->opcode_id)
        << " - shortOpcode: " << ma->opcode_short_id
-       << " isLoad: " << ma->is_load << " isStore: " << ma->is_store << " - ";
+       << " isLoad: " << ma->is_load << " isStore: " << ma->is_store
+       << " size: " << ma->size << " - ";
 
     for (int i = 0; i < MemPatternsForNV::CTA_LENGTH; i++) {
         ss << HEX(ma->addrs[i]) << " ";

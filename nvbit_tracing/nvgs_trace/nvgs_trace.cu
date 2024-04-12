@@ -286,11 +286,6 @@ void nvbit_at_cuda_event(CUcontext ctx, int is_exit, nvbit_api_cuda_t cbid,
                 p->gridDimY, p->gridDimZ, p->blockDimX, p->blockDimY,
                 p->blockDimZ, nregs, shmem_static_nbytes + p->sharedMemBytes,
                 (uint64_t)p->hStream);
-
-            // Dont add NVBit here
-            //trace_entry_t te { 1, 0, 0 };
-            //mp->handle_trace_entry(InstrAddrAdapterForNV( te ));
-
         }
     }
     skip_callback_flag = false;
@@ -344,17 +339,13 @@ void* recv_thread_fun(void* args) {
 
                 try
                 {
-                    // Handle trace update here >> ---
-                    //mp->add_or_update_opcode(ma->opcode_id, id_to_opcode_map[ma->opcode_id]);
+                    // Handle trace update here
                     mp->handle_cta_memory_access(ma);
                 }
-                catch (std::exception & ex)
+                catch (const std::exception & ex)
                 {
                     std::cerr << "ERROR: " << ex.what() << std::endl;
                 }
-
-                // << ----------------------------
-
             }
         }
     }
@@ -377,10 +368,17 @@ void nvbit_at_ctx_init(CUcontext ctx) {
     pthread_mutex_unlock(&mutex);
 
     // -- init #2 - whats the difference
-    /// TODO: pull from env variables and set
-    if (1)
+    try
     {
-        mp->set_trace_out_file("./trace_file.nvbit");
+        /// TODO: pull from env variables and set
+        if (1) {
+            mp->set_trace_out_file("./trace_file.nvbit");
+        }
+        mp->set_file_prefix("prog_bin");
+    }
+    catch (const exception & ex)
+    {
+        cerr << "ERROR: " << ex.what() << endl;
     }
 }
 
@@ -406,7 +404,13 @@ void nvbit_at_ctx_term(CUcontext ctx) {
     delete ctx_state;
     pthread_mutex_unlock(&mutex);
 
-    // Generate GS Pattern output fle
-    mp->generate_patterns();
-
+    try
+    {
+        // Generate GS Pattern output fle
+        mp->generate_patterns();
+    }
+    catch (const exception & ex)
+    {
+        std::cerr << "ERROR: " << ex.what() << std::endl;
+    }
 }
