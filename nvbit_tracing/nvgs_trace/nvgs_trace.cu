@@ -376,9 +376,9 @@ void nvbit_at_ctx_init(CUcontext ctx) {
         }
         mp->set_file_prefix("prog_bin");
     }
-    catch (const exception & ex)
+    catch (const std::exception & ex)
     {
-        cerr << "ERROR: " << ex.what() << endl;
+        std::cerr << "ERROR: " << ex.what() << std::endl;
     }
 }
 
@@ -409,7 +409,7 @@ void nvbit_at_ctx_term(CUcontext ctx) {
         // Generate GS Pattern output fle
         mp->generate_patterns();
     }
-    catch (const exception & ex)
+    catch (const std::exception & ex)
     {
         std::cerr << "ERROR: " << ex.what() << std::endl;
     }
