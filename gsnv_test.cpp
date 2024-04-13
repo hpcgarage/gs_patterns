@@ -12,8 +12,13 @@ int main(int argc, char **argv)
 
         MemPatternsForNV mp;
 
+        // nvbit trace file with memory access traces
         mp.set_trace_file(argv[1]);
+        // Executable file built with debug symbols
         mp.set_binary_file(argv[2]);
+
+        // File to save nvbit memory accessses to
+        //mp.set_trace_out_file(mp.get_file_prefix() + ".nvbit.bin");
 
         // ----------------- Process Traces -----------------
 

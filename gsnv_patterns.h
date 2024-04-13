@@ -1,14 +1,17 @@
 
 #pragma  once
 
+#include <string>
 #include <vector>
 #include <iostream>
 #include <fstream>
 #include <iomanip>
-#include <zlib.h>
 #include <map>
+
+#include <zlib.h>
 #include <stdlib.h>
 #include <cmath>
+#include <string.h>
 
 #include "gs_patterns.h"
 #include "gs_patterns_core.h"
@@ -30,6 +33,25 @@ struct _trace_entry_t {
 }  __attribute__((packed));
 typedef struct _trace_entry_t trace_entry_t;
 
+#define MAP_NAME_SIZE 24
+#define MAP_VALUE_SIZE 22
+
+struct _trace_map_entry_t
+{
+    // 32 bytes total
+    char     map_name[MAP_NAME_SIZE];
+    uint16_t id;
+    char     val[MAP_VALUE_SIZE];
+};
+typedef struct _trace_map_entry_t trace_map_entry_t;
+
+struct _trace_header_t {
+    uint64_t  num_map_entires;
+    uint64_t  num_maps;
+};
+typedef struct _trace_header_t trace_header_t;
+
+
 gzFile open_trace_file(const std::string & trace_file_name)
 {
     gzFile fp;
@@ -44,6 +66,48 @@ gzFile open_trace_file(const std::string & trace_file_name)
 void close_trace_file (gzFile & fp)
 {
     gzclose(fp);
+}
+
+int tline_read_header(gzFile fp, trace_header_t * val, trace_header_t **p_val, int *edx) {
+
+    int idx;
+
+    idx = (*edx) / sizeof(trace_entry_t);
+    //first read
+    if (NULL == *p_val) {
+        *edx = gzread(fp, val, sizeof(trace_header_t));
+        *p_val = val;
+    }
+    else if (*p_val == &val[idx]) {
+        *edx = gzread(fp, val, sizeof(trace_header_t));
+        *p_val = val;
+    }
+
+    if (0 == *edx)
+        return 0;
+
+    return 1;
+}
+
+int tline_read_maps(gzFile fp, trace_map_entry_t * val, trace_map_entry_t **p_val, int *edx) {
+
+    int idx;
+
+    idx = (*edx) / sizeof(trace_map_entry_t);
+    //first read
+    if (NULL == *p_val) {
+        *edx = gzread(fp, val, sizeof(trace_map_entry_t));
+        *p_val = val;
+    }
+    else if (*p_val == &val[idx]) {
+        *edx = gzread(fp, val, sizeof(trace_map_entry_t));
+        *p_val = val;
+    }
+
+    if (0 == *edx)
+        return 0;
+
+    return 1;
 }
 
 int tline_read(gzFile fp, mem_access_t * val, mem_access_t **p_val, int *edx) {
@@ -97,31 +161,14 @@ class MemPatternsForNV : public MemPatterns
 {
 public:
     static const uint8_t CTA_LENGTH = 32;
+    static constexpr const char * ID_TO_OPCODE       = "ID_TO_OPCODE";
+    static constexpr const char * ID_TO_OPCODE_SHORT = "ID_TO_OPCODE_SHORT";
 
     MemPatternsForNV(): _metrics(GATHER, SCATTER),
                         _iinfo(GATHER, SCATTER),
-                        _ofs()
-    { }
+                        _ofs_tmp()  { }
 
-    virtual ~MemPatternsForNV() override {
-        if (_write_trace_file) {
-            _ofs.flush();
-            _ofs.close();
-        }
-
-        /// TODO: COMPRESS trace_file on exit
-#if 1
-        std::cout << "-- OPCODE_ID to OPCODE MAPPING -- " << std::endl;
-        for (auto itr = id_to_opcode_map.begin(); itr != id_to_opcode_map.end(); itr++) {
-            std::cout << "OPCODE: " << itr->first << " -> " << itr->second << std::endl;
-        }
-
-        std::cout << "-- OPCODE_SHORT_ID to OPCODE_SHORT MAPPING -- " << std::endl;
-        for (auto itr = id_to_opcode_short_map.begin(); itr != id_to_opcode_short_map.end(); itr++) {
-            std::cout << "OPCODE_SHORT: " << itr->first << " -> " << itr->second << std::endl;
-        }
-#endif
-    }
+    virtual ~MemPatternsForNV() override ;
 
     void handle_trace_entry(const InstrAddrAdapter & ia) override;
     void generate_patterns() override;
@@ -136,7 +183,7 @@ public:
     TraceInfo &   get_trace_info() override      { return _trace_info;     }
     InstrWindow & get_instr_window() override    { return _iw;             }
 
-    void set_trace_file(const std::string & trace_file_name) { _trace_file_name = trace_file_name; }
+    void set_trace_file(const std::string & trace_file_name);
     const std::string & get_trace_file_name() { return _trace_file_name; }
 
     void set_binary_file(const std::string & binary_file_name) { _binary_file_name = binary_file_name; }
@@ -154,19 +201,8 @@ public:
     double update_source_lines_from_binary(mem_access_type);
     void process_second_pass();
 
-    void set_trace_out_file(const std::string & trace_file_name) {
-        _trace_out_file_name = trace_file_name;
-
-        try
-        {
-            _ofs.open(trace_file_name, std::ios::binary);
-            if (_ofs.is_open()) _write_trace_file = true;
-        }
-        catch (...)
-        {
-            throw GSFileError("Unable to open " + trace_file_name + " for writing");
-        }
-    }
+    void set_trace_out_file(const std::string & trace_file_name);
+     void write_trace_out_file();
 
     // Handle an nvbit CTA memory update
     void handle_cta_memory_access(const mem_access_t * ma);
@@ -174,150 +210,15 @@ public:
     bool valid_gs_stride(const std::vector<trace_entry_t> & te_list, const uint32_t min_stride);
 
     // store opcode mappings
-    bool add_or_update_opcode(int opcode_id, const std::string & opcode) {
-        auto it = id_to_opcode_map.find(opcode_id);
-        if (it == id_to_opcode_map.end()) {
-            id_to_opcode_map[opcode_id] = opcode;
-            //std::cout << "OPCODE: " << opcode_id << " -> " << opcode << std::endl;
-            return true;
-        }
-        return false;
-    }
+    bool add_or_update_opcode(int opcode_id, const std::string & opcode);
     // retreive opcode mapping by opcode_id
-    const std::string & get_opcode(int opcode_id) {
-        auto result = id_to_opcode_map.find(opcode_id);
-        if (result != id_to_opcode_map.end()) {
-            return result->second;
-        }
-        std::stringstream ss;
-        ss << "Unknown opcode_id: " << opcode_id;
-        throw GSDataError(ss.str());
-    }
-
+    const std::string & get_opcode(int opcode_id);
     // store opcode_short mappings
-    bool add_or_update_opcode_short(int opcode_short_id, const std::string & opcode_short) {
-        auto it = id_to_opcode_short_map.find(opcode_short_id);
-        if (it == id_to_opcode_short_map.end()) {
-            id_to_opcode_short_map[opcode_short_id] = opcode_short;
-            //std::cout << "OPCODE: " << opcode_id << " -> " << opcode << std::endl;
-            return true;
-        }
-        return false;
-    }
+    bool add_or_update_opcode_short(int opcode_short_id, const std::string & opcode_short);
     // retreive opcode_short mapping by opcode_short_id
-    const std::string & get_opcode_short(int opcode_short_id) {
-        auto result = id_to_opcode_short_map.find(opcode_short_id);
-        if (result != id_to_opcode_short_map.end()) {
-            return result->second;
-        }
-        std::stringstream ss;
-        ss << "Unknown opcode_short_id: " << opcode_short_id;
-        throw GSDataError(ss.str());
-    }
+    const std::string & get_opcode_short(int opcode_short_id);
 
-#if 0
-    std::vector<trace_entry_t> convert_to_trace_entry(const mem_access_t & ma)
-    {
-        // opcode : forms LD.E.64, ST.E.64
-
-        std::string mem_type;
-        std::string mem_attr;
-        uint16_t    mem_size = 0;
-        int count = 0;
-        uint16_t mem_type_code = 0;
-        uint16_t mem_attr_code = 0;
-
-        //const char * m = reinterpret_cast<const char*>(&ma.opcode);
-        //const std::string opcode(m, 8);
-        std::string opcode = get_opcode(ma.opcode_id);
-
-        size_t start=0, pos = 0;
-        while (std::string::npos != (pos = opcode.find(".", start)))
-        {
-            count++;
-            std::string token = opcode.substr(start, pos-start);
-            uint64_t s;
-            switch (count)
-            {
-                case 1: mem_type = token;
-                    if ("LD" == mem_type)      { mem_type_code = 0; }
-                    else if ("ST" == mem_type) { mem_type_code = 1; }
-                    else throw GSDataError ("Invalid mem_type must be LD(0) or ST(1)");
-                    break;
-
-                case 2: mem_attr = token;
-                    if ("E" == mem_attr)      { mem_attr_code = 1; }
-                    else                      { mem_attr_code = 2; }
-                    break;
-
-                default:
-                    throw GSDataError("Unsupported opcode: " + opcode);
-            }
-            start = pos+1;
-        }
-        // Snag the rest as mem_size
-        if (start < opcode.length()) {
-            std::string token = opcode.substr(start, opcode.length());
-            int s = atoi(token.c_str());
-            mem_size = (uint16_t) s;
-        }
-        else {
-            throw GSDataError("Unsupported opcode: " + opcode);
-        }
-
-        // TODO: This is a SLOW way of doing this
-        std::vector<trace_entry_t> te_list;
-        te_list.reserve(MemPatternsForNV::CTA_LENGTH);
-        for (int i = 0; i < MemPatternsForNV::CTA_LENGTH; i++)
-        {
-            if (ma.addrs[i] != 0)
-            {
-                trace_entry_t te { mem_type_code, mem_size, ma.addrs[i] };
-                te_list.push_back(te);
-            }
-        }
-        return te_list;
-    }
-#endif
-
-    std::vector<trace_entry_t> convert_to_trace_entry(const mem_access_t & ma, bool ignore_partial_warps)
-    {
-        // opcode : forms LD.E.64, ST.E.64
-        //std::string mem_type;
-        uint16_t mem_size = ma.size;
-        uint16_t mem_type_code;
-        //uint16_t mem_attr_code = 0;
-
-        if (ma.is_load)
-            mem_type_code = GATHER;
-        else if (ma.is_store)
-            mem_type_code = SCATTER;
-        else
-            throw GSDataError ("Invalid mem_type must be LD(0) or ST(1)");
-
-        //const char * m = reinterpret_cast<const char*>(&ma.opcode);
-        //const std::string opcode(m, 8);
-        std::string opcode = get_opcode(ma.opcode_id);
-        std::string opcode_short = get_opcode_short(ma.opcode_short_id);
-
-        // TODO: This is a SLOW way of doing this
-        std::vector<trace_entry_t> te_list;
-        te_list.reserve(MemPatternsForNV::CTA_LENGTH);
-        for (int i = 0; i < MemPatternsForNV::CTA_LENGTH; i++)
-        {
-            if (ma.addrs[i] != 0)
-            {
-                trace_entry_t te { mem_type_code, mem_size, ma.addrs[i] };
-                te_list.push_back(te);
-            }
-            else if (ignore_partial_warps)
-            {
-                // Ignore memory_accesses which have less than MemPatternsForNV::CTA_LENGTH
-                return std::vector<trace_entry_t>();
-            }
-        }
-        return te_list;
-    }
+    std::vector<trace_entry_t> convert_to_trace_entry(const mem_access_t & ma, bool ignore_partial_warps);
 
 private:
 
@@ -331,16 +232,26 @@ private:
     std::string                        _file_prefix;
 
     std::string                        _trace_out_file_name;
+    std::string                        _tmp_trace_out_file_name;
+
     bool                               _write_trace_file = false;
     bool                               _first_access     = true;
+    std::ofstream                      _ofs_tmp;
     std::ofstream                      _ofs;
     std::vector<InstrAddrAdapterForNV> _traces;
 
-    //std::map<std::string, int> opcode_to_id_map;
     std::map<int, std::string> id_to_opcode_map;
     std::map<int, std::string> id_to_opcode_short_map;
 };
 
+MemPatternsForNV::~MemPatternsForNV()
+{
+    if (_write_trace_file)
+    {
+        write_trace_out_file();
+        /// TODO: COMPRESS trace_file on exit
+    }
+}
 
 Metrics & MemPatternsForNV::get_metrics(mem_access_type m)
 {
@@ -427,7 +338,54 @@ std::string MemPatternsForNV::get_file_prefix()
     return prefix;
 }
 
-// First Pass - Used by gsnv_test using a trace file
+// store opcode mappings
+bool MemPatternsForNV::add_or_update_opcode(int opcode_id, const std::string & opcode) {
+    auto it = id_to_opcode_map.find(opcode_id);
+    if (it == id_to_opcode_map.end()) {
+        id_to_opcode_map[opcode_id] = opcode;
+        //std::cout << "OPCODE: " << opcode_id << " -> " << opcode << std::endl;
+        return true;
+    }
+    return false;
+}
+
+// retreive opcode mapping by opcode_id
+const std::string & MemPatternsForNV::get_opcode(int opcode_id) {
+    auto result = id_to_opcode_map.find(opcode_id);
+    if (result != id_to_opcode_map.end()) {
+        return result->second;
+    }
+    std::stringstream ss;
+    ss << "Unknown opcode_id: " << opcode_id;
+    throw GSDataError(ss.str());
+}
+
+// store opcode_short mappings
+bool MemPatternsForNV::add_or_update_opcode_short(int opcode_short_id, const std::string & opcode_short) {
+    auto it = id_to_opcode_short_map.find(opcode_short_id);
+    if (it == id_to_opcode_short_map.end()) {
+        id_to_opcode_short_map[opcode_short_id] = opcode_short;
+        //std::cout << "OPCODE: " << opcode_id << " -> " << opcode << std::endl;
+        return true;
+    }
+    return false;
+}
+
+// retreive opcode_short mapping by opcode_short_id
+const std::string & MemPatternsForNV::get_opcode_short(int opcode_short_id) {
+    auto result = id_to_opcode_short_map.find(opcode_short_id);
+    if (result != id_to_opcode_short_map.end()) {
+        return result->second;
+    }
+    std::stringstream ss;
+    ss << "Unknown opcode_short_id: " << opcode_short_id;
+    throw GSDataError(ss.str());
+}
+
+/*
+ * Read traces from a nvbit trace file. Includes header which describes opcode mappings used in trace data.
+ * Used by test runner (gsnv_test) to simulate nvbit execution.
+ */
 void MemPatternsForNV::process_traces()
 {
     int iret = 0;
@@ -436,13 +394,37 @@ void MemPatternsForNV::process_traces()
 
     gzFile fp_trace = open_trace_file(get_trace_file_name());
 
-    //printf("First pass to find top gather / scatter iaddresses\n");
-    //fflush(stdout);
+    // Read header **
+    trace_header_t * p_header = NULL;
+    trace_header_t  header[1];
+    tline_read_header(fp_trace, header, &p_header, &iret);
 
+    uint32_t count = 0;
+    trace_map_entry_t * p_map_entry = NULL;
+    trace_map_entry_t map_entry[1];
+    while (count < p_header->num_map_entires && tline_read_maps(fp_trace, map_entry, &p_map_entry, &iret) )
+    {
+        // std::cout << "MAP ENTRY: " << p_map_entry -> map_name << " " << p_map_entry->id << " -> " << p_map_entry->val << std::endl;
+        if (std::string(p_map_entry->map_name) == ID_TO_OPCODE) {
+            id_to_opcode_map[p_map_entry->id] = p_map_entry->val;
+        }
+        else if (std::string(p_map_entry->map_name) == ID_TO_OPCODE_SHORT) {
+            id_to_opcode_short_map[p_map_entry->id]  = p_map_entry->val;
+        }
+        else {
+            std::cerr << "Unsupported Map: " << p_map_entry->map_name << " found in trace, ignoring ..."
+                      << p_map_entry->id << " -> " << p_map_entry->val << std::endl;
+        }
+
+        count++;
+        p_map_entry++;
+    }
+
+    // Read Traces **
     mem_access_t * p_trace = NULL;
     mem_access_t trace_buff[NBUFS]; // was static (1024 bytes)
-
-    while (tline_read(fp_trace, trace_buff, &p_trace, &iret)) {
+    while (tline_read(fp_trace, trace_buff, &p_trace, &iret))
+    {
         //decode drtrace
         t_line = p_trace;
 
@@ -538,6 +520,45 @@ void MemPatternsForNV::process_second_pass()
     }
 }
 
+std::vector<trace_entry_t> MemPatternsForNV::convert_to_trace_entry(const mem_access_t & ma, bool ignore_partial_warps)
+{
+    // opcode : forms LD.E.64, ST.E.64
+    //std::string mem_type;
+    uint16_t mem_size = ma.size;
+    uint16_t mem_type_code;
+    //uint16_t mem_attr_code = 0;
+
+    if (ma.is_load)
+        mem_type_code = GATHER;
+    else if (ma.is_store)
+        mem_type_code = SCATTER;
+    else
+        throw GSDataError ("Invalid mem_type must be LD(0) or ST(1)");
+
+    //const char * m = reinterpret_cast<const char*>(&ma.opcode);
+    //const std::string opcode(m, 8);
+    std::string opcode = get_opcode(ma.opcode_id);
+    std::string opcode_short = get_opcode_short(ma.opcode_short_id);
+
+    // TODO: This is a SLOW way of doing this
+    std::vector<trace_entry_t> te_list;
+    te_list.reserve(MemPatternsForNV::CTA_LENGTH);
+    for (int i = 0; i < MemPatternsForNV::CTA_LENGTH; i++)
+    {
+        if (ma.addrs[i] != 0)
+        {
+            trace_entry_t te { mem_type_code, mem_size, ma.addrs[i] };
+            te_list.push_back(te);
+        }
+        else if (ignore_partial_warps)
+        {
+            // Ignore memory_accesses which have less than MemPatternsForNV::CTA_LENGTH
+            return std::vector<trace_entry_t>();
+        }
+    }
+    return te_list;
+}
+
 void MemPatternsForNV::handle_cta_memory_access(const mem_access_t * ma)
 {
     if (_first_access) {
@@ -546,9 +567,9 @@ void MemPatternsForNV::handle_cta_memory_access(const mem_access_t * ma)
         fflush(stdout);
     }
 
-    if (_write_trace_file && _ofs.is_open()) {
+    if (_write_trace_file && _ofs_tmp.is_open()) {
         // Write entry to trace_output file
-        _ofs.write(reinterpret_cast<const char*>(ma), sizeof *ma);
+        _ofs_tmp.write(reinterpret_cast<const char*>(ma), sizeof *ma);
     }
 #if 0
     std::stringstream ss;
@@ -601,4 +622,110 @@ bool MemPatternsForNV::valid_gs_stride(const std::vector<trace_entry_t> & te_lis
     }
 
     return min_stride_found >= min_stride;
+}
+
+
+void MemPatternsForNV::set_trace_file(const std::string & trace_file_name)
+{
+    if (trace_file_name == _trace_out_file_name) {
+        throw GSError ("Cannot set trace input file to same name as trace output file [" + trace_file_name + "].");
+    }
+
+    _trace_file_name = trace_file_name;
+}
+
+void MemPatternsForNV::set_trace_out_file(const std::string & trace_out_file_name)
+{
+    try
+    {
+        if (trace_out_file_name == _trace_file_name) {
+            throw GSError ("Cannot set trace output file to same name as trace input file [" + trace_out_file_name + "].");
+        }
+
+        _trace_out_file_name = trace_out_file_name;
+        _tmp_trace_out_file_name = _trace_out_file_name + ".tmp";
+
+        // Open a temp file for writing data
+        _ofs_tmp.open(_tmp_trace_out_file_name, std::ios::binary | std::ios::trunc | std::ios::in);
+        if (!_ofs_tmp.is_open()) {
+            throw GSFileError("Unable to open " + _tmp_trace_out_file_name + " for writing");
+        }
+
+        // Open a ouput file for writing data header and appending data
+        _ofs.open(_trace_out_file_name, std::ios::binary | std::ios::trunc);
+        if (!_ofs.is_open()) {
+            throw GSFileError("Unable to open " + _trace_out_file_name + " for writing");
+        }
+        _write_trace_file = true;
+    }
+    catch (const std::exception & ex)
+    {
+        std::cerr << "ERROR: " << ex.what() << std::endl;
+        throw;
+    }
+}
+
+void MemPatternsForNV:: write_trace_out_file()
+{
+    if (!_write_trace_file) return;
+
+    try
+    {
+        _ofs_tmp.flush();
+
+        // Write header
+        trace_header_t header;
+        header.num_maps = 2;
+        header.num_map_entires = id_to_opcode_map.size() + id_to_opcode_short_map.size();
+        _ofs.write(reinterpret_cast<const char *>(&header), sizeof header);
+
+        // Write Maps
+        trace_map_entry_t m_entry;
+        strncpy(m_entry.map_name, "ID_TO_OPCODE", MAP_NAME_SIZE);
+        for (auto itr = id_to_opcode_map.begin(); itr != id_to_opcode_map.end(); itr++)
+        {
+            m_entry.id = itr->first;
+            strncpy(m_entry.val, itr->second.c_str(), MAP_VALUE_SIZE); // write 22 chars
+            _ofs.write(reinterpret_cast<const char *>(&m_entry), sizeof m_entry);
+        }
+
+        strncpy(m_entry.map_name, "ID_TO_OPCODE_SHORT", MAP_NAME_SIZE);
+        //uint64_t opcode_short_len = id_to_opcode_short_map.size();
+        for (auto itr = id_to_opcode_short_map.begin(); itr != id_to_opcode_short_map.end(); itr++)
+        {
+            m_entry.id = itr->first;
+            strncpy(m_entry.val, itr->second.c_str(), MAP_VALUE_SIZE); // write 22 chars
+            _ofs.write(reinterpret_cast<const char *>(&m_entry), sizeof m_entry);
+        }
+
+        // Write file contents
+        _ofs_tmp.close();
+        std::ifstream ifs(_tmp_trace_out_file_name);
+        if (!ifs.is_open()) {
+            throw GSFileError("Unable to open " + _tmp_trace_out_file_name + " for reading");
+        }
+
+        _ofs.flush();
+        _ofs << ifs.rdbuf();
+        _ofs.flush();
+        _ofs.close();
+        ifs.close();
+
+        std::remove(_tmp_trace_out_file_name.c_str());
+
+        std::cout << "-- OPCODE_ID to OPCODE MAPPING -- " << std::endl;
+        for (auto itr = id_to_opcode_map.begin(); itr != id_to_opcode_map.end(); itr++) {
+            std::cout << itr->first << " -> " << itr->second << std::endl;
+        }
+
+        std::cout << "-- OPCODE_SHORT_ID to OPCODE_SHORT MAPPING -- " << std::endl;
+        for (auto itr = id_to_opcode_short_map.begin(); itr != id_to_opcode_short_map.end(); itr++) {
+            std::cout << itr->first << " -> " << itr->second << std::endl;
+        }
+    }
+    catch (const std::exception & ex)
+    {
+        std::cerr << "ERROR: failed to write trace file: " << _trace_file_name << std::endl;
+        throw;
+    }
 }
