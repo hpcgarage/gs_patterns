@@ -1,4 +1,6 @@
 
+#include <stdlib.h>
+
 #include "gs_patterns.h"
 #include "gsnv_patterns.h"
 
@@ -17,16 +19,15 @@ int main(int argc, char **argv)
         // Executable file built with debug symbols
         mp.set_binary_file(argv[2]);
 
+        const char * config_file = std::getenv("NVGS_CONFIG_FILE");
+        if (config_file) {
+            mp.set_config_file(config_file);
+        }
+
         // File to save nvbit memory accessses to
         //mp.set_trace_out_file(mp.get_file_prefix() + ".nvbit.bin");
 
         // ----------------- Process Traces -----------------
-
-        mp.add_or_update_opcode(0, "LD.E.64");
-        mp.add_or_update_opcode(1, "ST.E.64");
-
-        mp.add_or_update_opcode_short(0, "LD");
-        mp.add_or_update_opcode_short(1, "ST");
 
         mp.process_traces();
 

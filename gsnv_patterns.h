@@ -7,6 +7,7 @@
 #include <fstream>
 #include <iomanip>
 #include <map>
+#include <set>
 
 #include <zlib.h>
 #include <stdlib.h>
@@ -161,8 +162,13 @@ class MemPatternsForNV : public MemPatterns
 {
 public:
     static const uint8_t CTA_LENGTH = 32;
-    static constexpr const char * ID_TO_OPCODE       = "ID_TO_OPCODE";
-    static constexpr const char * ID_TO_OPCODE_SHORT = "ID_TO_OPCODE_SHORT";
+
+    static constexpr const char * ID_TO_OPCODE        = "ID_TO_OPCODE";
+    static constexpr const char * ID_TO_OPCODE_SHORT  = "ID_TO_OPCODE_SHORT";
+
+    static constexpr const char * NVGS_TARGET_KERNEL  = "NVGS_TARGET_KERNEL";
+    static constexpr const char * NVGS_TRACE_OUT_FILE = "NVGS_TRACE_OUT_FILE";
+    static constexpr const char * NVGS_PROGRAM_BINARY = "NVGS_PROGRAM_BINARY";
 
     MemPatternsForNV(): _metrics(GATHER, SCATTER),
                         _iinfo(GATHER, SCATTER),
@@ -192,6 +198,8 @@ public:
     void set_file_prefix(const std::string & prefix) { _file_prefix = prefix; }
     std::string get_file_prefix();
 
+    void set_config_file (const std::string & config_file);
+
     void update_metrics();
 
     std::string get_trace_file_prefix ();
@@ -218,6 +226,8 @@ public:
     // retreive opcode_short mapping by opcode_short_id
     const std::string & get_opcode_short(int opcode_short_id);
 
+    bool should_instrument(const std::string & kernel_name);
+
     std::vector<trace_entry_t> convert_to_trace_entry(const mem_access_t & ma, bool ignore_partial_warps);
 
 private:
@@ -230,9 +240,10 @@ private:
     std::string                        _trace_file_name;
     std::string                        _binary_file_name;
     std::string                        _file_prefix;
-
     std::string                        _trace_out_file_name;
     std::string                        _tmp_trace_out_file_name;
+    std::string                        _config_file_name;
+    std::set<std::string>              _target_kernels;
 
     bool                               _write_trace_file = false;
     bool                               _first_access     = true;
@@ -404,7 +415,7 @@ void MemPatternsForNV::process_traces()
     trace_map_entry_t map_entry[1];
     while (count < p_header->num_map_entires && tline_read_maps(fp_trace, map_entry, &p_map_entry, &iret) )
     {
-        // std::cout << "MAP ENTRY: " << p_map_entry -> map_name << " " << p_map_entry->id << " -> " << p_map_entry->val << std::endl;
+        std::cout << "MAP ENTRY: " << p_map_entry -> map_name << " " << p_map_entry->id << " -> " << p_map_entry->val << std::endl;
         if (std::string(p_map_entry->map_name) == ID_TO_OPCODE) {
             id_to_opcode_map[p_map_entry->id] = p_map_entry->val;
         }
@@ -499,7 +510,6 @@ void MemPatternsForNV::process_second_pass()
 {
     uint64_t mcnt = 0;  // used our own local mcnt while iterating over file in this method.
     int iret = 0;
-//    trace_entry_t *drline;
 
     // State carried thru
     addr_t iaddr;
@@ -681,7 +691,7 @@ void MemPatternsForNV:: write_trace_out_file()
 
         // Write Maps
         trace_map_entry_t m_entry;
-        strncpy(m_entry.map_name, "ID_TO_OPCODE", MAP_NAME_SIZE);
+        strncpy(m_entry.map_name, ID_TO_OPCODE, MAP_NAME_SIZE);
         for (auto itr = id_to_opcode_map.begin(); itr != id_to_opcode_map.end(); itr++)
         {
             m_entry.id = itr->first;
@@ -689,7 +699,7 @@ void MemPatternsForNV:: write_trace_out_file()
             _ofs.write(reinterpret_cast<const char *>(&m_entry), sizeof m_entry);
         }
 
-        strncpy(m_entry.map_name, "ID_TO_OPCODE_SHORT", MAP_NAME_SIZE);
+        strncpy(m_entry.map_name, ID_TO_OPCODE_SHORT, MAP_NAME_SIZE);
         //uint64_t opcode_short_len = id_to_opcode_short_map.size();
         for (auto itr = id_to_opcode_short_map.begin(); itr != id_to_opcode_short_map.end(); itr++)
         {
@@ -728,4 +738,57 @@ void MemPatternsForNV:: write_trace_out_file()
         std::cerr << "ERROR: failed to write trace file: " << _trace_file_name << std::endl;
         throw;
     }
+}
+
+void MemPatternsForNV::set_config_file(const std::string & config_file)
+{
+    _config_file_name = config_file;
+    std::ifstream ifs;
+    ifs.open(_config_file_name);
+    if (!ifs.is_open())
+        throw GSFileError("Unable to open config file: " + _config_file_name);
+
+    while (!ifs.eof())
+    {
+        std::string name;
+        std::string value;
+        ifs >> name >> value;
+        if (name.empty() || value.empty())
+            continue;
+
+        std::cout << "CONFIG: name: " << name << " value: " << value << std::endl;
+
+        if (NVGS_TARGET_KERNEL == name) {
+            _target_kernels.insert(value);
+        }
+        else if (NVGS_TRACE_OUT_FILE == name)
+        {
+            set_trace_out_file(value);
+        }
+        else if (NVGS_PROGRAM_BINARY == name) {
+            set_binary_file(value);
+        }
+        else {
+            std::cerr << "Unknown setting <" << name << "> with value <" << value << "> "
+                      << "specified in config file: " << _config_file_name << " ignoring ..." << std::endl;
+        }
+    }
+}
+
+bool MemPatternsForNV::should_instrument(const std::string & kernel_name)
+{
+    // Instrument all if none specified
+    if (_target_kernels.size() == 0) {
+        std::cout << "Instrumenting all <by default>: " << kernel_name << std::endl;
+        return true;
+    }
+
+    auto itr = _target_kernels.find (kernel_name);
+    if ( itr != _target_kernels.end())  // Hard code for now
+    {
+        std::cout << "Instrumenting: " << kernel_name << std::endl;
+        return  true;
+    }
+
+    return false;
 }

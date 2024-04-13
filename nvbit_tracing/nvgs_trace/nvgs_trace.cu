@@ -81,6 +81,7 @@ bool skip_callback_flag = false;
 uint32_t instr_begin_interval = 0;
 uint32_t instr_end_interval = UINT32_MAX;
 int verbose = 0;
+std::string nvgs_config_file;
 
 /* opcode to id map and reverse map  */
 std::map<std::string, int> opcode_to_id_map;
@@ -103,6 +104,9 @@ void nvbit_at_init() {
         instr_end_interval, "INSTR_END", UINT32_MAX,
         "End of the instruction interval where to apply instrumentation");
     GET_VAR_INT(verbose, "TOOL_VERBOSE", 0, "Enable verbosity inside the tool");
+
+    GET_VAR_STR(nvgs_config_file, "NVGS_CONFIG_FILE", "Specify a NVGS config file");
+
     std::string pad(100, '-');
     printf("%s\n", pad.c_str());
 
@@ -253,7 +257,8 @@ void nvbit_at_cuda_event(CUcontext ctx, int is_exit, nvbit_api_cuda_t cbid,
         cudaDeviceSynchronize();
         assert(cudaGetLastError() == cudaSuccess);
 
-        if (!is_exit) {
+        if (!is_exit && mp->should_instrument(nvbit_get_func_name(ctx, p->f)))
+        {
             /* instrument */
             instrument_function_if_needed(ctx, p->f);
 
@@ -322,7 +327,7 @@ void* recv_thread_fun(void* args) {
                     done = true;
                     break;
                 }
-
+#if 0
                 std::stringstream ss;
                 ss << "CTX " << HEX(ctx) << " - grid_launch_id "
                    << ma->grid_launch_id << " - CTA " << ma->cta_id_x << ","
@@ -334,7 +339,8 @@ void* recv_thread_fun(void* args) {
                     ss << HEX(ma->addrs[i]) << " ";
                 }
 
-                //printf("NVGS_TRACE: %s\n", ss.str().c_str());
+                printf("NVGS_TRACE: %s\n", ss.str().c_str());
+#endif
                 num_processed_bytes += sizeof(mem_access_t);
 
                 try
@@ -355,7 +361,8 @@ void* recv_thread_fun(void* args) {
 
 void nvbit_at_ctx_init(CUcontext ctx) {
     pthread_mutex_lock(&mutex);
-    if (verbose) {
+    //if (verbose) {
+    if (1) {
         printf("NVGS_TRACE: STARTING CONTEXT %p\n", ctx);
     }
     CTXstate* ctx_state = new CTXstate;
@@ -368,24 +375,21 @@ void nvbit_at_ctx_init(CUcontext ctx) {
     pthread_mutex_unlock(&mutex);
 
     // -- init #2 - whats the difference
-    try
-    {
-        /// TODO: pull from env variables and set
-        if (1) {
-            mp->set_trace_out_file("./trace_file.nvbit");
+    try {
+        if (!nvgs_config_file.empty()) {
+            mp->set_config_file(nvgs_config_file);
         }
-        mp->set_file_prefix("prog_bin");
     }
-    catch (const exception & ex)
-    {
-        cerr << "ERROR: " << ex.what() << endl;
+    catch (const std::exception & ex) {
+        std::cerr << "ERROR: " << ex.what() << std::endl;
     }
 }
 
 void nvbit_at_ctx_term(CUcontext ctx) {
     pthread_mutex_lock(&mutex);
     skip_callback_flag = true;
-    if (verbose) {
+    //if (verbose) {
+    if (1) {
         printf("NVGS_TRACE: TERMINATING CONTEXT %p\n", ctx);
     }
     /* get context state from map */
@@ -409,7 +413,7 @@ void nvbit_at_ctx_term(CUcontext ctx) {
         // Generate GS Pattern output fle
         mp->generate_patterns();
     }
-    catch (const exception & ex)
+    catch (const std::exception & ex)
     {
         std::cerr << "ERROR: " << ex.what() << std::endl;
     }
