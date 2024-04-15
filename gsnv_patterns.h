@@ -193,17 +193,17 @@ public:
     InstrWindow & get_instr_window() override    { return _iw;             }
 
     void set_trace_file(const std::string & trace_file_name);
-    const std::string & get_trace_file_name() { return _trace_file_name; }
+    inline const std::string & get_trace_file_name() { return _trace_file_name; }
 
-    void set_binary_file(const std::string & binary_file_name) { _binary_file_name = binary_file_name; }
-    const std::string & get_binary_file_name() { return _binary_file_name; }
+    inline void set_binary_file(const std::string & binary_file_name) { _binary_file_name = binary_file_name; }
+    inline const std::string & get_binary_file_name() { return _binary_file_name; }
 
-    void set_file_prefix(const std::string & prefix) { _file_prefix = prefix; }
+    inline void set_file_prefix(const std::string & prefix) { _file_prefix = prefix; }
     std::string get_file_prefix();
 
-    void set_max_trace_count(const std::string & max_count_str);
-    bool exceed_max_count() {
-        if (_limit_trace_count && (_trace_info.trace_lines >= _max_trace_count)){
+    void set_max_trace_count(const std::string & max_trace_count_str);
+    inline bool exceed_max_count() const {
+        if (_limit_trace_count && (_trace_info.trace_lines >= _max_trace_count)) {
             return true;
         }
         return false;
@@ -256,7 +256,7 @@ private:
     std::string                        _config_file_name;
     std::set<std::string>              _target_kernels;
     bool                               _limit_trace_count = false;
-    uint64_t                           _max_trace_count   = 0;
+    int64_t                            _max_trace_count   = 0;
 
     bool                               _write_trace_file = false;
     bool                               _first_access     = true;
@@ -584,9 +584,7 @@ std::vector<trace_entry_t> MemPatternsForNV::convert_to_trace_entry(const mem_ac
 
 void MemPatternsForNV::handle_cta_memory_access(const mem_access_t * ma)
 {
-    if (exceed_max_count()) {
-        return;
-    }
+    if (exceed_max_count()) { return; }
 
     if (_first_access) {
         _first_access = false;
@@ -760,12 +758,16 @@ void MemPatternsForNV:: write_trace_out_file()
 void MemPatternsForNV::set_max_trace_count(const std::string & max_trace_count_str)
 {
     try {
-        _max_trace_count = std::stol(max_trace_count_str);
+        _max_trace_count = (int64_t) std::stoi(max_trace_count_str);
+        if (_max_trace_count < 0) {
+            throw GSError("Max Trace count must be greater than 0");
+        }
         _limit_trace_count = true;
         std::cout << "Max Trace Count set to: " << _max_trace_count << std::endl;
     }
-    catch (...) {
-        std::cerr << "Failed to set Max Trace Count from value: " << max_trace_count_str << std::endl;
+    catch (const std::exception & ex) {
+        std::cerr << "Failed to set Max Trace Count from value: " << max_trace_count_str
+                  << " with error: " << ex.what() << std::endl;
     }
 }
 
@@ -811,7 +813,7 @@ void MemPatternsForNV::set_config_file(const std::string & config_file)
 
 bool MemPatternsForNV::should_instrument(const std::string & kernel_name)
 {
-    if (exceed_max_count()) return false;
+    if (exceed_max_count()) { return false; }
 
     // Instrument all if none specified
     if (_target_kernels.size() == 0) {
