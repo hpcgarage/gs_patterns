@@ -163,12 +163,15 @@ class MemPatternsForNV : public MemPatterns
 public:
     static const uint8_t CTA_LENGTH = 32;
 
-    static constexpr const char * ID_TO_OPCODE        = "ID_TO_OPCODE";
-    static constexpr const char * ID_TO_OPCODE_SHORT  = "ID_TO_OPCODE_SHORT";
+    static constexpr const char * ID_TO_OPCODE         = "ID_TO_OPCODE";
+    static constexpr const char * ID_TO_OPCODE_SHORT   = "ID_TO_OPCODE_SHORT";
 
-    static constexpr const char * NVGS_TARGET_KERNEL  = "NVGS_TARGET_KERNEL";
-    static constexpr const char * NVGS_TRACE_OUT_FILE = "NVGS_TRACE_OUT_FILE";
-    static constexpr const char * NVGS_PROGRAM_BINARY = "NVGS_PROGRAM_BINARY";
+    static constexpr const char * NVGS_TARGET_KERNEL   = "NVGS_TARGET_KERNEL";
+    static constexpr const char * NVGS_TRACE_OUT_FILE  = "NVGS_TRACE_OUT_FILE";
+    static constexpr const char * NVGS_PROGRAM_BINARY  = "NVGS_PROGRAM_BINARY";
+    static constexpr const char * NVGS_FILE_PREFIX     = "NVGS_FILE_PREFIX";
+    static constexpr const char * NVGS_MAX_TRACE_COUNT = "NVGS_MAX_TRACE_COUNT";
+
 
     MemPatternsForNV(): _metrics(GATHER, SCATTER),
                         _iinfo(GATHER, SCATTER),
@@ -198,11 +201,19 @@ public:
     void set_file_prefix(const std::string & prefix) { _file_prefix = prefix; }
     std::string get_file_prefix();
 
+    void set_max_trace_count(const std::string & max_count_str);
+    bool exceed_max_count() {
+        if (_limit_trace_count && (_trace_info.trace_lines >= _max_trace_count)){
+            return true;
+        }
+        return false;
+    }
+
+    // Mainly Called by nvbit kernel
     void set_config_file (const std::string & config_file);
 
-    void update_metrics();
 
-    std::string get_trace_file_prefix ();
+    void update_metrics();
 
     void process_traces();
     void update_source_lines();
@@ -244,6 +255,8 @@ private:
     std::string                        _tmp_trace_out_file_name;
     std::string                        _config_file_name;
     std::set<std::string>              _target_kernels;
+    bool                               _limit_trace_count = false;
+    uint64_t                           _max_trace_count   = 0;
 
     bool                               _write_trace_file = false;
     bool                               _first_access     = true;
@@ -571,6 +584,10 @@ std::vector<trace_entry_t> MemPatternsForNV::convert_to_trace_entry(const mem_ac
 
 void MemPatternsForNV::handle_cta_memory_access(const mem_access_t * ma)
 {
+    if (exceed_max_count()) {
+        return;
+    }
+
     if (_first_access) {
         _first_access = false;
         printf("First pass to find top gather / scatter iaddresses\n");
@@ -740,6 +757,18 @@ void MemPatternsForNV:: write_trace_out_file()
     }
 }
 
+void MemPatternsForNV::set_max_trace_count(const std::string & max_trace_count_str)
+{
+    try {
+        _max_trace_count = std::stol(max_trace_count_str);
+        _limit_trace_count = true;
+        std::cout << "Max Trace Count set to: " << _max_trace_count << std::endl;
+    }
+    catch (...) {
+        std::cerr << "Failed to set Max Trace Count from value: " << max_trace_count_str << std::endl;
+    }
+}
+
 void MemPatternsForNV::set_config_file(const std::string & config_file)
 {
     _config_file_name = config_file;
@@ -761,12 +790,17 @@ void MemPatternsForNV::set_config_file(const std::string & config_file)
         if (NVGS_TARGET_KERNEL == name) {
             _target_kernels.insert(value);
         }
-        else if (NVGS_TRACE_OUT_FILE == name)
-        {
+        else if (NVGS_TRACE_OUT_FILE == name) {
             set_trace_out_file(value);
         }
         else if (NVGS_PROGRAM_BINARY == name) {
             set_binary_file(value);
+        }
+        else if (NVGS_FILE_PREFIX == name) {
+            set_file_prefix(value);
+        }
+        else if (NVGS_MAX_TRACE_COUNT == name) {
+            set_max_trace_count(value);
         }
         else {
             std::cerr << "Unknown setting <" << name << "> with value <" << value << "> "
@@ -777,6 +811,8 @@ void MemPatternsForNV::set_config_file(const std::string & config_file)
 
 bool MemPatternsForNV::should_instrument(const std::string & kernel_name)
 {
+    if (exceed_max_count()) return false;
+
     // Instrument all if none specified
     if (_target_kernels.size() == 0) {
         std::cout << "Instrumenting all <by default>: " << kernel_name << std::endl;
