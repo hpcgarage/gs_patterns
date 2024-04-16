@@ -182,30 +182,33 @@ void instrument_function_if_needed(CUcontext ctx, CUfunction func) {
             }
             int opcode_short_id = opcode_short_to_id_map[instr->getOpcodeShort()];
 
-            //Line to Line_ID
+            // Line to Line_ID
             /* Get line information for a particular instruction offset if available, */
             /* binary must be compiled with --generate-line-info   (-lineinfo) */
             char *line_str;
             char *dir_str;
             uint32_t line_num;
-            bool status = nvbit_get_line_info(ctx, func,  instr->getOffset(), &line_str, &dir_str, &line_num);
+            bool status = nvbit_get_line_info(ctx, func, instr->getOffset(), &line_str, &dir_str, &line_num);
 
-            std::stringstream ss;
-            ss << dir_str << line_str << ":" << line_num;
-            std::string line (ss.str());
+            std::string line;
+            int line_id = -1;
+            if (status) {
+                std::stringstream ss;
+                ss << dir_str << line_str << ":" << line_num;
+                line = ss.str();
 
-            if (line_to_id_map.find(line) == line_to_id_map.end() ) {
-                int line_id = line_to_id_map.size();
-                line_to_id_map[line] = line_id;
+                if (line_to_id_map.find(line) == line_to_id_map.end()) {
+                    line_id = line_to_id_map.size();
+                    line_to_id_map[line] = line_id;
+                }
+                line_id = line_to_id_map[line];
+                //std::cout << "Creating a mapping from: " << line << " to line_id: " << line_id << std::endl;
             }
-            int line_id = line_to_id_map[line];
-
-            //std::cout << "Creating a mapping from: " << line << " to line_id: " << line_id << std::endl;
 
             // Let MemPatternsForNV know about the mapping
             mp->add_or_update_opcode(opcode_id, instr->getOpcode());
             mp->add_or_update_opcode_short(opcode_short_id, instr->getOpcodeShort());
-            mp->add_or_update_line(line_id, line);
+            if (status) { mp->add_or_update_line(line_id, line); }
 
 
             int mref_idx = 0;
