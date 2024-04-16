@@ -36,13 +36,15 @@ typedef struct _trace_entry_t trace_entry_t;
 
 #define MAP_NAME_SIZE 24
 #define MAP_VALUE_SIZE 22
+#define MAP_VALUE_LONG_SIZE 94
+#define NUM_MAPS 3
 
 struct _trace_map_entry_t
 {
     // 32 bytes total
     char     map_name[MAP_NAME_SIZE];
     uint16_t id;
-    char     val[MAP_VALUE_SIZE];
+    char     val[MAP_VALUE_LONG_SIZE];
 };
 typedef struct _trace_map_entry_t trace_map_entry_t;
 
@@ -165,6 +167,7 @@ public:
 
     static constexpr const char * ID_TO_OPCODE         = "ID_TO_OPCODE";
     static constexpr const char * ID_TO_OPCODE_SHORT   = "ID_TO_OPCODE_SHORT";
+    static constexpr const char * ID_TO_LINE           = "ID_TO_LINE";
 
     static constexpr const char * NVGS_TARGET_KERNEL   = "NVGS_TARGET_KERNEL";
     static constexpr const char * NVGS_TRACE_OUT_FILE  = "NVGS_TRACE_OUT_FILE";
@@ -228,14 +231,25 @@ public:
     // Validate cta stride is within minimum
     bool valid_gs_stride(const std::vector<trace_entry_t> & te_list, const uint32_t min_stride);
 
-    // store opcode mappings
+    // TODO: Migrate these to template functions !
+    // -----------------------------------------------------------------
+
+    // Store opcode mappings
     bool add_or_update_opcode(int opcode_id, const std::string & opcode);
-    // retreive opcode mapping by opcode_id
+    // Retrieve opcode mapping by opcode_id
     const std::string & get_opcode(int opcode_id);
-    // store opcode_short mappings
+
+    // Store opcode_short mappings
     bool add_or_update_opcode_short(int opcode_short_id, const std::string & opcode_short);
-    // retreive opcode_short mapping by opcode_short_id
+    // Retrieve opcode_short mapping by opcode_short_id
     const std::string & get_opcode_short(int opcode_short_id);
+
+    // Store line mappings
+    bool add_or_update_line(int line_id, const std::string & line);
+    // Retrieve line number mapping by line_id
+    const std::string & get_line(int line_id);
+
+    // -----------------------------------------------------------------
 
     bool should_instrument(const std::string & kernel_name);
 
@@ -266,11 +280,12 @@ private:
 
     std::map<int, std::string> id_to_opcode_map;
     std::map<int, std::string> id_to_opcode_short_map;
+    std::map<int, std::string> id_to_line_map;
 };
 
 MemPatternsForNV::~MemPatternsForNV()
 {
-    if (_write_trace_file)
+    if (_write_trace_file && !_first_access)
     {
         write_trace_out_file();
         /// TODO: COMPRESS trace_file on exit
@@ -406,6 +421,28 @@ const std::string & MemPatternsForNV::get_opcode_short(int opcode_short_id) {
     throw GSDataError(ss.str());
 }
 
+// Store line  mappings
+bool MemPatternsForNV::add_or_update_line(int line_id, const std::string & line) {
+    auto it = id_to_line_map.find(line_id);
+    if (it == id_to_line_map.end()) {
+        id_to_line_map[line_id] = line;
+        //std::cout << "LINE: " << line_id << " -> " << line << std::endl;
+        return true;
+    }
+    return false;
+}
+
+// Retrieve line number mapping by line_id
+const std::string & MemPatternsForNV::get_line(int line_id) {
+    auto result = id_to_line_map.find(line_id);
+    if (result != id_to_line_map.end()) {
+        return result->second;
+    }
+    std::stringstream ss;
+    ss << "Unknown line_id: " << line_id;
+    throw GSDataError(ss.str());
+}
+
 /*
  * Read traces from a nvbit trace file. Includes header which describes opcode mappings used in trace data.
  * Used by test runner (gsnv_test) to simulate nvbit execution.
@@ -428,12 +465,16 @@ void MemPatternsForNV::process_traces()
     trace_map_entry_t map_entry[1];
     while (count < p_header->num_map_entires && tline_read_maps(fp_trace, map_entry, &p_map_entry, &iret) )
     {
-        std::cout << "MAP ENTRY: " << p_map_entry -> map_name << " " << p_map_entry->id << " -> " << p_map_entry->val << std::endl;
+        std::cout << "MAP: " << p_map_entry -> map_name << " entry [" << p_map_entry->id << "] -> [" << p_map_entry->val << "]" << std::endl;
+
         if (std::string(p_map_entry->map_name) == ID_TO_OPCODE) {
             id_to_opcode_map[p_map_entry->id] = p_map_entry->val;
         }
         else if (std::string(p_map_entry->map_name) == ID_TO_OPCODE_SHORT) {
             id_to_opcode_short_map[p_map_entry->id]  = p_map_entry->val;
+        }
+        else if (std::string(p_map_entry->map_name) == ID_TO_LINE) {
+            id_to_line_map[p_map_entry->id]  = p_map_entry->val;
         }
         else {
             std::cerr << "Unsupported Map: " << p_map_entry->map_name << " found in trace, ignoring ..."
@@ -560,8 +601,9 @@ std::vector<trace_entry_t> MemPatternsForNV::convert_to_trace_entry(const mem_ac
 
     //const char * m = reinterpret_cast<const char*>(&ma.opcode);
     //const std::string opcode(m, 8);
-    std::string opcode = get_opcode(ma.opcode_id);
-    std::string opcode_short = get_opcode_short(ma.opcode_short_id);
+    //std::string opcode = get_opcode(ma.opcode_id);
+    //std::string opcode_short = get_opcode_short(ma.opcode_short_id);
+    //std::string line = get_line(ma.line_id); // ??? neeeded why
 
     // TODO: This is a SLOW way of doing this
     std::vector<trace_entry_t> te_list;
@@ -696,30 +738,43 @@ void MemPatternsForNV:: write_trace_out_file()
 
     try
     {
+        std::cout << "Writing trace file" << std::endl;
+
         _ofs_tmp.flush();
 
         // Write header
         trace_header_t header;
-        header.num_maps = 2;
-        header.num_map_entires = id_to_opcode_map.size() + id_to_opcode_short_map.size();
+        header.num_maps = NUM_MAPS;
+        header.num_map_entires = id_to_opcode_map.size() +
+                                 id_to_opcode_short_map.size() +
+                                 id_to_line_map.size();
         _ofs.write(reinterpret_cast<const char *>(&header), sizeof header);
 
         // Write Maps
         trace_map_entry_t m_entry;
-        strncpy(m_entry.map_name, ID_TO_OPCODE, MAP_NAME_SIZE);
+        strncpy(m_entry.map_name, ID_TO_OPCODE, MAP_NAME_SIZE-1);
         for (auto itr = id_to_opcode_map.begin(); itr != id_to_opcode_map.end(); itr++)
         {
             m_entry.id = itr->first;
-            strncpy(m_entry.val, itr->second.c_str(), MAP_VALUE_SIZE); // write 22 chars
+            strncpy(m_entry.val, itr->second.c_str(), MAP_VALUE_LONG_SIZE-1);
             _ofs.write(reinterpret_cast<const char *>(&m_entry), sizeof m_entry);
         }
 
-        strncpy(m_entry.map_name, ID_TO_OPCODE_SHORT, MAP_NAME_SIZE);
-        //uint64_t opcode_short_len = id_to_opcode_short_map.size();
+        strncpy(m_entry.map_name, ID_TO_OPCODE_SHORT, MAP_NAME_SIZE-1);
+        //uint64_t opcode_short_map_len = id_to_opcode_short_map.size();
         for (auto itr = id_to_opcode_short_map.begin(); itr != id_to_opcode_short_map.end(); itr++)
         {
             m_entry.id = itr->first;
-            strncpy(m_entry.val, itr->second.c_str(), MAP_VALUE_SIZE); // write 22 chars
+            strncpy(m_entry.val, itr->second.c_str(), MAP_VALUE_LONG_SIZE-1);
+            _ofs.write(reinterpret_cast<const char *>(&m_entry), sizeof m_entry);
+        }
+
+        strncpy(m_entry.map_name, ID_TO_LINE, MAP_NAME_SIZE-1);
+        //uint64_t line_map_len = id_to_line_map.size();
+        for (auto itr = id_to_line_map.begin(); itr != id_to_line_map.end(); itr++)
+        {
+            m_entry.id = itr->first;
+            strncpy(m_entry.val, itr->second.c_str(), MAP_VALUE_LONG_SIZE-1);
             _ofs.write(reinterpret_cast<const char *>(&m_entry), sizeof m_entry);
         }
 
@@ -745,6 +800,11 @@ void MemPatternsForNV:: write_trace_out_file()
 
         std::cout << "-- OPCODE_SHORT_ID to OPCODE_SHORT MAPPING -- " << std::endl;
         for (auto itr = id_to_opcode_short_map.begin(); itr != id_to_opcode_short_map.end(); itr++) {
+            std::cout << itr->first << " -> " << itr->second << std::endl;
+        }
+
+        std::cout << "-- LINE_ID to LINE MAPPING -- " << std::endl;
+        for (auto itr = id_to_line_map.begin(); itr != id_to_line_map.end(); itr++) {
             std::cout << itr->first << " -> " << itr->second << std::endl;
         }
     }
@@ -784,7 +844,7 @@ void MemPatternsForNV::set_config_file(const std::string & config_file)
         std::string name;
         std::string value;
         ifs >> name >> value;
-        if (name.empty() || value.empty())
+        if (name.empty() || value.empty() || name[0] == '#')
             continue;
 
         std::cout << "CONFIG: name: " << name << " value: " << value << std::endl;

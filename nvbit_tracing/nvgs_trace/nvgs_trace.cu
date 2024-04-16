@@ -87,6 +87,7 @@ std::string nvgs_config_file;
 std::map<std::string, int> opcode_to_id_map;
 std::map<int, std::string> id_to_opcode_map;
 std::map<std::string, int> opcode_short_to_id_map;
+std::map<std::string, int> line_to_id_map;
 
 // Instantiate GSPatterns for NVBit
 std::unique_ptr<MemPatternsForNV> mp(new MemPatternsForNV);
@@ -165,14 +166,15 @@ void instrument_function_if_needed(CUcontext ctx, CUfunction func) {
                 instr->printDecoded();
             }
 
+            // Opcode to OpCodeID
             if (opcode_to_id_map.find(instr->getOpcode()) == opcode_to_id_map.end()) {
                 int opcode_id = opcode_to_id_map.size();
                 opcode_to_id_map[instr->getOpcode()] = opcode_id;
                 id_to_opcode_map[opcode_id] = std::string(instr->getOpcode());
             }
-
             int opcode_id = opcode_to_id_map[instr->getOpcode()];
 
+            // Opcode_Short to OpCode_Short_ID
             if (opcode_short_to_id_map.find(instr->getOpcodeShort()) == opcode_short_to_id_map.end()) {
                 int opcode_short_id = opcode_short_to_id_map.size();
                 opcode_short_to_id_map[instr->getOpcodeShort()] = opcode_short_id;
@@ -180,8 +182,31 @@ void instrument_function_if_needed(CUcontext ctx, CUfunction func) {
             }
             int opcode_short_id = opcode_short_to_id_map[instr->getOpcodeShort()];
 
+            //Line to Line_ID
+            /* Get line information for a particular instruction offset if available, */
+            /* binary must be compiled with --generate-line-info   (-lineinfo) */
+            char *line_str;
+            char *dir_str;
+            uint32_t line_num;
+            bool status = nvbit_get_line_info(ctx, func,  instr->getOffset(), &line_str, &dir_str, &line_num);
+
+            std::stringstream ss;
+            ss << dir_str << line_str << ":" << line_num;
+            std::string line (ss.str());
+
+            if (line_to_id_map.find(line) == line_to_id_map.end() ) {
+                int line_id = line_to_id_map.size();
+                line_to_id_map[line] = line_id;
+            }
+            int line_id = line_to_id_map[line];
+
+            //std::cout << "Creating a mapping from: " << line << " to line_id: " << line_id << std::endl;
+
+            // Let MemPatternsForNV know about the mapping
             mp->add_or_update_opcode(opcode_id, instr->getOpcode());
             mp->add_or_update_opcode_short(opcode_short_id, instr->getOpcodeShort());
+            mp->add_or_update_line(line_id, line);
+
 
             int mref_idx = 0;
             /* iterate on the operands */
@@ -206,6 +231,8 @@ void instrument_function_if_needed(CUcontext ctx, CUfunction func) {
                     nvbit_add_call_arg_const_val32(instr, instr->isStore());
                     /* size */
                     nvbit_add_call_arg_const_val32(instr, instr->getSize());
+                    /* line number id */
+                    nvbit_add_call_arg_const_val32(instr, line_id);
 
                     /* memory reference 64 bit address */
                     nvbit_add_call_arg_mref_addr64(instr, mref_idx);

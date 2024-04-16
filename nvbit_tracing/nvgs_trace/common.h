@@ -40,5 +40,6 @@ typedef struct {
     int is_load;
     int is_store;
     int size;
+    int line_id;
     uint64_t addrs[32];
 } mem_access_t;
