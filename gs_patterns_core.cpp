@@ -231,7 +231,7 @@ void handle_trace_entry(MemPatterns & mp, const InstrAddrAdapter & ia)
     /*****************************/
     if (ia.is_other_instr()) {
 
-        iw.iaddr = ia.get_address();
+        iw.iaddr = ia.get_iaddr();
 
         //nops
         trace_info.opcodes++;
@@ -242,10 +242,12 @@ void handle_trace_entry(MemPatterns & mp, const InstrAddrAdapter & ia)
         /***********************/
     } else if (ia.is_mem_instr()) {
 
+        iw.iaddr = ia.get_iaddr() != ia.get_address() ? ia.get_iaddr() : iw.iaddr;
+
         w_rw_idx = ia.get_type();
 
         //printf("M DRTRACE -- iaddr: %016lx addr: %016lx cl_start: %d bytes: %d\n",
-        //     iaddr,  drline->addr, drline->addr % 64, drline->size);
+        //     iw.iaddr,  ia.get_address(), ia.get_address() % 64, ia.get_size());
 
         if ((++trace_info.mcnt % PERSAMPLE) == 0) {
 #if SAMPLE
@@ -272,8 +274,8 @@ void handle_trace_entry(MemPatterns & mp, const InstrAddrAdapter & ia)
         }
 
         //new window
-        if ((w_idx == -1) || (iw.w_bytes[w_rw_idx][w_idx] >= VBYTES) ||
-            (iw.w_cnt[w_rw_idx][w_idx] >= VBYTES)) {
+        if ((w_idx == -1) || (iw.w_bytes[w_rw_idx][w_idx] >= ia.min_size()) ||   // was >= VBYTES
+            (iw.w_cnt[w_rw_idx][w_idx] >= ia.min_size())) {                      // was >= VBYTES
 
             /***************************/
             //do analysis
@@ -478,6 +480,8 @@ bool handle_2nd_pass_trace_entry(const InstrAddrAdapter & ia,
     else if (ia.is_mem_instr()) {
 
         maddr = ia.get_address() / ia.get_size();
+
+        iaddr = ia.get_iaddr() != ia.get_address() ? ia.get_iaddr() : iaddr;
 
         if ((++mcnt % PERSAMPLE) == 0) {
 #if SAMPLE

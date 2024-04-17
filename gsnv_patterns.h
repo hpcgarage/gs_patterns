@@ -7,6 +7,7 @@
 #include <fstream>
 #include <iomanip>
 #include <map>
+#include <unordered_map>
 #include <set>
 
 #include <zlib.h>
@@ -75,7 +76,7 @@ int tline_read_header(gzFile fp, trace_header_t * val, trace_header_t **p_val, i
 
     int idx;
 
-    idx = (*edx) / sizeof(trace_entry_t);
+    idx = (*edx) / sizeof(trace_header_t);
     //first read
     if (NULL == *p_val) {
         *edx = gzread(fp, val, sizeof(trace_header_t));
@@ -117,7 +118,7 @@ int tline_read(gzFile fp, mem_access_t * val, mem_access_t **p_val, int *edx) {
 
     int idx;
 
-    idx = (*edx) / sizeof(trace_entry_t);
+    idx = (*edx) / sizeof(mem_access_t);
     //first read
     if (NULL == *p_val) {
         *edx = gzread(fp, val, sizeof(mem_access_t) * NBUFS);
@@ -138,25 +139,28 @@ int tline_read(gzFile fp, mem_access_t * val, mem_access_t **p_val, int *edx) {
 class InstrAddrAdapterForNV : public InstrAddrAdapter
 {
 public:
-    InstrAddrAdapterForNV(const trace_entry_t * te) : _te(*te) { }
-    InstrAddrAdapterForNV(const trace_entry_t te) : _te(te) { }
+    InstrAddrAdapterForNV(const trace_entry_t * te, addr_t base_addr) : _te(*te), _base_addr(base_addr) { }
+    InstrAddrAdapterForNV(const trace_entry_t te, addr_t base_addr) : _te(te), _base_addr(base_addr) { }
 
     virtual ~InstrAddrAdapterForNV() { }
 
-    virtual bool is_valid() const override       { return true;  }
-    virtual bool is_mem_instr() const override   { return true;  }
-    virtual bool is_other_instr() const override { return false; }
-
+    virtual bool            is_valid() const override       { return true;       }
+    virtual bool            is_mem_instr() const override   { return true;       }
+    virtual bool            is_other_instr() const override { return false;      }
     virtual mem_access_type get_mem_instr_type() const override { return (_te.type == 0) ? GATHER : SCATTER; }
+    virtual addr_t          get_iaddr () const override     { return _base_addr; }
+    virtual int64_t         min_size() const                { return 8;          }
 
-    virtual size_t get_size() const override         {  return _te.size;  } // in bytes
-    virtual addr_t get_address() const override      {  return _te.addr;  }
-    virtual unsigned short get_type() const override {  return _te.type;  } // must be 0 for GATHER, 1 for SCATTER !!
+    virtual size_t          get_size() const override       {  return _te.size;  } // in bytes
+    virtual addr_t          get_address() const override    {  return _te.addr;  }
+    virtual unsigned short  get_type() const override       {  return _te.type;  } // must be 0 for GATHER, 1 for SCATTER !!
 
-    virtual void output(std::ostream & os) const override {     os << "InstrAddrAdapterForNV: trace entry: type: [" << _te.type << "] size: [" << _te.size << "]";}
+    virtual void output(std::ostream & os) const override   {  os << "InstrAddrAdapterForNV: trace entry: type: ["
+                                                                  << _te.type << "] size: [" << _te.size << "]";  }
 
 private:
     trace_entry_t _te;
+    addr_t        _base_addr;
     //mem_access_t _ma;
 };
 
@@ -223,6 +227,18 @@ public:
     double update_source_lines_from_binary(mem_access_type);
     void process_second_pass();
 
+    std::string addr_to_line(addr_t addr)
+    {
+        auto itr = _addr_to_line_id.find(addr);
+        if (itr != _addr_to_line_id.end()) {
+            auto it2 = _id_to_line_map.find(itr->second);
+            if (it2 != _id_to_line_map.end()) {
+                return it2->second;
+            }
+        }
+        return std::string();
+    }
+
     void set_trace_out_file(const std::string & trace_file_name);
      void write_trace_out_file();
 
@@ -253,7 +269,7 @@ public:
 
     bool should_instrument(const std::string & kernel_name);
 
-    std::vector<trace_entry_t> convert_to_trace_entry(const mem_access_t & ma, bool ignore_partial_warps);
+    std::pair<addr_t, std::vector<trace_entry_t>> convert_to_trace_entry(const mem_access_t & ma, bool ignore_partial_warps);
 
 private:
 
@@ -271,6 +287,8 @@ private:
     std::set<std::string>              _target_kernels;
     bool                               _limit_trace_count = false;
     int64_t                            _max_trace_count   = 0;
+    uint64_t                           _traces_written    = 0;
+    uint64_t                           _traces_handled    = 0;
 
     bool                               _write_trace_file = false;
     bool                               _first_access     = true;
@@ -278,9 +296,11 @@ private:
     std::ofstream                      _ofs;
     std::vector<InstrAddrAdapterForNV> _traces;
 
-    std::map<int, std::string> id_to_opcode_map;
-    std::map<int, std::string> id_to_opcode_short_map;
-    std::map<int, std::string> id_to_line_map;
+    // rename these _
+    std::map<int, std::string>       _id_to_opcode_map;
+    std::map<int, std::string>       _id_to_opcode_short_map;
+    std::map<int, std::string>       _id_to_line_map;
+    std::unordered_map<addr_t, int>  _addr_to_line_id;
 };
 
 MemPatternsForNV::~MemPatternsForNV()
@@ -379,9 +399,9 @@ std::string MemPatternsForNV::get_file_prefix()
 
 // store opcode mappings
 bool MemPatternsForNV::add_or_update_opcode(int opcode_id, const std::string & opcode) {
-    auto it = id_to_opcode_map.find(opcode_id);
-    if (it == id_to_opcode_map.end()) {
-        id_to_opcode_map[opcode_id] = opcode;
+    auto it = _id_to_opcode_map.find(opcode_id);
+    if (it == _id_to_opcode_map.end()) {
+        _id_to_opcode_map[opcode_id] = opcode;
         //std::cout << "OPCODE: " << opcode_id << " -> " << opcode << std::endl;
         return true;
     }
@@ -390,8 +410,8 @@ bool MemPatternsForNV::add_or_update_opcode(int opcode_id, const std::string & o
 
 // retreive opcode mapping by opcode_id
 const std::string & MemPatternsForNV::get_opcode(int opcode_id) {
-    auto result = id_to_opcode_map.find(opcode_id);
-    if (result != id_to_opcode_map.end()) {
+    auto result = _id_to_opcode_map.find(opcode_id);
+    if (result != _id_to_opcode_map.end()) {
         return result->second;
     }
     std::stringstream ss;
@@ -401,9 +421,9 @@ const std::string & MemPatternsForNV::get_opcode(int opcode_id) {
 
 // store opcode_short mappings
 bool MemPatternsForNV::add_or_update_opcode_short(int opcode_short_id, const std::string & opcode_short) {
-    auto it = id_to_opcode_short_map.find(opcode_short_id);
-    if (it == id_to_opcode_short_map.end()) {
-        id_to_opcode_short_map[opcode_short_id] = opcode_short;
+    auto it = _id_to_opcode_short_map.find(opcode_short_id);
+    if (it == _id_to_opcode_short_map.end()) {
+        _id_to_opcode_short_map[opcode_short_id] = opcode_short;
         //std::cout << "OPCODE: " << opcode_id << " -> " << opcode << std::endl;
         return true;
     }
@@ -412,8 +432,8 @@ bool MemPatternsForNV::add_or_update_opcode_short(int opcode_short_id, const std
 
 // retreive opcode_short mapping by opcode_short_id
 const std::string & MemPatternsForNV::get_opcode_short(int opcode_short_id) {
-    auto result = id_to_opcode_short_map.find(opcode_short_id);
-    if (result != id_to_opcode_short_map.end()) {
+    auto result = _id_to_opcode_short_map.find(opcode_short_id);
+    if (result != _id_to_opcode_short_map.end()) {
         return result->second;
     }
     std::stringstream ss;
@@ -423,9 +443,9 @@ const std::string & MemPatternsForNV::get_opcode_short(int opcode_short_id) {
 
 // Store line  mappings
 bool MemPatternsForNV::add_or_update_line(int line_id, const std::string & line) {
-    auto it = id_to_line_map.find(line_id);
-    if (it == id_to_line_map.end()) {
-        id_to_line_map[line_id] = line;
+    auto it = _id_to_line_map.find(line_id);
+    if (it == _id_to_line_map.end()) {
+        _id_to_line_map[line_id] = line;
         //std::cout << "LINE: " << line_id << " -> " << line << std::endl;
         return true;
     }
@@ -434,8 +454,8 @@ bool MemPatternsForNV::add_or_update_line(int line_id, const std::string & line)
 
 // Retrieve line number mapping by line_id
 const std::string & MemPatternsForNV::get_line(int line_id) {
-    auto result = id_to_line_map.find(line_id);
-    if (result != id_to_line_map.end()) {
+    auto result = _id_to_line_map.find(line_id);
+    if (result != _id_to_line_map.end()) {
         return result->second;
     }
     std::stringstream ss;
@@ -468,13 +488,13 @@ void MemPatternsForNV::process_traces()
         std::cout << "MAP: " << p_map_entry -> map_name << " entry [" << p_map_entry->id << "] -> [" << p_map_entry->val << "]" << std::endl;
 
         if (std::string(p_map_entry->map_name) == ID_TO_OPCODE) {
-            id_to_opcode_map[p_map_entry->id] = p_map_entry->val;
+            _id_to_opcode_map[p_map_entry->id] = p_map_entry->val;
         }
         else if (std::string(p_map_entry->map_name) == ID_TO_OPCODE_SHORT) {
-            id_to_opcode_short_map[p_map_entry->id]  = p_map_entry->val;
+            _id_to_opcode_short_map[p_map_entry->id]  = p_map_entry->val;
         }
         else if (std::string(p_map_entry->map_name) == ID_TO_LINE) {
-            id_to_line_map[p_map_entry->id]  = p_map_entry->val;
+            _id_to_line_map[p_map_entry->id]  = p_map_entry->val;
         }
         else {
             std::cerr << "Unsupported Map: " << p_map_entry->map_name << " found in trace, ignoring ..."
@@ -486,6 +506,8 @@ void MemPatternsForNV::process_traces()
     }
 
     // Read Traces **
+    iret = 0;
+    uint64_t lines_read = 0;
     mem_access_t * p_trace = NULL;
     mem_access_t trace_buff[NBUFS]; // was static (1024 bytes)
     while (tline_read(fp_trace, trace_buff, &p_trace, &iret))
@@ -493,19 +515,23 @@ void MemPatternsForNV::process_traces()
         //decode drtrace
         t_line = p_trace;
 
-        if (-1 == t_line->cta_id_x) { break; }
+        if (-1 == t_line->cta_id_x) { continue; }
 
         try
         {
             handle_cta_memory_access(t_line);
 
             p_trace++;
+            lines_read++;
         }
         catch (const GSError & ex) {
             std::cerr << "ERROR: " << ex.what() << std::endl;
+            close_trace_file(fp_trace);
             throw;
         }
     }
+
+    std::cout << "Lines Read: " << lines_read << std::endl;
 
     close_trace_file(fp_trace);
 
@@ -537,7 +563,7 @@ void MemPatternsForNV::update_source_lines()
 // TRY
 double MemPatternsForNV::update_source_lines_from_binary(mem_access_type mType)
 {
-    double scatter_cnt = 0.0;
+    double target_cnt = 0.0;
 
     InstrInfo & target_iinfo   = get_iinfo(mType);
     Metrics &   target_metrics = get_metrics(mType);
@@ -548,15 +574,19 @@ double MemPatternsForNV::update_source_lines_from_binary(mem_access_type mType)
         if (0 == target_iinfo.get_iaddrs()[k]) {
             break;
         }
-        translate_iaddr(get_binary_file_name(), target_metrics.get_srcline()[k], target_iinfo.get_iaddrs()[k]);
-        if (startswith(target_metrics.get_srcline()[k], "?"))
+
+        std::string line;
+        line = addr_to_line(target_iinfo.get_iaddrs()[k]);
+        strncpy(target_metrics.get_srcline()[k], line.c_str(), MAX_LINE_LENGTH-1);
+
+        if (std::string(target_metrics.get_srcline()[k]).empty())
             target_iinfo.get_icnt()[k] = 0;
 
-        scatter_cnt += target_iinfo.get_icnt()[k];
+        target_cnt += target_iinfo.get_icnt()[k];
     }
     printf("done.\n");
 
-    return scatter_cnt;
+    return target_cnt;
 
 }
 
@@ -584,13 +614,10 @@ void MemPatternsForNV::process_second_pass()
     }
 }
 
-std::vector<trace_entry_t> MemPatternsForNV::convert_to_trace_entry(const mem_access_t & ma, bool ignore_partial_warps)
+std::pair<addr_t, std::vector<trace_entry_t>> MemPatternsForNV::convert_to_trace_entry(const mem_access_t & ma, bool ignore_partial_warps)
 {
-    // opcode : forms LD.E.64, ST.E.64
-    //std::string mem_type;
     uint16_t mem_size = ma.size;
     uint16_t mem_type_code;
-    //uint16_t mem_attr_code = 0;
 
     if (ma.is_load)
         mem_type_code = GATHER;
@@ -599,14 +626,9 @@ std::vector<trace_entry_t> MemPatternsForNV::convert_to_trace_entry(const mem_ac
     else
         throw GSDataError ("Invalid mem_type must be LD(0) or ST(1)");
 
-    //const char * m = reinterpret_cast<const char*>(&ma.opcode);
-    //const std::string opcode(m, 8);
-    //std::string opcode = get_opcode(ma.opcode_id);
-    //std::string opcode_short = get_opcode_short(ma.opcode_short_id);
-    //std::string line = get_line(ma.line_id); // ??? neeeded why
-
     // TODO: This is a SLOW way of doing this
     std::vector<trace_entry_t> te_list;
+    addr_t base_addr = ma.addrs[0];
     te_list.reserve(MemPatternsForNV::CTA_LENGTH);
     for (int i = 0; i < MemPatternsForNV::CTA_LENGTH; i++)
     {
@@ -614,14 +636,18 @@ std::vector<trace_entry_t> MemPatternsForNV::convert_to_trace_entry(const mem_ac
         {
             trace_entry_t te { mem_type_code, mem_size, ma.addrs[i] };
             te_list.push_back(te);
+
+            if (_addr_to_line_id.find(base_addr) == _addr_to_line_id.end()) {
+                _addr_to_line_id[base_addr] = ma.line_id;
+            }
         }
         else if (ignore_partial_warps)
         {
             // Ignore memory_accesses which have less than MemPatternsForNV::CTA_LENGTH
-            return std::vector<trace_entry_t>();
+            return std::make_pair(0, std::vector<trace_entry_t>());
         }
     }
-    return te_list;
+    return std::make_pair(base_addr, te_list);
 }
 
 void MemPatternsForNV::handle_cta_memory_access(const mem_access_t * ma)
@@ -637,6 +663,7 @@ void MemPatternsForNV::handle_cta_memory_access(const mem_access_t * ma)
     if (_write_trace_file && _ofs_tmp.is_open()) {
         // Write entry to trace_output file
         _ofs_tmp.write(reinterpret_cast<const char*>(ma), sizeof *ma);
+        _traces_written++;
     }
 #if 0
     std::stringstream ss;
@@ -655,14 +682,19 @@ void MemPatternsForNV::handle_cta_memory_access(const mem_access_t * ma)
 #endif
 
     // Convert to vector of trace_entry_t if full warp. ignore partial warps.
-    std::vector<trace_entry_t> te_list = convert_to_trace_entry(*ma, true);
+    std::pair<addr_t, std::vector<trace_entry_t>> te_result = convert_to_trace_entry(*ma, true);
+
+    addr_t base_addr = te_result.first;
+    std::vector<trace_entry_t> & te_list = te_result.second;
+
     uint64_t min_size = !te_list.empty() ? (te_list[0].size) + 1 : 0;
     if (min_size > 0 && valid_gs_stride(te_list, min_size))
     {
         for (auto it = te_list.begin(); it != te_list.end(); it++)
         {
-            handle_trace_entry(InstrAddrAdapterForNV(*it));
+            handle_trace_entry(InstrAddrAdapterForNV(*it, base_addr));
         }
+        _traces_handled++;
     }
 }
 
@@ -738,22 +770,23 @@ void MemPatternsForNV:: write_trace_out_file()
 
     try
     {
-        std::cout << "Writing trace file" << std::endl;
+        std::cout << "Writing trace file: traces_written: " << _traces_written
+                  << " traced_handled: " << _traces_handled << std::endl;
 
         _ofs_tmp.flush();
 
         // Write header
         trace_header_t header;
         header.num_maps = NUM_MAPS;
-        header.num_map_entires = id_to_opcode_map.size() +
-                                 id_to_opcode_short_map.size() +
-                                 id_to_line_map.size();
+        header.num_map_entires = _id_to_opcode_map.size() +
+                                 _id_to_opcode_short_map.size() +
+                                 _id_to_line_map.size();
         _ofs.write(reinterpret_cast<const char *>(&header), sizeof header);
 
         // Write Maps
         trace_map_entry_t m_entry;
         strncpy(m_entry.map_name, ID_TO_OPCODE, MAP_NAME_SIZE-1);
-        for (auto itr = id_to_opcode_map.begin(); itr != id_to_opcode_map.end(); itr++)
+        for (auto itr = _id_to_opcode_map.begin(); itr != _id_to_opcode_map.end(); itr++)
         {
             m_entry.id = itr->first;
             strncpy(m_entry.val, itr->second.c_str(), MAP_VALUE_LONG_SIZE-1);
@@ -761,8 +794,8 @@ void MemPatternsForNV:: write_trace_out_file()
         }
 
         strncpy(m_entry.map_name, ID_TO_OPCODE_SHORT, MAP_NAME_SIZE-1);
-        //uint64_t opcode_short_map_len = id_to_opcode_short_map.size();
-        for (auto itr = id_to_opcode_short_map.begin(); itr != id_to_opcode_short_map.end(); itr++)
+        //uint64_t opcode_short_map_len = _id_to_opcode_short_map.size();
+        for (auto itr = _id_to_opcode_short_map.begin(); itr != _id_to_opcode_short_map.end(); itr++)
         {
             m_entry.id = itr->first;
             strncpy(m_entry.val, itr->second.c_str(), MAP_VALUE_LONG_SIZE-1);
@@ -770,8 +803,8 @@ void MemPatternsForNV:: write_trace_out_file()
         }
 
         strncpy(m_entry.map_name, ID_TO_LINE, MAP_NAME_SIZE-1);
-        //uint64_t line_map_len = id_to_line_map.size();
-        for (auto itr = id_to_line_map.begin(); itr != id_to_line_map.end(); itr++)
+        //uint64_t line_map_len = _id_to_line_map.size();
+        for (auto itr = _id_to_line_map.begin(); itr != _id_to_line_map.end(); itr++)
         {
             m_entry.id = itr->first;
             strncpy(m_entry.val, itr->second.c_str(), MAP_VALUE_LONG_SIZE-1);
@@ -794,17 +827,17 @@ void MemPatternsForNV:: write_trace_out_file()
         std::remove(_tmp_trace_out_file_name.c_str());
 
         std::cout << "-- OPCODE_ID to OPCODE MAPPING -- " << std::endl;
-        for (auto itr = id_to_opcode_map.begin(); itr != id_to_opcode_map.end(); itr++) {
+        for (auto itr = _id_to_opcode_map.begin(); itr != _id_to_opcode_map.end(); itr++) {
             std::cout << itr->first << " -> " << itr->second << std::endl;
         }
 
         std::cout << "-- OPCODE_SHORT_ID to OPCODE_SHORT MAPPING -- " << std::endl;
-        for (auto itr = id_to_opcode_short_map.begin(); itr != id_to_opcode_short_map.end(); itr++) {
+        for (auto itr = _id_to_opcode_short_map.begin(); itr != _id_to_opcode_short_map.end(); itr++) {
             std::cout << itr->first << " -> " << itr->second << std::endl;
         }
 
         std::cout << "-- LINE_ID to LINE MAPPING -- " << std::endl;
-        for (auto itr = id_to_line_map.begin(); itr != id_to_line_map.end(); itr++) {
+        for (auto itr = _id_to_line_map.begin(); itr != _id_to_line_map.end(); itr++) {
             std::cout << itr->first << " -> " << itr->second << std::endl;
         }
     }

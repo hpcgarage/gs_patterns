@@ -74,14 +74,16 @@ public:
     InstrAddrAdapter() { }
     virtual ~InstrAddrAdapter() { }
 
-    virtual bool is_valid() const                      = 0;
-    virtual bool is_mem_instr() const                  = 0;
-    virtual bool is_other_instr() const                = 0;
+    virtual bool           is_valid() const            = 0;
+    virtual bool           is_mem_instr() const        = 0;
+    virtual bool           is_other_instr() const      = 0;
     virtual mem_access_type get_mem_instr_type() const = 0;
 
-    virtual size_t get_size() const                   = 0;
-    virtual addr_t get_address() const                = 0;
-    virtual unsigned short get_type() const           = 0; // must be 0 for GATHER, 1 for SCATTER !!
+    virtual size_t         get_size() const            = 0;
+    virtual addr_t         get_address() const         = 0;
+    virtual unsigned short get_type() const            = 0; // must be 0 for GATHER, 1 for SCATTER !!
+    virtual addr_t         get_iaddr() const           = 0;
+    virtual int64_t        min_size() const            = 0;
     // multiple?
 
     virtual bool is_gather() const

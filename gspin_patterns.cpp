@@ -89,9 +89,9 @@ public:
 
     virtual ~InstrAddrAdapterForPin() { }
 
-    virtual bool is_valid() const override       { return !(0 == _te.type && 0 == _te.size);        }
-    virtual bool is_mem_instr() const override   { return ((_te.type == 0x0) || (_te.type == 0x1)); }
-    virtual bool is_other_instr() const override { return ((_te.type >= 0xa) && (_te.type <= 0x10)) || (_te.type == 0x1e); }
+    virtual bool            is_valid() const override       { return !(0 == _te.type && 0 == _te.size);        }
+    virtual bool            is_mem_instr() const override   { return ((_te.type == 0x0) || (_te.type == 0x1)); }
+    virtual bool            is_other_instr() const override { return ((_te.type >= 0xa) && (_te.type <= 0x10)) || (_te.type == 0x1e); }
 
     virtual mem_access_type get_mem_instr_type() const override {
         if (!is_mem_instr()) throw GSDataError("Not a Memory Instruction - unable to determine Instruction");
@@ -100,9 +100,11 @@ public:
         else return SCATTER;
     }
 
-    virtual size_t get_size() const override         { return _te.size; }
-    virtual addr_t get_address() const override      { return _te.addr; }
-    virtual unsigned short get_type() const override { return _te.type; } // must be 0 for GATHER, 1 for SCATTER !!
+    virtual size_t          get_size() const override     { return _te.size; }
+    virtual addr_t          get_address() const override  { return _te.addr; }
+    virtual unsigned short  get_type() const override     { return _te.type; } // must be 0 for GATHER, 1 for SCATTER !!
+    virtual addr_t          get_iaddr() const override    { return _te.addr; }
+    virtual int64_t         min_size() const              { return VBYTES;   }
 
     virtual void output(std::ostream & os) const override {
         os << "InstrAddrAdapterForPin: trace entry: type: [" << _te.type << "] size: [" << _te.size << "]";
@@ -240,7 +242,7 @@ std::string MemPatternsForPin::get_file_prefix()
 
 double MemPatternsForPin::update_source_lines_from_binary(mem_access_type mType)
 {
-    double scatter_cnt = 0.0;
+    double target_cnt = 0.0;
 
     InstrInfo & target_iinfo   = get_iinfo(mType);
     Metrics &   target_metrics = get_metrics(mType);
@@ -255,11 +257,11 @@ double MemPatternsForPin::update_source_lines_from_binary(mem_access_type mType)
         if (startswith(target_metrics.get_srcline()[k], "?"))
             target_iinfo.get_icnt()[k] = 0;
 
-        scatter_cnt += target_iinfo.get_icnt()[k];
+        target_cnt += target_iinfo.get_icnt()[k];
     }
     printf("done.\n");
 
-    return scatter_cnt;
+    return target_cnt;
 }
 
 // First Pass
@@ -267,13 +269,13 @@ void MemPatternsForPin::process_traces()
 {
     int iret = 0;
     trace_entry_t *drline;
-    InstrWindow iw;
 
     gzFile fp_drtrace = open_trace_file(get_trace_file_name());
 
     printf("First pass to find top gather / scatter iaddresses\n");
     fflush(stdout);
 
+    uint64_t lines_read = 0;
     trace_entry_t *p_drtrace = NULL;
     trace_entry_t drtrace[NBUFS];  // was static (1024 bytes)
 
@@ -284,7 +286,10 @@ void MemPatternsForPin::process_traces()
         handle_trace_entry(InstrAddrAdapterForPin(drline));
 
         p_drtrace++;
+        lines_read++;
     }
+
+    std::cout << "Lines Read: " << lines_read << std::endl;
 
     close_trace_file(fp_drtrace);
 
