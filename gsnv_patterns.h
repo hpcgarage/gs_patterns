@@ -296,7 +296,6 @@ private:
     std::ofstream                      _ofs;
     std::vector<InstrAddrAdapterForNV> _traces;
 
-    // rename these _
     std::map<int, std::string>       _id_to_opcode_map;
     std::map<int, std::string>       _id_to_opcode_short_map;
     std::map<int, std::string>       _id_to_line_map;
@@ -397,7 +396,7 @@ std::string MemPatternsForNV::get_file_prefix()
     return prefix;
 }
 
-// store opcode mappings
+// Store opcode mappings
 bool MemPatternsForNV::add_or_update_opcode(int opcode_id, const std::string & opcode) {
     auto it = _id_to_opcode_map.find(opcode_id);
     if (it == _id_to_opcode_map.end()) {
@@ -408,7 +407,7 @@ bool MemPatternsForNV::add_or_update_opcode(int opcode_id, const std::string & o
     return false;
 }
 
-// retreive opcode mapping by opcode_id
+// Retrieve opcode mapping by opcode_id
 const std::string & MemPatternsForNV::get_opcode(int opcode_id) {
     auto result = _id_to_opcode_map.find(opcode_id);
     if (result != _id_to_opcode_map.end()) {
@@ -419,7 +418,7 @@ const std::string & MemPatternsForNV::get_opcode(int opcode_id) {
     throw GSDataError(ss.str());
 }
 
-// store opcode_short mappings
+// Store opcode_short mappings
 bool MemPatternsForNV::add_or_update_opcode_short(int opcode_short_id, const std::string & opcode_short) {
     auto it = _id_to_opcode_short_map.find(opcode_short_id);
     if (it == _id_to_opcode_short_map.end()) {
@@ -430,7 +429,7 @@ bool MemPatternsForNV::add_or_update_opcode_short(int opcode_short_id, const std
     return false;
 }
 
-// retreive opcode_short mapping by opcode_short_id
+// Retrieve opcode_short mapping by opcode_short_id
 const std::string & MemPatternsForNV::get_opcode_short(int opcode_short_id) {
     auto result = _id_to_opcode_short_map.find(opcode_short_id);
     if (result != _id_to_opcode_short_map.end()) {
@@ -543,8 +542,6 @@ void MemPatternsForNV::process_traces()
 
 }
 
-
-// TRY
 void MemPatternsForNV::update_source_lines()
 {
     // Find source lines for gathers - Must have symbol
@@ -560,7 +557,6 @@ void MemPatternsForNV::update_source_lines()
     get_scatter_metrics().cnt = update_source_lines_from_binary(SCATTER);
 }
 
-// TRY
 double MemPatternsForNV::update_source_lines_from_binary(mem_access_type mType)
 {
     double target_cnt = 0.0;
@@ -568,7 +564,6 @@ double MemPatternsForNV::update_source_lines_from_binary(mem_access_type mType)
     InstrInfo & target_iinfo   = get_iinfo(mType);
     Metrics &   target_metrics = get_metrics(mType);
 
-    //Check it is not a library
     for (int k = 0; k < NGS; k++) {
 
         if (0 == target_iinfo.get_iaddrs()[k]) {
@@ -722,7 +717,6 @@ bool MemPatternsForNV::valid_gs_stride(const std::vector<trace_entry_t> & te_lis
 
     return min_stride_found >= min_stride;
 }
-
 
 void MemPatternsForNV::set_trace_file(const std::string & trace_file_name)
 {
