@@ -242,7 +242,11 @@ void handle_trace_entry(MemPatterns & mp, const InstrAddrAdapter & ia)
         /***********************/
     } else if (ia.is_mem_instr()) {
 
-        iw.iaddr = ia.get_iaddr() != ia.get_address() ? ia.get_iaddr() : iw.iaddr;
+        if ( ia.get_iaddr() != ia.get_address()) {
+            iw.iaddr = ia.get_iaddr();
+            trace_info.opcodes++;
+            trace_info.did_opcode = true;
+        }
 
         w_rw_idx = ia.get_type();
 
