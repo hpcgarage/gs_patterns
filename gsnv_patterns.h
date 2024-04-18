@@ -139,28 +139,27 @@ int tline_read(gzFile fp, mem_access_t * val, mem_access_t **p_val, int *edx) {
 class InstrAddrAdapterForNV : public InstrAddrAdapter
 {
 public:
-    InstrAddrAdapterForNV(const trace_entry_t * te, addr_t base_addr) : _te(*te), _base_addr(base_addr) { }
-    InstrAddrAdapterForNV(const trace_entry_t te, addr_t base_addr) : _te(te), _base_addr(base_addr) { }
+    InstrAddrAdapterForNV(const trace_entry_t & te, const addr_t & base_addr) : _te(te), _base_addr(base_addr) { }
 
     virtual ~InstrAddrAdapterForNV() { }
 
-    virtual bool            is_valid() const override       { return true;       }
-    virtual bool            is_mem_instr() const override   { return true;       }
-    virtual bool            is_other_instr() const override { return false;      }
-    virtual mem_access_type get_mem_instr_type() const override { return (_te.type == 0) ? GATHER : SCATTER; }
-    virtual addr_t          get_iaddr () const override     { return _base_addr; }
-    virtual int64_t         min_size() const                { return 8;          }
+    virtual inline bool            is_valid() const override       { return true;       }
+    virtual inline bool            is_mem_instr() const override   { return true;       }
+    virtual inline bool            is_other_instr() const override { return false;      }
+    virtual inline mem_access_type get_mem_instr_type() const override { return (_te.type == 0) ? GATHER : SCATTER; }
+    virtual inline addr_t          get_iaddr () const override     { return _base_addr; }
+    virtual inline int64_t         min_size() const override       { return 8;          }
 
-    virtual size_t          get_size() const override       {  return _te.size;  } // in bytes
-    virtual addr_t          get_address() const override    {  return _te.addr;  }
-    virtual unsigned short  get_type() const override       {  return _te.type;  } // must be 0 for GATHER, 1 for SCATTER !!
+    virtual inline size_t          get_size() const override       {  return _te.size;  } // in bytes
+    virtual inline addr_t          get_address() const override    {  return _te.addr;  }
+    virtual inline unsigned short  get_type() const override       {  return _te.type;  } // must be 0 for GATHER, 1 for SCATTER !!
 
     virtual void output(std::ostream & os) const override   {  os << "InstrAddrAdapterForNV: trace entry: type: ["
                                                                   << _te.type << "] size: [" << _te.size << "]";  }
 
 private:
-    trace_entry_t _te;
-    addr_t        _base_addr;
+    const trace_entry_t  _te;
+    const addr_t         _base_addr;
     //mem_access_t _ma;
 };
 
@@ -269,7 +268,10 @@ public:
 
     bool should_instrument(const std::string & kernel_name);
 
-    std::pair<addr_t, std::vector<trace_entry_t>> convert_to_trace_entry(const mem_access_t & ma, bool ignore_partial_warps);
+    bool convert_to_trace_entry(const mem_access_t & ma,
+                                bool ignore_partial_warps,
+                                std::vector<trace_entry_t> & te_list,
+                                addr_t & base_addr);
 
 private:
 
@@ -344,8 +346,6 @@ void MemPatternsForNV::handle_trace_entry(const InstrAddrAdapter & ia)
 
     const InstrAddrAdapterForNV & ianv = dynamic_cast<const InstrAddrAdapterForNV &> (ia);
     _traces.push_back(ianv);
-
-    // TODO: Determine how to get source lines
 }
 
 void MemPatternsForNV::generate_patterns()
@@ -609,7 +609,10 @@ void MemPatternsForNV::process_second_pass()
     }
 }
 
-std::pair<addr_t, std::vector<trace_entry_t>> MemPatternsForNV::convert_to_trace_entry(const mem_access_t & ma, bool ignore_partial_warps)
+bool MemPatternsForNV::convert_to_trace_entry(const mem_access_t & ma,
+                                              bool ignore_partial_warps,
+                                              std::vector<trace_entry_t> & te_list,
+                                              addr_t & base_addr)
 {
     uint16_t mem_size = ma.size;
     uint16_t mem_type_code;
@@ -622,8 +625,7 @@ std::pair<addr_t, std::vector<trace_entry_t>> MemPatternsForNV::convert_to_trace
         throw GSDataError ("Invalid mem_type must be LD(0) or ST(1)");
 
     // TODO: This is a SLOW way of doing this
-    std::vector<trace_entry_t> te_list;
-    addr_t base_addr = ma.addrs[0];
+    base_addr = ma.addrs[0];
     te_list.reserve(MemPatternsForNV::CTA_LENGTH);
     for (int i = 0; i < MemPatternsForNV::CTA_LENGTH; i++)
     {
@@ -639,10 +641,10 @@ std::pair<addr_t, std::vector<trace_entry_t>> MemPatternsForNV::convert_to_trace
         else if (ignore_partial_warps)
         {
             // Ignore memory_accesses which have less than MemPatternsForNV::CTA_LENGTH
-            return std::make_pair(0, std::vector<trace_entry_t>());
+            return false;
         }
     }
-    return std::make_pair(base_addr, te_list);
+    return true;
 }
 
 void MemPatternsForNV::handle_cta_memory_access(const mem_access_t * ma)
@@ -677,10 +679,12 @@ void MemPatternsForNV::handle_cta_memory_access(const mem_access_t * ma)
 #endif
 
     // Convert to vector of trace_entry_t if full warp. ignore partial warps.
-    std::pair<addr_t, std::vector<trace_entry_t>> te_result = convert_to_trace_entry(*ma, true);
+    std::vector<trace_entry_t> te_list;
+    te_list.reserve(MemPatternsForNV::CTA_LENGTH);
+    addr_t base_addr;
 
-    addr_t base_addr = te_result.first;
-    std::vector<trace_entry_t> & te_list = te_result.second;
+    bool status = convert_to_trace_entry(*ma, true, te_list, base_addr);
+    if (!status) return;
 
     uint64_t min_size = !te_list.empty() ? (te_list[0].size) + 1 : 0;
     if (min_size > 0 && valid_gs_stride(te_list, min_size))
