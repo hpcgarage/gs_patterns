@@ -8,16 +8,14 @@ int main(int argc, char **argv)
 {
     try
     {
-        if (argc != 3) {
-            throw GSError("Invalid arguments, should be: trace.gz binary_file_name");
+        if (argc != 2) {
+            throw GSError("Invalid arguments, should be: trace.gz");
         }
 
         MemPatternsForNV mp;
 
         // nvbit trace file with memory access traces
         mp.set_trace_file(argv[1]);
-        // Executable file built with debug symbols
-        mp.set_binary_file(argv[2]);
 
         const char * config_file = std::getenv("NVGS_CONFIG_FILE");
         if (config_file) {
