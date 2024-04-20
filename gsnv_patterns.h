@@ -656,7 +656,7 @@ void MemPatternsForNV::process_second_pass()
         trace_entry_t ta[TRACE_BUFFER_LENGTH];
         size_t count_read = 0;
         size_t read;
-        while ( (read = std::fread(&ta, sizeof (ta[0]), TRACE_BUFFER_LENGTH, _tmp_dump_file)) && !breakout )
+        while ( !breakout && (read = std::fread(&ta, sizeof (ta[0]), TRACE_BUFFER_LENGTH, _tmp_dump_file)) )
         {
             for (int i = 0; i < read; i++)
             {
@@ -664,6 +664,8 @@ void MemPatternsForNV::process_second_pass()
                 breakout = ::handle_2nd_pass_trace_entry(ia, get_gather_metrics(), get_scatter_metrics(),
                                                          iaddr, maddr, mcnt, gather_base, scatter_base);
                 count_read++;
+
+                if (breakout) break;
             }
         }
         std::cout << "Reread: " << count_read << " for second_pass " << std::endl;
