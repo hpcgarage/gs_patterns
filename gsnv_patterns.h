@@ -38,6 +38,7 @@ struct _trace_entry_t {
         unsigned char length[sizeof(addr_t)];
     };
     addr_t         base_addr;
+    char           padding[4];
 }  __attribute__((packed));
 typedef struct _trace_entry_t trace_entry_t;
 
@@ -45,6 +46,8 @@ typedef struct _trace_entry_t trace_entry_t;
 #define MAP_VALUE_SIZE 22
 #define MAP_VALUE_LONG_SIZE 94
 #define NUM_MAPS 3
+// Setting this to fit within a 4k page e.g 170 * 24 bytes <= 4k
+#define TRACE_BUFFER_LENGTH 170
 
 struct _trace_map_entry_t
 {
@@ -362,8 +365,8 @@ void MemPatternsForNV::handle_trace_entry(const InstrAddrAdapter & ia)
 #ifdef USE_VECTOR_FOR_SECOND_PASS
     _traces.push_back(ianv);
 #else
-    size_t rc;
-    if (!(rc = std::fwrite(reinterpret_cast<const char *>(&ianv.get_trace_entry()), sizeof(trace_entry_t), 1, _tmp_dump_file) != sizeof(trace_entry_t))) {
+    if (std::fwrite(reinterpret_cast<const char *>(&ianv.get_trace_entry()), sizeof(trace_entry_t), 1, _tmp_dump_file) != 1)
+    {
         throw GSFileError("Write of trace to temp file failed");
     }
 #endif
@@ -528,6 +531,7 @@ void MemPatternsForNV::process_traces()
     // Read Traces **
     iret = 0;
     uint64_t lines_read = 0;
+    uint64_t pos = 0;
     mem_access_t * p_trace = NULL;
     mem_access_t trace_buff[NBUFS]; // was static (1024 bytes)
     while (tline_read(fp_trace, trace_buff, &p_trace, &iret))
@@ -540,9 +544,15 @@ void MemPatternsForNV::process_traces()
         try
         {
             // Progress bar
+            if (lines_read == 0) {
+                for (int i = 0; i < 100; i++) { std::cout << "-"; }
+                std::cout << std::endl;
+            }
             if (lines_read % ((uint64_t) std::max((p_header->total_traces * .01), 1.0)) == 0) {
-                std::cout << "+";
+                if ((pos % 20) == 0) { std::cout << "|"; }
+                else { std::cout << "+"; }
                 std::flush(std::cout);
+                pos++;
             }
 
             handle_cta_memory_access(t_line);
@@ -643,12 +653,21 @@ void MemPatternsForNV::process_second_pass()
     std::rewind(_tmp_dump_file); // Back to the future, ... sort of
     try
     {
-        trace_entry_t t;
-        while (std::fread(reinterpret_cast<char*> (&t), sizeof(trace_entry_t), 1, _tmp_dump_file) && !breakout) {
-            InstrAddrAdapterForNV ia(const_cast<const trace_entry_t &>(t));
-            breakout = ::handle_2nd_pass_trace_entry(ia, get_gather_metrics(), get_scatter_metrics(),
-                                                     iaddr, maddr, mcnt, gather_base, scatter_base);
+        trace_entry_t ta[TRACE_BUFFER_LENGTH];
+        size_t count_read = 0;
+        size_t read;
+        while ( (read = std::fread(&ta, sizeof (ta[0]), TRACE_BUFFER_LENGTH, _tmp_dump_file)) && !breakout )
+        {
+            for (int i = 0; i < read; i++)
+            {
+                InstrAddrAdapterForNV ia(const_cast<const trace_entry_t &>(ta[i]));
+                breakout = ::handle_2nd_pass_trace_entry(ia, get_gather_metrics(), get_scatter_metrics(),
+                                                         iaddr, maddr, mcnt, gather_base, scatter_base);
+                count_read++;
+            }
         }
+        std::cout << "Reread: " << count_read << " for second_pass " << std::endl;
+
         if (!breakout && !std::feof(_tmp_dump_file)) {
             if (std::ferror(_tmp_dump_file)) {
                 throw GSFileError("Unexpected error occurred while reading temp file");
@@ -827,7 +846,7 @@ void MemPatternsForNV::set_trace_out_file(const std::string & trace_out_file_nam
         // Open an output file for dumping temp data used exclusively by second_pass
         _tmp_dump_file = std::tmpfile();
         if (!_tmp_dump_file) {
-            throw GSFileError("Unable to open " + _trace_out_file_name + " for reading & writing");
+            throw GSFileError("Unable to create a temp file for second pass");
         }
 #endif
         _write_trace_file = true;
