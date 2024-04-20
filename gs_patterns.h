@@ -34,6 +34,7 @@
 
 typedef uintptr_t addr_t;
 typedef enum { GATHER=0, SCATTER } mem_access_type;
+typedef enum { VECTOR=0, CTA } mem_instr_type;
 
 class GSError : public std::exception
 {
@@ -73,10 +74,11 @@ public:
     InstrAddrAdapter() { }
     virtual ~InstrAddrAdapter() { }
 
-    virtual bool           is_valid() const            = 0;
-    virtual bool           is_mem_instr() const        = 0;
-    virtual bool           is_other_instr() const      = 0;
-    virtual mem_access_type get_mem_instr_type() const = 0;
+    virtual bool            is_valid() const            = 0;
+    virtual bool            is_mem_instr() const        = 0;
+    virtual bool            is_other_instr() const      = 0;
+    virtual mem_access_type get_mem_access_type() const = 0;
+    virtual mem_instr_type  get_mem_instr_type() const  = 0;
 
     virtual size_t         get_size() const            = 0;
     virtual addr_t         get_address() const         = 0;
@@ -86,10 +88,10 @@ public:
     // multiple?
 
     virtual bool is_gather() const
-    { return (is_valid() && is_mem_instr() && GATHER == get_mem_instr_type()) ? true : false; }
+    { return (is_valid() && is_mem_instr() && GATHER == get_mem_access_type()) ? true : false; }
 
     virtual bool is_scatter() const
-    { return (is_valid() && is_mem_instr() && SCATTER == get_mem_instr_type()) ? true : false; }
+    { return (is_valid() && is_mem_instr() && SCATTER == get_mem_access_type()) ? true : false; }
 
     virtual void output(std::ostream & os) const      = 0;
 };

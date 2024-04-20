@@ -231,7 +231,7 @@ void handle_trace_entry(MemPatterns & mp, const InstrAddrAdapter & ia)
     /*****************************/
     if (ia.is_other_instr()) {
 
-        iw.iaddr = ia.get_iaddr();
+        iw.iaddr = ia.get_address();
 
         //nops
         trace_info.opcodes++;
@@ -242,7 +242,7 @@ void handle_trace_entry(MemPatterns & mp, const InstrAddrAdapter & ia)
         /***********************/
     } else if (ia.is_mem_instr()) {
 
-        if ( ia.get_iaddr() != ia.get_address()) {
+        if (CTA == ia.get_mem_instr_type() && ia.get_iaddr() != ia.get_address()) {
             iw.iaddr = ia.get_iaddr();
             trace_info.opcodes++;
             trace_info.did_opcode = true;
@@ -364,7 +364,7 @@ void handle_trace_entry(MemPatterns & mp, const InstrAddrAdapter & ia)
 
         //Set window values
         iw.w_iaddrs[w_rw_idx][w_idx] = iw.iaddr;
-        iw.w_maddr[w_rw_idx][w_idx][iw.w_cnt[w_rw_idx][w_idx]] = ia.get_address() / ia.get_size();
+        iw.w_maddr[w_rw_idx][w_idx][iw.w_cnt[w_rw_idx][w_idx]] = ia.get_iaddr();
         iw.w_bytes[w_rw_idx][w_idx] += ia.get_size();
 
         //num access per iaddr in loop
@@ -483,9 +483,11 @@ bool handle_2nd_pass_trace_entry(const InstrAddrAdapter & ia,
     }
     else if (ia.is_mem_instr()) {
 
-        maddr = ia.get_address() / ia.get_size();
+        maddr = ia.get_iaddr();
 
-        iaddr = ia.get_iaddr() != ia.get_address() ? ia.get_iaddr() : iaddr;
+        if (CTA == ia.get_mem_instr_type() && ia.get_address() != ia.get_iaddr()) {
+            iaddr = ia.get_iaddr();
+        }
 
         if ((++mcnt % PERSAMPLE) == 0) {
 #if SAMPLE
@@ -496,7 +498,7 @@ bool handle_2nd_pass_trace_entry(const InstrAddrAdapter & ia,
         }
 
         // gather ?
-        if (ia.get_mem_instr_type() == GATHER) {
+        if (GATHER == ia.get_mem_access_type()) {
 
             for (i = 0; i < gather_metrics.ntop; i++) {
 
@@ -519,7 +521,7 @@ bool handle_2nd_pass_trace_entry(const InstrAddrAdapter & ia,
             }
         }
         // scatter ?
-        else if (ia.get_mem_instr_type() == SCATTER) {
+        else if (SCATTER == ia.get_mem_access_type()) {
 
             for (i = 0; i < scatter_metrics.ntop; i++) {
 
@@ -541,7 +543,7 @@ bool handle_2nd_pass_trace_entry(const InstrAddrAdapter & ia,
             }
         }
         else { // belt and suspenders, yep = but helps to validate correct logic in children of InstrAddresInfo
-            throw GSDataError("Unknown Memory Instruction Type: " + ia.get_mem_instr_type());
+            throw GSDataError("Unknown Memory Access Type: " + ia.get_mem_access_type());
         }
     } // MEM
 

@@ -4,12 +4,16 @@
 #include "gs_patterns.h"
 #include "gsnv_patterns.h"
 
+#define NVGS_CONFIG_FILE "NVGS_CONFIG_FILE"
+
 int main(int argc, char **argv)
 {
     try
     {
         if (argc != 2) {
-            throw GSError("Invalid arguments, should be: trace.gz");
+            size_t pos = std::string(argv[0]).find_last_of("/");
+            std::string prog_name = std::string(argv[0]).substr(pos+1);
+            throw GSError("Invalid program arguments, should be: " + prog_name + " <trace.gz>");
         }
 
         MemPatternsForNV mp;
@@ -17,7 +21,7 @@ int main(int argc, char **argv)
         // nvbit trace file with memory access traces
         mp.set_trace_file(argv[1]);
 
-        const char * config_file = std::getenv("NVGS_CONFIG_FILE");
+        const char * config_file = std::getenv(NVGS_CONFIG_FILE);
         if (config_file) {
             mp.set_config_file(config_file);
         }
@@ -63,6 +67,3 @@ int main(int argc, char **argv)
 
     return 0;
 }
-
-
-

@@ -156,13 +156,14 @@ public:
     virtual inline bool            is_valid() const override       { return true;          }
     virtual inline bool            is_mem_instr() const override   { return true;          }
     virtual inline bool            is_other_instr() const override { return false;         }
-    virtual inline mem_access_type get_mem_instr_type() const override { return (_te.type == 0) ? GATHER : SCATTER; }
-    virtual inline addr_t          get_iaddr () const override     { return _te.base_addr; }
-    virtual inline int64_t         min_size() const override       { return 8;             }
+    virtual inline mem_access_type get_mem_access_type() const override { return (_te.type == 0) ? GATHER : SCATTER; }
+    virtual inline mem_instr_type  get_mem_instr_type() const override  { return CTA;      }
 
     virtual inline size_t          get_size() const override       { return _te.size;      } // in bytes
     virtual inline addr_t          get_address() const override    { return _te.addr;      }
     virtual inline unsigned short  get_type() const override       { return _te.type;      } // must be 0 for GATHER, 1 for SCATTER !!
+    virtual inline addr_t          get_iaddr () const override     { return _te.base_addr; }
+    virtual inline int64_t         min_size() const override       { return  256;          }
 
     virtual void output(std::ostream & os) const override   {  os << "InstrAddrAdapterForNV: trace entry: type: ["
                                                                   << _te.type << "] size: [" << _te.size << "]";  }

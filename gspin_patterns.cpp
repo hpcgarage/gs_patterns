@@ -93,17 +93,18 @@ public:
     virtual bool            is_mem_instr() const override   { return ((_te.type == 0x0) || (_te.type == 0x1)); }
     virtual bool            is_other_instr() const override { return ((_te.type >= 0xa) && (_te.type <= 0x10)) || (_te.type == 0x1e); }
 
-    virtual mem_access_type get_mem_instr_type() const override {
-        if (!is_mem_instr()) throw GSDataError("Not a Memory Instruction - unable to determine Instruction");
+    virtual mem_access_type get_mem_access_type() const override {
+        if (!is_mem_instr()) throw GSDataError("Not a Memory Instruction - unable to determine Access Type");
         // Must be 0x0 or 0x1
         if (_te.type == 0x0) return GATHER;
         else return SCATTER;
     }
+    virtual inline mem_instr_type  get_mem_instr_type() const override  { return VECTOR;  }
 
     virtual size_t          get_size() const override     { return _te.size; }
     virtual addr_t          get_address() const override  { return _te.addr; }
     virtual unsigned short  get_type() const override     { return _te.type; } // must be 0 for GATHER, 1 for SCATTER !!
-    virtual addr_t          get_iaddr() const override    { return _te.addr; }
+    virtual addr_t          get_iaddr() const override    { return _te.addr / _te.size; }
     virtual int64_t         min_size() const              { return VBYTES;   }
 
     virtual void output(std::ostream & os) const override {
