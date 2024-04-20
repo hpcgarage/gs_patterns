@@ -194,7 +194,7 @@ public:
                         _target_opcodes { "LD", "ST", "LDS", "STS", "LDG", "STG" }
                         { }
 
-    virtual ~MemPatternsForNV() override ;
+    virtual ~MemPatternsForNV() override {  }
 
     void handle_trace_entry(const InstrAddrAdapter & ia) override;
     void generate_patterns() override;
@@ -320,15 +320,6 @@ private:
     std::unordered_map<addr_t, int>  _addr_to_line_id;
     const std::set<std::string>      _target_opcodes;
 };
-
-MemPatternsForNV::~MemPatternsForNV()
-{
-    if (_write_trace_file && !_first_access)
-    {
-        write_trace_out_file();
-        /// TODO: COMPRESS trace_file on exit
-    }
-}
 
 Metrics & MemPatternsForNV::get_metrics(mem_access_type m)
 {
@@ -862,12 +853,13 @@ void MemPatternsForNV::set_trace_out_file(const std::string & trace_out_file_nam
 
 void MemPatternsForNV::write_trace_out_file()
 {
-    if (!_write_trace_file) return;
+    if (!_write_trace_file || _first_access) return;
 
+    /// TODO: COMPRESS trace_file
     try
     {
-        std::cout << "Writing trace file - traces_written: " << _traces_written
-                  << " traced_handled: " << _traces_handled << std::endl;
+        std::cout << "\nSaving trace file - traces_written: " << _traces_written
+                  << " traced_handled: " << _traces_handled << "\n" << std::endl;
 
         _ofs_tmp.flush();
 
@@ -918,6 +910,8 @@ void MemPatternsForNV::write_trace_out_file()
         _ofs_tmp.close();
 
         std::remove(_tmp_trace_out_file_name.c_str());
+
+        std::cout << "Mappings found" << std::endl;
 
         std::cout << "-- OPCODE_ID to OPCODE MAPPING -- " << std::endl;
         for (auto itr = _id_to_opcode_map.begin(); itr != _id_to_opcode_map.end(); itr++) {

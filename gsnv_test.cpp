@@ -29,6 +29,8 @@ int main(int argc, char **argv)
 
         mp.process_traces();
 
+        mp.write_trace_out_file();
+
         // ----------------- Generate Patterns -----------------
 
         mp.generate_patterns();

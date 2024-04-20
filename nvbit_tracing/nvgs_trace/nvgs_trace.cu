@@ -440,6 +440,9 @@ void nvbit_at_ctx_term(CUcontext ctx) {
 
     try
     {
+        // Persist trace file
+        mp->write_trace_out_file();
+
         // Generate GS Pattern output fle
         mp->generate_patterns();
     }
