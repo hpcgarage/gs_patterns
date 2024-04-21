@@ -231,7 +231,7 @@ void handle_trace_entry(MemPatterns & mp, const InstrAddrAdapter & ia)
     /*****************************/
     if (ia.is_other_instr()) {
 
-        iw.iaddr = ia.get_address();
+        iw.iaddr = ia.get_iaddr(); // was get_address in orig code -> get_iaddr()
 
         //nops
         trace_info.opcodes++;
@@ -242,7 +242,7 @@ void handle_trace_entry(MemPatterns & mp, const InstrAddrAdapter & ia)
         /***********************/
     } else if (ia.is_mem_instr()) {
 
-        if (CTA == ia.get_mem_instr_type() && ia.get_iaddr() != ia.get_address()) {
+        if (CTA == ia.get_mem_instr_type() && ia.get_iaddr() == ia.get_address()) {
             iw.iaddr = ia.get_iaddr();
             trace_info.opcodes++;
             trace_info.did_opcode = true;
@@ -364,7 +364,7 @@ void handle_trace_entry(MemPatterns & mp, const InstrAddrAdapter & ia)
 
         //Set window values
         iw.w_iaddrs[w_rw_idx][w_idx] = iw.iaddr;
-        iw.w_maddr[w_rw_idx][w_idx][iw.w_cnt[w_rw_idx][w_idx]] = ia.get_iaddr();
+        iw.w_maddr[w_rw_idx][w_idx][iw.w_cnt[w_rw_idx][w_idx]] = ia.get_maddr();
         iw.w_bytes[w_rw_idx][w_idx] += ia.get_size();
 
         //num access per iaddr in loop
@@ -475,7 +475,7 @@ bool handle_2nd_pass_trace_entry(const InstrAddrAdapter & ia,
     }
 
     if (ia.is_other_instr()) {
-        iaddr = ia.get_address();
+        iaddr = ia.get_iaddr();  // was get_address in orig code  -> get_iaddr()
 
         /***********************/
         /** MEM 0x00 and 0x01 **/
@@ -483,9 +483,9 @@ bool handle_2nd_pass_trace_entry(const InstrAddrAdapter & ia,
     }
     else if (ia.is_mem_instr()) {
 
-        maddr = ia.get_iaddr();
+        maddr = ia.get_maddr();
 
-        if (CTA == ia.get_mem_instr_type() && ia.get_address() != ia.get_iaddr()) {
+        if (CTA == ia.get_mem_instr_type() && ia.get_address() == ia.get_iaddr()) {
             iaddr = ia.get_iaddr();
         }
 

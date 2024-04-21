@@ -82,10 +82,10 @@ public:
 
     virtual size_t         get_size() const            = 0;
     virtual addr_t         get_address() const         = 0;
-    virtual unsigned short get_type() const            = 0; // must be 0 for GATHER, 1 for SCATTER !!
     virtual addr_t         get_iaddr() const           = 0;
+    virtual addr_t         get_maddr() const           = 0;
+    virtual unsigned short get_type() const            = 0; // must be 0 for GATHER, 1 for SCATTER !!
     virtual int64_t        min_size() const            = 0;
-    // multiple?
 
     virtual bool is_gather() const
     { return (is_valid() && is_mem_instr() && GATHER == get_mem_access_type()) ? true : false; }

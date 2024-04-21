@@ -103,8 +103,9 @@ public:
 
     virtual size_t          get_size() const override     { return _te.size; }
     virtual addr_t          get_address() const override  { return _te.addr; }
+    virtual addr_t          get_iaddr() const override    { return _te.addr; }
+    virtual addr_t          get_maddr() const override    { return _te.addr / _te.size; }
     virtual unsigned short  get_type() const override     { return _te.type; } // must be 0 for GATHER, 1 for SCATTER !!
-    virtual addr_t          get_iaddr() const override    { return _te.addr / _te.size; }
     virtual int64_t         min_size() const              { return VBYTES;   }
 
     virtual void output(std::ostream & os) const override {

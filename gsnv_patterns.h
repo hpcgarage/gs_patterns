@@ -161,9 +161,10 @@ public:
 
     virtual inline size_t          get_size() const override       { return _te.size;      } // in bytes
     virtual inline addr_t          get_address() const override    { return _te.addr;      }
-    virtual inline unsigned short  get_type() const override       { return _te.type;      } // must be 0 for GATHER, 1 for SCATTER !!
     virtual inline addr_t          get_iaddr () const override     { return _te.base_addr; }
-    virtual inline int64_t         min_size() const override       { return  256;          }
+    virtual inline addr_t          get_maddr () const override     { return _te.addr;      } // was _base_addr
+    virtual inline unsigned short  get_type() const override       { return _te.type;      } // must be 0 for GATHER, 1 for SCATTER !!
+    virtual inline int64_t         min_size() const override       { return  256;          } // 32 * 8 bytes
 
     virtual void output(std::ostream & os) const override   {  os << "InstrAddrAdapterForNV: trace entry: type: ["
                                                                   << _te.type << "] size: [" << _te.size << "]";  }
