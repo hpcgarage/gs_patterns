@@ -13,6 +13,7 @@
 
 #include <zlib.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <cmath>
 #include <string.h>
 #include <algorithm>
@@ -299,8 +300,8 @@ private:
     uint64_t                           _traces_written    = 0;
     uint64_t                           _traces_handled    = 0;
 
-    bool                               _write_trace_file = false;
-    bool                               _first_access     = true;
+    bool                               _write_trace_file  = false;
+    bool                               _first_trace_seen  = false;
 
     /* The output stream used to temporarily hold raw trace warp data (mem_access_t) before being writen to _trace_out_file_name */
     std::fstream                       _ofs_tmp;
@@ -630,7 +631,7 @@ void MemPatternsForNV::process_second_pass()
     printf("\nSecond pass to fill gather / scatter subtraces\n");
     fflush(stdout);
 
-#if USE_VECTOR_FOR_SECOND_PASS
+#ifdef USE_VECTOR_FOR_SECOND_PASS
     for (auto itr = _traces.begin(); itr != _traces.end(); ++itr)
     {
         InstrAddrAdapter & ia = *itr;
@@ -727,10 +728,18 @@ void MemPatternsForNV::handle_cta_memory_access(const mem_access_t * ma)
 {
     if (exceed_max_count()) { return; }
 
-    if (_first_access) {
-        _first_access = false;
+    if (!_first_trace_seen) {
+        _first_trace_seen = true;
         printf("First pass to find top gather / scatter iaddresses\n");
         fflush(stdout);
+
+#ifndef USE_VECTOR_FOR_SECOND_PASS
+        // Open an output file for dumping temp data used exclusively by second_pass
+        _tmp_dump_file = tmpfile();
+        if (!_tmp_dump_file) {
+            throw GSFileError("Unable to create a temp file for second pass");
+        }
+#endif
     }
 
     if (_write_trace_file && _ofs_tmp.is_open()) {
@@ -837,13 +846,6 @@ void MemPatternsForNV::set_trace_out_file(const std::string & trace_out_file_nam
             throw GSFileError("Unable to open " + _trace_out_file_name + " for writing");
         }
 
-#ifndef USE_VECTOR_FOR_SECOND_PASS
-        // Open an output file for dumping temp data used exclusively by second_pass
-        _tmp_dump_file = std::tmpfile();
-        if (!_tmp_dump_file) {
-            throw GSFileError("Unable to create a temp file for second pass");
-        }
-#endif
         _write_trace_file = true;
     }
     catch (const std::exception & ex)
@@ -855,7 +857,7 @@ void MemPatternsForNV::set_trace_out_file(const std::string & trace_out_file_nam
 
 void MemPatternsForNV::write_trace_out_file()
 {
-    if (!_write_trace_file || _first_access) return;
+    if (!_write_trace_file || !_first_trace_seen) return;
 
     /// TODO: COMPRESS trace_file
     try
