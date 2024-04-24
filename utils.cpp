@@ -6,6 +6,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <ctype.h>
+#include <stdexcept>
 
 #include "utils.h"
 
@@ -106,4 +107,20 @@ int cnt_str(char *line, char c) {
     }
 
     return cnt;
+}
+
+gzFile open_trace_file(const std::string & trace_file_name)
+{
+    gzFile fp;
+
+    fp = gzopen(trace_file_name.c_str(), "hrb");
+    if (NULL == fp) {
+        throw std::runtime_error("Could not open " + trace_file_name + "!");
+    }
+    return fp;
+}
+
+void close_trace_file (gzFile & fp)
+{
+    gzclose(fp);
 }

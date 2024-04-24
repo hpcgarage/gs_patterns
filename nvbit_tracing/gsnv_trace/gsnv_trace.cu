@@ -51,6 +51,9 @@
 #include <gs_patterns_core.h>
 #include <gsnv_patterns.h>
 
+using namespace gs_patterns;
+using namespace gs_patterns::gs_patterns_core;
+using namespace gs_patterns::gsnv_patterns;
 
 #define HEX(x)                                                            \
     "0x" << std::setfill('0') << std::setw(16) << std::hex << (uint64_t)x \

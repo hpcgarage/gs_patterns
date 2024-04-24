@@ -6,6 +6,8 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <string>
+#include <zlib.h>
 
 static inline int popcount(uint64_t x);
 
@@ -18,3 +20,7 @@ const char *str_replace(const char *orig, const char *rep, const char *with);
 char *get_str(char *line, char *bparse, char *aparse);
 
 int cnt_str(char *line, char c);
+
+gzFile open_trace_file(const std::string & trace_file_name);
+
+void close_trace_file (gzFile & fp);

@@ -1,4 +1,3 @@
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <zlib.h>
@@ -11,6 +10,7 @@
 
 #include "gs_patterns.h"
 #include "gs_patterns_core.h"
+#include "gspin_patterns.h"
 #include "utils.h"
 
 //Terminal colors
@@ -25,33 +25,12 @@
 #define ADDREND   (0xFFFFFFFFFFFFFFFFUL)
 #define ADDRUSYNC (0xFFFFFFFFFFFFFFFEUL)
 
-//FROM DR SOURCE
-//DR trace
-struct _trace_entry_t {
-    unsigned short type; // 2 bytes: trace_type_t
-    unsigned short size;
-    union {
-        addr_t addr;
-        unsigned char length[sizeof(addr_t)];
-    };
-}  __attribute__((packed));
-typedef struct _trace_entry_t trace_entry_t;
-
-gzFile open_trace_file(const std::string & trace_file_name)
+namespace gs_patterns
 {
-    gzFile fp;
-
-    fp = gzopen(trace_file_name.c_str(), "hrb");
-    if (NULL == fp) {
-        throw GSFileError("Could not open " + trace_file_name + "!");
-    }
-    return fp;
-}
-
-void close_trace_file (gzFile & fp)
+namespace gspin_patterns
 {
-    gzclose(fp);
-}
+
+using namespace gs_patterns::gs_patterns_core;
 
 int drline_read(gzFile fp, trace_entry_t *val, trace_entry_t **p_val, int *edx) {
 
@@ -73,93 +52,6 @@ int drline_read(gzFile fp, trace_entry_t *val, trace_entry_t **p_val, int *edx) 
 
     return 1;
 }
-
-// An adapter for trace_entry_t
-class InstrAddrAdapterForPin : public InstrAddrAdapter
-{
-public:
-    InstrAddrAdapterForPin(const trace_entry_t * te)
-    {
-        /// TODO: do we need to copy this, will we outlive trace_entry_t which is passed in ?
-        _te.type = te->type;
-        _te.size = te->size;
-        _te.addr = te->addr;
-    }
-    InstrAddrAdapterForPin(const trace_entry_t te) : _te(te) { }
-
-    virtual ~InstrAddrAdapterForPin() { }
-
-    virtual bool            is_valid() const override       { return !(0 == _te.type && 0 == _te.size);        }
-    virtual bool            is_mem_instr() const override   { return ((_te.type == 0x0) || (_te.type == 0x1)); }
-    virtual bool            is_other_instr() const override { return ((_te.type >= 0xa) && (_te.type <= 0x10)) || (_te.type == 0x1e); }
-
-    virtual mem_access_type get_mem_access_type() const override {
-        if (!is_mem_instr()) throw GSDataError("Not a Memory Instruction - unable to determine Access Type");
-        // Must be 0x0 or 0x1
-        if (_te.type == 0x0) return GATHER;
-        else return SCATTER;
-    }
-    virtual inline mem_instr_type  get_mem_instr_type() const override  { return VECTOR;  }
-
-    virtual size_t          get_size() const override     { return _te.size; }
-    virtual addr_t          get_address() const override  { return _te.addr; }
-    virtual addr_t          get_iaddr() const override    { return _te.addr; }
-    virtual addr_t          get_maddr() const override    { return _te.addr / _te.size; }
-    virtual unsigned short  get_type() const override     { return _te.type; } // must be 0 for GATHER, 1 for SCATTER !!
-    virtual int64_t         min_size() const              { return VBYTES;   }
-
-    virtual void output(std::ostream & os) const override {
-        os << "InstrAddrAdapterForPin: trace entry: type: [" << _te.type << "] size: [" << _te.size << "]";
-    }
-
-private:
-    trace_entry_t _te;
-};
-
-class MemPatternsForPin : public MemPatterns
-{
-public:
-    MemPatternsForPin() : _metrics(GATHER, SCATTER),
-                          _iinfo(GATHER, SCATTER) { }
-    virtual ~MemPatternsForPin() override { }
-
-    void handle_trace_entry(const InstrAddrAdapter & ia) override;
-    void generate_patterns() override;
-
-    Metrics &     get_metrics(mem_access_type) override;
-    InstrInfo &   get_iinfo(mem_access_type) override;
-
-    Metrics &     get_gather_metrics() override  { return _metrics.first;  }
-    Metrics &     get_scatter_metrics() override { return _metrics.second; }
-    InstrInfo &   get_gather_iinfo () override   { return _iinfo.first;    }
-    InstrInfo &   get_scatter_iinfo () override  { return _iinfo.second;   }
-    TraceInfo &   get_trace_info() override      { return _trace_info;     }
-    InstrWindow & get_instr_window() override    { return _iw;             }
-
-    void set_trace_file(const std::string & trace_file_name) { _trace_file_name = trace_file_name; }
-    const std::string & get_trace_file_name() { return _trace_file_name; }
-
-    void set_binary_file(const std::string & binary_file_name) { _binary_file_name = binary_file_name; }
-    const std::string & get_binary_file_name() { return _binary_file_name; }
-
-    void update_metrics();
-
-    std::string get_file_prefix ();
-
-    void process_traces();
-    void update_source_lines();
-    double update_source_lines_from_binary(mem_access_type);
-    void process_second_pass(gzFile & fp_drtrace);
-
-private:
-    std::pair<Metrics, Metrics>     _metrics;
-    std::pair<InstrInfo, InstrInfo> _iinfo;
-    TraceInfo                       _trace_info;
-    InstrWindow                     _iw;
-
-    std::string                     _trace_file_name;
-    std::string                     _binary_file_name;
-};
 
 Metrics & MemPatternsForPin::get_metrics(mem_access_type m)
 {
@@ -190,7 +82,7 @@ InstrInfo & MemPatternsForPin::get_iinfo(mem_access_type m)
 void MemPatternsForPin::handle_trace_entry(const InstrAddrAdapter & ia)
 {
     // Call libgs_patterns
-    ::handle_trace_entry(*this, ia);
+    gs_patterns_core::handle_trace_entry(*this, ia);
 }
 
 void MemPatternsForPin::generate_patterns()
@@ -205,13 +97,21 @@ void MemPatternsForPin::generate_patterns()
 
     // ----------------- Create Spatter File -----------------
 
-    ::create_spatter_file(*this, get_file_prefix());
+    create_spatter_file(*this, get_file_prefix());
 
 }
 
 void MemPatternsForPin::update_metrics()
 {
-    gzFile fp_drtrace = ::open_trace_file(get_trace_file_name());
+    gzFile fp_drtrace;
+    try
+    {
+        fp_drtrace = ::open_trace_file(get_trace_file_name());
+    }
+    catch (const std::runtime_error & ex)
+    {
+        throw GSFileError(ex.what());
+    }
 
     // Get top gathers
     get_gather_metrics().ntop = get_top_target(get_gather_iinfo(), get_gather_metrics());
@@ -225,8 +125,8 @@ void MemPatternsForPin::update_metrics()
 
     // ----------------- Normalize -----------------
 
-    ::normalize_stats(get_gather_metrics());
-    ::normalize_stats(get_scatter_metrics());
+    normalize_stats(get_gather_metrics());
+    normalize_stats(get_scatter_metrics());
 
     close_trace_file(fp_drtrace);
 }
@@ -271,8 +171,16 @@ void MemPatternsForPin::process_traces()
 {
     int iret = 0;
     trace_entry_t *drline;
+    gzFile fp_drtrace;
 
-    gzFile fp_drtrace = open_trace_file(get_trace_file_name());
+    try
+    {
+        fp_drtrace = open_trace_file(get_trace_file_name());
+    }
+    catch (const std::runtime_error & ex)
+    {
+        throw GSFileError(ex.what());
+    }
 
     printf("First pass to find top gather / scatter iaddresses\n");
     fflush(stdout);
@@ -326,7 +234,7 @@ void MemPatternsForPin::process_second_pass(gzFile & fp_drtrace)
         //decode drtrace
         drline = p_drtrace;
 
-        breakout = ::handle_2nd_pass_trace_entry(InstrAddrAdapterForPin(drline), get_gather_metrics(), get_scatter_metrics(),
+        breakout = handle_2nd_pass_trace_entry(InstrAddrAdapterForPin(drline), get_gather_metrics(), get_scatter_metrics(),
                                                  iaddr, maddr, mcnt, gather_base, scatter_base);
 
         p_drtrace++;
@@ -348,52 +256,6 @@ void MemPatternsForPin::update_source_lines()
     get_scatter_metrics().cnt = update_source_lines_from_binary(SCATTER);
 }
 
-int main(int argc, char **argv)
-{
-    try
-    {
-        if (argc != 3) {
-            throw GSError("Invalid arguments, should be: trace.gz binary_file_name");
-        }
+} // namespace gspin_patterns
 
-        MemPatternsForPin mp;
-
-        mp.set_trace_file(argv[1]);
-        mp.set_binary_file(argv[2]);
-
-        // ----------------- Process Traces -----------------
-
-        mp.process_traces();
-
-        // ----------------- Generate Patterns -----------------
-
-        mp.generate_patterns();
-    }
-    catch (const GSFileError & ex)
-    {
-        std::cerr << "ERROR: <GSFileError> " << ex.what() << std::endl;
-        exit(-1);
-    }
-    catch (const GSAllocError & ex)
-    {
-        std::cerr << "ERROR: <GSAllocError> " << ex.what() << std::endl;
-        exit(-1);
-    }
-    catch (const GSDataError & ex)
-    {
-        std::cerr << "ERROR: <GSDataError> " << ex.what() << std::endl;
-        exit(1);
-    }
-    catch (const GSError & ex)
-    {
-        std::cerr << "ERROR: <GSError> " << ex.what() << std::endl;
-        exit(1);
-    }
-    catch (const std::exception & ex)
-    {
-        std::cerr << "ERROR: " << ex.what() << std::endl;
-        exit(-1);
-    }
-
-    return 0;
-}
+} // namespace gs_patterns
