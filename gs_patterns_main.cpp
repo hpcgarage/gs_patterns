@@ -38,13 +38,13 @@ int main(int argc, char **argv)
 
         std::unique_ptr<MemPatterns> mp (use_gs_nv ? (MemPatterns *) new MemPatternsForNV : (MemPatterns *) new MemPatternsForPin);
 
+        if (argc != 3) {
+            usage(prog_name);
+            throw GSError("Invalid program arguments");
+        }
+
         if (use_gs_nv)
         {
-            if (argc != 3) {
-                usage(prog_name);
-                throw GSError("Invalid program arguments");
-            }
-
             MemPatternsForNV mp;
 
             mp.set_trace_file(argv[1]);
@@ -64,11 +64,6 @@ int main(int argc, char **argv)
         }
         else
         {
-            if (argc != 3) {
-                usage(prog_name);
-                throw GSError("Invalid program arguments");
-            }
-
             MemPatternsForPin mp;
 
             mp.set_trace_file(argv[1]);
