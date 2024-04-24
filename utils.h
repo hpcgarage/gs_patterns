@@ -9,8 +9,6 @@
 #include <string>
 #include <zlib.h>
 
-static inline int popcount(uint64_t x);
-
 int startswith(const char *a, const char *b);
 
 int endswith(const char *a, const char *b);

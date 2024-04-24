@@ -14,14 +14,14 @@ add_library(gs_patterns_core SHARED
         gs_patterns.h
         gs_patterns_core.h
         gs_patterns_core.cpp
+        gsnv_patterns.h
+        gsnv_patterns.cpp
+        gspin_patterns.h
+        gspin_patterns.cpp
 )
 
 add_executable( gs_patterns
         gs_patterns_main.cpp
-        gsnv_patterns.cpp
-        gspin_patterns.cpp
-        gspin_patterns.h
-        gsnv_patterns.h
 )
 
 target_link_libraries(gs_patterns gs_patterns_core)
