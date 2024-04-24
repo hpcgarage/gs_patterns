@@ -19,7 +19,8 @@ using namespace gs_patterns::gspin_patterns;
 
 void usage (const std::string & prog_name)
 {
-    std::cerr << "Usage: " << prog_name << " <trace.gz> | " + prog_name + " <trace.gz> [-nv]" << std::endl;
+    std::cerr << "Usage: " << prog_name << " <pin_trace.gz> <prog_bin> \n"
+              << "       " << prog_name << " <nvbit_trace.gz> -nv [-v]" << std::endl;
 }
 
 int main(int argc, char **argv)
@@ -27,9 +28,13 @@ int main(int argc, char **argv)
     try
     {
         bool use_gs_nv = false;
+        bool verbose = false;
         for (int i = 0; i < argc; i++) {
             if (std::string(argv[i]) == "-nv") {
                 use_gs_nv = true;
+            }
+            else if (std::string(argv[i]) == "-v") {
+                verbose = true;
             }
         }
 
@@ -38,7 +43,7 @@ int main(int argc, char **argv)
 
         std::unique_ptr<MemPatterns> mp (use_gs_nv ? (MemPatterns *) new MemPatternsForNV : (MemPatterns *) new MemPatternsForPin);
 
-        if (argc != 3) {
+        if (argc < 3) {
             usage(prog_name);
             throw GSError("Invalid program arguments");
         }
@@ -53,6 +58,7 @@ int main(int argc, char **argv)
             if (config_file) {
                 mp.set_config_file(config_file);
             }
+            if (verbose) mp.set_log_level(1);
 
             // ----------------- Process Traces -----------------
 
@@ -68,6 +74,7 @@ int main(int argc, char **argv)
 
             mp.set_trace_file(argv[1]);
             mp.set_binary_file(argv[2]);
+            if (verbose) mp.set_log_level(1);
 
             // ----------------- Process Traces -----------------
 

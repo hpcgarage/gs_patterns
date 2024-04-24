@@ -108,11 +108,12 @@ namespace gsnv_patterns
         static constexpr const char * ID_TO_OPCODE_SHORT   = "ID_TO_OPCODE_SHORT";
         static constexpr const char * ID_TO_LINE           = "ID_TO_LINE";
 
-        static constexpr const char * NVGS_TARGET_KERNEL   = "NVGS_TARGET_KERNEL";
-        static constexpr const char * NVGS_TRACE_OUT_FILE  = "NVGS_TRACE_OUT_FILE";
-        static constexpr const char * NVGS_PROGRAM_BINARY  = "NVGS_PROGRAM_BINARY";
-        static constexpr const char * NVGS_FILE_PREFIX     = "NVGS_FILE_PREFIX";
-        static constexpr const char * NVGS_MAX_TRACE_COUNT = "NVGS_MAX_TRACE_COUNT";
+        static constexpr const char * GSNV_TARGET_KERNEL   = "GSNV_TARGET_KERNEL";
+        static constexpr const char * GSNV_TRACE_OUT_FILE  = "GSNV_TRACE_OUT_FILE";
+        static constexpr const char * GSNV_PROGRAM_BINARY  = "GSNV_PROGRAM_BINARY";
+        static constexpr const char * GSNV_FILE_PREFIX     = "GSNV_FILE_PREFIX";
+        static constexpr const char * GSNV_MAX_TRACE_COUNT = "GSNV_MAX_TRACE_COUNT";
+        static constexpr const char * GSNV_LOG_LEVEL       = "GSNV_LOG_LEVEL";
 
 
         MemPatternsForNV(): _metrics(GATHER, SCATTER),
@@ -135,13 +136,16 @@ namespace gsnv_patterns
         TraceInfo &   get_trace_info() override      { return _trace_info;     }
         InstrWindow & get_instr_window() override    { return _iw;             }
 
+        void          set_log_level(int8_t level)    { _log_level = level;     }
+        int8_t        get_log_level()                { return _log_level;      }
+
         void set_trace_file(const std::string & trace_file_name);
         inline const std::string & get_trace_file_name() { return _trace_file_name; }
 
         inline void set_file_prefix(const std::string & prefix) { _file_prefix = prefix; }
         std::string get_file_prefix();
 
-        void set_max_trace_count(const std::string & max_trace_count_str);
+        void set_max_trace_count(int64_t max_trace_count);
         inline bool exceed_max_count() const {
             if (_limit_trace_count && (_trace_info.trace_lines >= _max_trace_count)) {
                 return true;
@@ -226,9 +230,11 @@ namespace gsnv_patterns
         bool                               _write_trace_file  = false;
         bool                               _first_trace_seen  = false;
 
+        int8_t                             _log_level         = 0;
+
         /* The output stream used to temporarily hold raw trace warp data (mem_access_t) before being writen to _trace_out_file_name */
         std::fstream                       _ofs_tmp;
-        /* The output stream cooresponding to _trace_out_file_name */
+        /* The output stream cooresponding to _trace_out_file_name. Used to store final nvbit trace data with header */
         std::ofstream                      _ofs;
 
     #ifdef USE_VECTOR_FOR_SECOND_PASS

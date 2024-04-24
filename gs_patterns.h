@@ -255,6 +255,9 @@ namespace gs_patterns
         virtual InstrInfo &   get_scatter_iinfo()       = 0;
         virtual TraceInfo &   get_trace_info()          = 0;
         virtual InstrWindow & get_instr_window()        = 0;
+
+        virtual void          set_log_level(int8_t ll)  = 0;
+        virtual int8_t        get_log_level()           = 0;
     };
 
 } // namespace gs_patterns

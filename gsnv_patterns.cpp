@@ -7,7 +7,6 @@
 #include <map>
 #include <unordered_map>
 #include <set>
-#include <filesystem>
 
 #include <zlib.h>
 #include <stdlib.h>
@@ -287,9 +286,12 @@ void MemPatternsForNV::process_traces()
     uint32_t count = 0;
     trace_map_entry_t * p_map_entry = NULL;
     trace_map_entry_t map_entry[1];
-    while (count < p_header->num_map_entires && tline_read_maps(fp_trace, map_entry, &p_map_entry, &iret) )
-    {
-        std::cout << "MAP: " << p_map_entry -> map_name << " entry [" << p_map_entry->id << "] -> [" << p_map_entry->val << "]" << std::endl;
+    while (count < p_header->num_map_entires && tline_read_maps(fp_trace, map_entry, &p_map_entry, &iret) ) {
+
+        if (_log_level >= 1) {
+            std::cout << "MAP: " << p_map_entry->map_name << " entry [" << p_map_entry->id << "] -> ["
+                      << p_map_entry->val << "]" << std::endl;
+        }
 
         if (std::string(p_map_entry->map_name) == ID_TO_OPCODE) {
             _id_to_opcode_map[p_map_entry->id] = p_map_entry->val;
@@ -513,8 +515,7 @@ bool MemPatternsForNV::convert_to_trace_entry(const mem_access_t & ma,
     return true;
 }
 
-void MemPatternsForNV::handle_cta_memory_access(const mem_access_t * ma)
-{
+void MemPatternsForNV::handle_cta_memory_access(const mem_access_t * ma) {
     if (exceed_max_count()) { return; }
 
     if (!_first_trace_seen) {
@@ -533,24 +534,25 @@ void MemPatternsForNV::handle_cta_memory_access(const mem_access_t * ma)
 
     if (_write_trace_file && _ofs_tmp.is_open()) {
         // Write entry to trace_output file
-        _ofs_tmp.write(reinterpret_cast<const char*>(ma), sizeof *ma);
+        _ofs_tmp.write(reinterpret_cast<const char *>(ma), sizeof *ma);
         _traces_written++;
     }
-#if 0
-    std::stringstream ss;
-    //ss << "CTX " << HEX(ctx) << " - grid_launch_id "
-    ss << "GSNV_TRACE: CTX " << " - grid_launch_id "
-       << ma->grid_launch_id << " - CTA " << ma->cta_id_x << "," << ma->cta_id_y << "," << ma->cta_id_z
-       << " - warp " << ma->warp_id << " - " << get_opcode(ma->opcode_id)
-       << " - shortOpcode: " << ma->opcode_short_id
-       << " isLoad: " << ma->is_load << " isStore: " << ma->is_store
-       << " size: " << ma->size << " - ";
 
-    for (int i = 0; i < MemPatternsForNV::CTA_LENGTH; i++) {
-        ss << HEX(ma->addrs[i]) << " ";
+    if (_log_level >= 2) {
+        std::stringstream ss;
+        //ss << "CTX " << HEX(ctx) << " - grid_launch_id "
+        ss << "GSNV_TRACE: CTX " << " - grid_launch_id "
+           << ma->grid_launch_id << " - CTA " << ma->cta_id_x << "," << ma->cta_id_y << "," << ma->cta_id_z
+           << " - warp " << ma->warp_id << " - " << get_opcode(ma->opcode_id)
+           << " - shortOpcode: " << ma->opcode_short_id
+           << " isLoad: " << ma->is_load << " isStore: " << ma->is_store
+           << " size: " << ma->size << " - ";
+
+        for (int i = 0; i < MemPatternsForNV::CTA_LENGTH; i++) {
+            ss << HEX(ma->addrs[i]) << " ";
+        }
+        std::cout << ss.str() << std::endl;
     }
-    std::cout << ss.str() << std::endl;
-#endif
 
     // Convert to vector of trace_entry_t if full warp. ignore partial warps.
     std::vector<trace_entry_t> te_list;
@@ -704,21 +706,23 @@ void MemPatternsForNV::write_trace_out_file()
 
         std::remove(_tmp_trace_out_file_name.c_str());
 
-        std::cout << "Mappings found" << std::endl;
+        if (_log_level >= 1) {
+            std::cout << "Mappings found" << std::endl;
 
-        std::cout << "-- OPCODE_ID to OPCODE MAPPING -- " << std::endl;
-        for (auto itr = _id_to_opcode_map.begin(); itr != _id_to_opcode_map.end(); itr++) {
-            std::cout << itr->first << " -> " << itr->second << std::endl;
-        }
+            std::cout << "-- OPCODE_ID to OPCODE MAPPING -- " << std::endl;
+            for (auto itr = _id_to_opcode_map.begin(); itr != _id_to_opcode_map.end(); itr++) {
+                std::cout << itr->first << " -> " << itr->second << std::endl;
+            }
 
-        std::cout << "-- OPCODE_SHORT_ID to OPCODE_SHORT MAPPING -- " << std::endl;
-        for (auto itr = _id_to_opcode_short_map.begin(); itr != _id_to_opcode_short_map.end(); itr++) {
-            std::cout << itr->first << " -> " << itr->second << std::endl;
-        }
+            std::cout << "-- OPCODE_SHORT_ID to OPCODE_SHORT MAPPING -- " << std::endl;
+            for (auto itr = _id_to_opcode_short_map.begin(); itr != _id_to_opcode_short_map.end(); itr++) {
+                std::cout << itr->first << " -> " << itr->second << std::endl;
+            }
 
-        std::cout << "-- LINE_ID to LINE MAPPING -- " << std::endl;
-        for (auto itr = _id_to_line_map.begin(); itr != _id_to_line_map.end(); itr++) {
-            std::cout << itr->first << " -> " << itr->second << std::endl;
+            std::cout << "-- LINE_ID to LINE MAPPING -- " << std::endl;
+            for (auto itr = _id_to_line_map.begin(); itr != _id_to_line_map.end(); itr++) {
+                std::cout << itr->first << " -> " << itr->second << std::endl;
+            }
         }
     }
     catch (const std::exception & ex)
@@ -729,19 +733,16 @@ void MemPatternsForNV::write_trace_out_file()
     }
 }
 
-void MemPatternsForNV::set_max_trace_count(const std::string & max_trace_count_str)
+void MemPatternsForNV::set_max_trace_count(int64_t max_trace_count)
 {
-    try {
-        _max_trace_count = (int64_t) std::stoi(max_trace_count_str);
-        if (_max_trace_count < 0) {
-            throw GSError("Max Trace count must be greater than 0");
-        }
-        _limit_trace_count = true;
-        std::cout << "Max Trace Count set to: " << _max_trace_count << std::endl;
+    if (max_trace_count < 0) {
+        throw GSError("Max Trace count must be greater than 0");
     }
-    catch (const std::exception & ex) {
-        std::cerr << "Failed to set Max Trace Count from value: " << max_trace_count_str
-                  << " with error: " << ex.what() << std::endl;
+    _max_trace_count = max_trace_count;
+    _limit_trace_count = true;
+
+    if (_log_level >= 1) {
+        std::cout << "Max Trace Count set to: " << _max_trace_count << std::endl;
     }
 }
 
@@ -753,6 +754,7 @@ void MemPatternsForNV::set_config_file(const std::string & config_file)
     if (!ifs.is_open())
         throw GSFileError("Unable to open config file: " + _config_file_name);
 
+    std::stringstream ss;
     while (!ifs.eof())
     {
         std::string name;
@@ -761,24 +763,39 @@ void MemPatternsForNV::set_config_file(const std::string & config_file)
         if (name.empty() || value.empty() || name[0] == '#')
             continue;
 
-        std::cout << "CONFIG: name: " << name << " value: " << value << std::endl;
+        ss << "CONFIG: name: " << name << " value: " << value << std::endl;
 
-        if (NVGS_TARGET_KERNEL == name) {
-            _target_kernels.insert(value);
+        try {
+            if (GSNV_TARGET_KERNEL == name) {
+                _target_kernels.insert(value);
+            }
+            else if (GSNV_TRACE_OUT_FILE == name) {
+                set_trace_out_file(value);
+            }
+            else if (GSNV_FILE_PREFIX == name) {
+                set_file_prefix(value);
+            }
+            else if (GSNV_MAX_TRACE_COUNT == name) {
+                int64_t num_val = (int64_t) std::stoi(value);
+                set_max_trace_count(num_val);
+            }
+            else if (GSNV_LOG_LEVEL == name) {
+                int8_t level = atoi(value.c_str());
+                set_log_level(level);
+            }
+            else {
+                std::cerr << "Unknown setting <" << name << "> with value <" << value << "> "
+                          << "specified in config file: " << _config_file_name << " ignoring ..." << std::endl;
+            }
         }
-        else if (NVGS_TRACE_OUT_FILE == name) {
-            set_trace_out_file(value);
+        catch (const std::exception & ex) {
+            std::cerr << "Failed to set config setting <" << name << "> with value <" << value << "> "
+                      << "due to error: " << ex.what() << " ignoring ..." << std::endl;
         }
-        else if (NVGS_FILE_PREFIX == name) {
-            set_file_prefix(value);
-        }
-        else if (NVGS_MAX_TRACE_COUNT == name) {
-            set_max_trace_count(value);
-        }
-        else {
-            std::cerr << "Unknown setting <" << name << "> with value <" << value << "> "
-                      << "specified in config file: " << _config_file_name << " ignoring ..." << std::endl;
-        }
+    }
+
+    if (_log_level >= 1) {
+        std::cout << ss.str();
     }
 }
 
@@ -788,14 +805,18 @@ bool MemPatternsForNV::should_instrument(const std::string & kernel_name)
 
     // Instrument all if none specified
     if (_target_kernels.size() == 0) {
-        std::cout << "Instrumenting all <by default>: " << kernel_name << std::endl;
+        if (_log_level >= 1) {
+            std::cout << "Instrumenting all <by default>: " << kernel_name << std::endl;
+        }
         return true;
     }
 
     auto itr = _target_kernels.find (kernel_name);
     if ( itr != _target_kernels.end())  // Hard code for now
     {
-        std::cout << "Instrumenting: " << kernel_name << std::endl;
+        if (_log_level >= 1) {
+            std::cout << "Instrumenting: " << kernel_name << std::endl;
+        }
         return  true;
     }
 

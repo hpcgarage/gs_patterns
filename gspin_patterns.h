@@ -97,18 +97,21 @@ namespace gspin_patterns
         Metrics &     get_metrics(mem_access_type) override;
         InstrInfo &   get_iinfo(mem_access_type) override;
 
-        Metrics &     get_gather_metrics() override  { return _metrics.first;  }
-        Metrics &     get_scatter_metrics() override { return _metrics.second; }
-        InstrInfo &   get_gather_iinfo () override   { return _iinfo.first;    }
-        InstrInfo &   get_scatter_iinfo () override  { return _iinfo.second;   }
-        TraceInfo &   get_trace_info() override      { return _trace_info;     }
-        InstrWindow & get_instr_window() override    { return _iw;             }
+        Metrics &     get_gather_metrics() override        { return _metrics.first;  }
+        Metrics &     get_scatter_metrics() override       { return _metrics.second; }
+        InstrInfo &   get_gather_iinfo () override         { return _iinfo.first;    }
+        InstrInfo &   get_scatter_iinfo () override        { return _iinfo.second;   }
+        TraceInfo &   get_trace_info() override            { return _trace_info;     }
+        InstrWindow & get_instr_window() override          { return _iw;             }
+
+        void          set_log_level(int8_t level) override { _log_level = level;     }
+        int8_t        get_log_level() override             { return _log_level;      }
 
         void set_trace_file(const std::string & trace_file_name) { _trace_file_name = trace_file_name; }
-        const std::string & get_trace_file_name() { return _trace_file_name; }
+        const std::string & get_trace_file_name()          { return _trace_file_name; }
 
         void set_binary_file(const std::string & binary_file_name) { _binary_file_name = binary_file_name; }
-        const std::string & get_binary_file_name() { return _binary_file_name; }
+        const std::string & get_binary_file_name()         { return _binary_file_name; }
 
         void update_metrics();
 
@@ -124,6 +127,8 @@ namespace gspin_patterns
         std::pair<InstrInfo, InstrInfo> _iinfo;
         TraceInfo                       _trace_info;
         InstrWindow                     _iw;
+
+        int8_t                          _log_level         = 0;
 
         std::string                     _trace_file_name;
         std::string                     _binary_file_name;
