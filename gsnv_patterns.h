@@ -242,8 +242,8 @@ namespace gsnv_patterns
 
         std::map<int, std::string>       _id_to_opcode_map;
         std::map<int, std::string>       _id_to_opcode_short_map;
-        std::map<int, std::string>       _id_to_line_map;
-        std::unordered_map<addr_t, int>  _addr_to_line_id;
+        std::map<int, std::string>       _id_to_line_map;         // Contains source line_id to source line mappings
+        std::unordered_map<addr_t, int>  _addr_to_line_id;        // Contains address to line_id mappings
         const std::set<std::string>      _target_opcodes;
     };
 

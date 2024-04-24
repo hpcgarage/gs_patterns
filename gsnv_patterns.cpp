@@ -143,6 +143,10 @@ void MemPatternsForNV::handle_trace_entry(const InstrAddrAdapter & ia)
 
 void MemPatternsForNV::generate_patterns()
 {
+    // ----------------- Write out Trace Files (if requested ) -----------------
+
+    write_trace_out_file();
+
     // ----------------- Update Source Lines -----------------
 
      update_source_lines();
@@ -358,7 +362,9 @@ void MemPatternsForNV::process_traces()
 
 void MemPatternsForNV::update_source_lines()
 {
-    // Find source lines for gathers - Must have symbol
+    // Requires Kernel having been built with "--generate-line-info" so that trace file header contain mappings
+
+    // Find source lines for gathers
     printf("\nSymbol table lookup for gathers...");
     fflush(stdout);
 

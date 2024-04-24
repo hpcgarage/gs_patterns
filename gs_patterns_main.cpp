@@ -47,7 +47,6 @@ int main(int argc, char **argv)
 
             MemPatternsForNV mp;
 
-            // nvbit trace file with memory access traces
             mp.set_trace_file(argv[1]);
 
             const char * config_file = std::getenv(NVGS_CONFIG_FILE);
@@ -55,14 +54,9 @@ int main(int argc, char **argv)
                 mp.set_config_file(config_file);
             }
 
-            // File to save nvbit memory accessses to
-            //mp.set_trace_out_file(mp.get_file_prefix() + ".nvbit.bin");
-
             // ----------------- Process Traces -----------------
 
             mp.process_traces();
-
-            mp.write_trace_out_file();
 
             // ----------------- Generate Patterns -----------------
 
