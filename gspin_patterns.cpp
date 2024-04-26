@@ -106,7 +106,7 @@ void MemPatternsForPin::update_metrics()
     gzFile fp_drtrace;
     try
     {
-        fp_drtrace = ::open_trace_file(get_trace_file_name());
+        fp_drtrace = open_trace_file(get_trace_file_name());
     }
     catch (const std::runtime_error & ex)
     {

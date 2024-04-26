@@ -10,6 +10,11 @@
 
 #include "utils.h"
 
+namespace gs_patterns
+{
+namespace gs_patterns_core
+{
+
 static inline int popcount(uint64_t x) {
     int c;
 
@@ -124,3 +129,7 @@ void close_trace_file (gzFile & fp)
 {
     gzclose(fp);
 }
+
+} // gs_patterns_core
+
+} // gs_patterns

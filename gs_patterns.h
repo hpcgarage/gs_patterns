@@ -34,8 +34,6 @@
 
 namespace gs_patterns
 {
-    //using namespace std;
-
     typedef uintptr_t addr_t;
     typedef enum { GATHER=0, SCATTER } mem_access_type;
     typedef enum { VECTOR=0, CTA } mem_instr_type;
@@ -190,7 +188,7 @@ namespace gs_patterns
         int64_t  ngs         = 0;
         int64_t trace_lines  = 0;
 
-        bool    did_opcode  = false; // revist this ---------------
+        bool    did_opcode      = false; // revist this ---------------
         double  other_cnt       = 0.0;
         double  gather_score    = 0.0;
         double  gather_occ_avg  = 0.0;
