@@ -136,13 +136,13 @@ namespace gsnv_patterns
         TraceInfo &   get_trace_info() override      { return _trace_info;     }
         InstrWindow & get_instr_window() override    { return _iw;             }
 
-        void          set_log_level(int8_t level)    { _log_level = level;     }
-        int8_t        get_log_level()                { return _log_level;      }
+        void          set_log_level(int8_t level) override      { _log_level = level;      }
+        int8_t        get_log_level() override                  { return _log_level;       }
 
         void set_trace_file(const std::string & trace_file_name);
-        inline const std::string & get_trace_file_name() { return _trace_file_name; }
+        inline const std::string & get_trace_file_name()        { return _trace_file_name; }
 
-        inline void set_file_prefix(const std::string & prefix) { _file_prefix = prefix; }
+        inline void set_file_prefix(const std::string & prefix) { _file_prefix = prefix;   }
         std::string get_file_prefix();
 
         void set_max_trace_count(int64_t max_trace_count);

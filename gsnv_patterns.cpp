@@ -3,6 +3,7 @@
 #include <vector>
 #include <iostream>
 #include <fstream>
+#include <sstream>
 #include <iomanip>
 #include <map>
 #include <unordered_map>
@@ -35,7 +36,8 @@ namespace gsnv_patterns
 
 using namespace gs_patterns::gs_patterns_core;
 
-int tline_read_header(gzFile fp, trace_header_t * val, trace_header_t **p_val, int *edx) {
+int tline_read_header(gzFile fp, trace_header_t * val, trace_header_t **p_val, int *edx)
+{
 
     int idx;
 
@@ -56,7 +58,8 @@ int tline_read_header(gzFile fp, trace_header_t * val, trace_header_t **p_val, i
     return 1;
 }
 
-int tline_read_maps(gzFile fp, trace_map_entry_t * val, trace_map_entry_t **p_val, int *edx) {
+int tline_read_maps(gzFile fp, trace_map_entry_t * val, trace_map_entry_t **p_val, int *edx)
+{
 
     int idx;
 
@@ -77,7 +80,8 @@ int tline_read_maps(gzFile fp, trace_map_entry_t * val, trace_map_entry_t **p_va
     return 1;
 }
 
-int tline_read(gzFile fp, mem_access_t * val, mem_access_t **p_val, int *edx) {
+int tline_read(gzFile fp, mem_access_t * val, mem_access_t **p_val, int *edx)
+{
 
     int idx;
 
@@ -107,7 +111,7 @@ Metrics & MemPatternsForNV::get_metrics(mem_access_type m)
         case SCATTER : return _metrics.second;
             break;
         default:
-            throw GSError("Unable to get Metrics - Invalid Metrics Type: " + m);
+            throw GSError("Unable to get Metrics - Invalid Metrics Type: " + std::to_string(m));
     }
 }
 
@@ -120,7 +124,7 @@ InstrInfo & MemPatternsForNV::get_iinfo(mem_access_type m)
         case SCATTER : return _iinfo.second;
             break;
         default:
-            throw GSError("Unable to get InstrInfo - Invalid Metrics Type: " + m);
+            throw GSError("Unable to get InstrInfo - Invalid Metrics Type: " + std::to_string(m));
     }
 }
 
@@ -193,7 +197,8 @@ std::string MemPatternsForNV::get_file_prefix()
 }
 
 // Store opcode mappings
-bool MemPatternsForNV::add_or_update_opcode(int opcode_id, const std::string & opcode) {
+bool MemPatternsForNV::add_or_update_opcode(int opcode_id, const std::string & opcode)
+{
     auto it = _id_to_opcode_map.find(opcode_id);
     if (it == _id_to_opcode_map.end()) {
         _id_to_opcode_map[opcode_id] = opcode;
@@ -204,7 +209,8 @@ bool MemPatternsForNV::add_or_update_opcode(int opcode_id, const std::string & o
 }
 
 // Retrieve opcode mapping by opcode_id
-const std::string & MemPatternsForNV::get_opcode(int opcode_id) {
+const std::string & MemPatternsForNV::get_opcode(int opcode_id)
+{
     auto result = _id_to_opcode_map.find(opcode_id);
     if (result != _id_to_opcode_map.end()) {
         return result->second;
@@ -215,7 +221,8 @@ const std::string & MemPatternsForNV::get_opcode(int opcode_id) {
 }
 
 // Store opcode_short mappings
-bool MemPatternsForNV::add_or_update_opcode_short(int opcode_short_id, const std::string & opcode_short) {
+bool MemPatternsForNV::add_or_update_opcode_short(int opcode_short_id, const std::string & opcode_short)
+{
     auto it = _id_to_opcode_short_map.find(opcode_short_id);
     if (it == _id_to_opcode_short_map.end()) {
         _id_to_opcode_short_map[opcode_short_id] = opcode_short;
@@ -226,7 +233,8 @@ bool MemPatternsForNV::add_or_update_opcode_short(int opcode_short_id, const std
 }
 
 // Retrieve opcode_short mapping by opcode_short_id
-const std::string & MemPatternsForNV::get_opcode_short(int opcode_short_id) {
+const std::string & MemPatternsForNV::get_opcode_short(int opcode_short_id)
+{
     auto result = _id_to_opcode_short_map.find(opcode_short_id);
     if (result != _id_to_opcode_short_map.end()) {
         return result->second;
@@ -237,7 +245,8 @@ const std::string & MemPatternsForNV::get_opcode_short(int opcode_short_id) {
 }
 
 // Store line  mappings
-bool MemPatternsForNV::add_or_update_line(int line_id, const std::string & line) {
+bool MemPatternsForNV::add_or_update_line(int line_id, const std::string & line)
+{
     auto it = _id_to_line_map.find(line_id);
     if (it == _id_to_line_map.end()) {
         _id_to_line_map[line_id] = line;
@@ -248,7 +257,8 @@ bool MemPatternsForNV::add_or_update_line(int line_id, const std::string & line)
 }
 
 // Retrieve line number mapping by line_id
-const std::string & MemPatternsForNV::get_line(int line_id) {
+const std::string & MemPatternsForNV::get_line(int line_id)
+{
     auto result = _id_to_line_map.find(line_id);
     if (result != _id_to_line_map.end()) {
         return result->second;
@@ -515,7 +525,8 @@ bool MemPatternsForNV::convert_to_trace_entry(const mem_access_t & ma,
     return true;
 }
 
-void MemPatternsForNV::handle_cta_memory_access(const mem_access_t * ma) {
+void MemPatternsForNV::handle_cta_memory_access(const mem_access_t * ma)
+{
     if (exceed_max_count()) { return; }
 
     if (!_first_trace_seen) {
@@ -587,7 +598,7 @@ bool MemPatternsForNV::valid_gs_stride(const std::vector<trace_entry_t> & te_lis
             continue;
         }
 
-        uint64_t diff = std::labs (last_addr - (uint64_t)te.addr);
+        uint64_t diff = std::llabs ((int64_t)(last_addr - te.addr));
         if (diff < min_stride)
             return false;
 

@@ -74,7 +74,7 @@ namespace gspin_patterns
         virtual addr_t          get_iaddr() const override    { return _te.addr; }
         virtual addr_t          get_maddr() const override    { return _te.addr / _te.size; }
         virtual unsigned short  get_type() const override     { return _te.type; } // must be 0 for GATHER, 1 for SCATTER !!
-        virtual int64_t         min_size() const              { return VBYTES;   }
+        virtual int64_t         min_size() const override     { return VBYTES;   }
 
         virtual void output(std::ostream & os) const override {
             os << "InstrAddrAdapterForPin: trace entry: type: [" << _te.type << "] size: [" << _te.size << "]";

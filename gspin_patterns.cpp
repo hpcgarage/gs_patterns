@@ -32,7 +32,8 @@ namespace gspin_patterns
 
 using namespace gs_patterns::gs_patterns_core;
 
-int drline_read(gzFile fp, trace_entry_t *val, trace_entry_t **p_val, int *edx) {
+int drline_read(gzFile fp, trace_entry_t * val, trace_entry_t ** p_val, int * edx)
+{
 
     int idx;
 
@@ -62,7 +63,7 @@ Metrics & MemPatternsForPin::get_metrics(mem_access_type m)
         case SCATTER : return _metrics.second;
             break;
         default:
-            throw GSError("Unable to get Metrics - Invalid Metrics Type: " + m);
+            throw GSError("Unable to get Metrics - Invalid Metrics Type: " + std::to_string(m));
     }
 }
 
@@ -75,7 +76,7 @@ InstrInfo & MemPatternsForPin::get_iinfo(mem_access_type m)
         case SCATTER : return _iinfo.second;
             break;
         default:
-            throw GSError("Unable to get InstrInfo - Invalid Metrics Type: " + m);
+            throw GSError("Unable to get InstrInfo - Invalid Metrics Type: " + std::to_string(m));
     }
 }
 

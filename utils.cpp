@@ -68,7 +68,7 @@ const char *str_replace(const char *orig, const char *rep, const char *with) {
 
     // count the number of replacements needed
     ins = (char*)orig;
-    for (count = 0; tmp = strstr(ins, rep); ++count) {
+    for (count = 0; (tmp = strstr(ins, rep)); ++count) {
         ins = tmp + len_rep;
     }
 

@@ -14,8 +14,8 @@ namespace gs_patterns_core
 {
     using namespace gs_patterns;
 
-    void translate_iaddr(const std::string & binary, char *source_line, addr_t iaddr) {
-
+    void translate_iaddr(const std::string & binary, char * source_line, addr_t iaddr)
+    {
         int i = 0;
         int ntranslated = 0;
         char path[MAX_LINE_LENGTH];
@@ -43,7 +43,7 @@ namespace gs_patterns_core
     }
 
 
-    static void create_metrics_file(FILE *fp, FILE *fp2, const std::string & file_prefix, Metrics & target_metrics, bool & first_spatter)
+    static void create_metrics_file(FILE * fp, FILE * fp2, const std::string & file_prefix, Metrics & target_metrics, bool & first_spatter)
     {
         int i = 0;
         int j = 0;
@@ -549,7 +549,7 @@ namespace gs_patterns_core
                 }
             }
             else { // belt and suspenders, yep = but helps to validate correct logic in children of InstrAddresInfo
-                throw GSDataError("Unknown Memory Access Type: " + ia.get_mem_access_type());
+                throw GSDataError("Unknown Memory Access Type: " + std::to_string(ia.get_mem_access_type()));
             }
         } // MEM
 
