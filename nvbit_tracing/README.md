@@ -25,12 +25,12 @@ cp -rv nvbit_tracing/gsnv_trace $NVBIT_DIR/tools/
 
 cd $NVBIT_DIR
 
-#Compile tools and test apps. Make sure the gsnv_trace tool compiled. $NVBIT_DIR/tools/gsnv_trace/gsnv_trace.so
+#Compile tools and test apps. Make sure the gsnv_trace tool compiled. If successful will produced $NVBIT_DIR/tools/gsnv_trace/gsnv_trace.so
 make -j
 ```
 
 
-*** NOTE *** make sure you gzip the nvbit trace output file before attempting to use with gs_patterns.
+*** <b>NOTE</b> *** make sure you gzip the nvbit trace output file before attempting to use with gs_patterns.
 
 # gsnv_trace
 
@@ -40,7 +40,19 @@ This includes the JSON file containing Gather/Scatter Patterns.
 
 ###  configuration
 gsnv_trace tool can be configured by setting the GSNV_CONFIG_FILE environment variable to a config file.  
-The config file should have 1 configuration setting perline.  Configuration settings take the form "<CONFIG_ITEM> <CONFIG_VALUE>" where there is a space between the config item and its value.
+The config file should have 1 configuration setting per line.  Configuration settings take the form "<CONFIG_ITEM> <CONFIG_VALUE>" where there is a space between the config item and its value.
+
+The following are a list of configuration items currently supported:
+
+| Config              | Description                                                                                                                                                                                                           | possible values        |
+|---------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|------------------------|
+| GSNV_LOG_LEVEL      | Sets the log level (only 0-2 are currently supported)                                                                                                                                                                 | 0 to 255               |
+| GSNV_TARGET_KERNEL  | Specifies the names of Kernels which will be instrumented seperated by space, it none is provided all Kernels will be intrumented.                                                                                    | A String               |
+| GSNV_FILE_PREFIX    | Can be used if specify the prefix of output files e.g if prefix is "trace_file" then output files will be names trace_file.json, etc. If non is provided one will be infered from the output file if that is provided | A String               |
+| GSNV_TRACE_OUT_FILE | Specifies the name of the output file which will be written with trace data.                                                                                                                                          | A String               |
+| GSNV_MAX_TRACE_COUNT| Specifies the maximum number of memory traces which are processed, once this number of traces are seen instrumentation is disabled (Can be useful to produce a small trace file for testing)                          | An Integer e.g 1000000 |
+
+
 
 Example:
 
@@ -55,6 +67,8 @@ export GSNV_CONFIG_FILE=./gsnv_config.txt
 
 Additional settings which are supported by NVBit can also be set via additional environment variables.  To see these please visit the NVBit documentation.
 Setting covered here are specific to the gsnv_trace tool.
+
+<b>NOTE</b>: It is highly recommended to specify a target kernel using GSNV_TARGET_KERNEL as this alows the tool to be used more efficiently also results in smaller trace files
 
 ### Instrumenting an application
 
