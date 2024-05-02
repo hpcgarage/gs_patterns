@@ -664,8 +664,8 @@ void MemPatternsForNV::write_trace_out_file()
     /// TODO: COMPRESS trace_file
     try
     {
-        std::cout << "\nSaving trace file - traces_written: " << _traces_written
-                  << " traced_handled: " << _traces_handled << "\n" << std::endl;
+        std::cout << "\nSaving trace file - writing: " << _traces_written
+                  << " traces_handled: " << _traces_handled << " ... \n" << std::endl;
 
         _ofs_tmp.flush();
 
@@ -716,6 +716,8 @@ void MemPatternsForNV::write_trace_out_file()
         _ofs_tmp.close();
 
         std::remove(_tmp_trace_out_file_name.c_str());
+
+        std::cout << "Saving trace file - complete" << std::endl;
 
         if (_log_level >= 1) {
             std::cout << "Mappings found" << std::endl;
