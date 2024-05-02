@@ -25,7 +25,7 @@
 #define NSTRIDES 15     //Threshold for number of unique distances
 #define OUTTHRESH (0.5) //Threshold for percentage of distances at boundaries of histogram
 #define NTOP (10)
-#define PSIZE (1<<27)   // Was 2^23 (8mb)
+#define PSIZE (1<<28)   // Was 2^23 (8mb)
 
 //DONT CHANGE
 #define VBYTES (VBITS/8)
