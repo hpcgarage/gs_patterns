@@ -1,7 +1,3 @@
-//
-// Created by christopher on 4/2/24.
-//
-
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
@@ -25,13 +21,13 @@ static inline int popcount(uint64_t x) {
 }
 
 //string tools
-int startswith(const char *a, const char *b) {
+int startswith(const char* a, const char* b) {
     if (strncmp(b, a, strlen(b)) == 0)
         return 1;
     return 0;
 }
 
-int endswith(const char *a, const char *b) {
+int endswith(const char* a, const char* b) {
     int idx = strlen(a);
     int preidx = strlen(b);
 
@@ -43,10 +39,10 @@ int endswith(const char *a, const char *b) {
 }
 
 //https://stackoverflow.com/questions/779875/what-function-is-to-replace-a-substring-from-a-string-in-c
-const char *str_replace(const char *orig, const char *rep, const char *with) {
-    char *result; // the return string
-    char *ins;    // the next insert point
-    char *tmp;    // varies
+const char* str_replace(const char* orig, const char* rep, const char* with) {
+    char* result; // the return string
+    char* ins;    // the next insert point
+    char* tmp;    // varies
     int len_rep;  // length of rep (the string to remove)
     int len_with; // length of with (the string to replace rep with)
     int len_front; // distance between rep and end of last rep
@@ -93,9 +89,9 @@ const char *str_replace(const char *orig, const char *rep, const char *with) {
     return result;
 }
 
-char *get_str(char *line, char *bparse, char *aparse) {
+char* get_str(char* line, char* bparse, char* aparse) {
 
-    char *sline;
+    char* sline;
 
     sline = (char*)str_replace(line, bparse, "");
     sline = (char*)str_replace(sline, aparse, "");
@@ -103,7 +99,7 @@ char *get_str(char *line, char *bparse, char *aparse) {
     return sline;
 }
 
-int cnt_str(char *line, char c) {
+int cnt_str(char* line, char c) {
 
     int cnt = 0;
     for (int i = 0; line[i] != '\0'; i++) {

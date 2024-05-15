@@ -23,7 +23,7 @@ void usage (const std::string & prog_name)
               << "       " << prog_name << " <nvbit_trace.gz> -nv [-v]" << std::endl;
 }
 
-int main(int argc, char **argv)
+int main(int argc, char ** argv)
 {
     try
     {

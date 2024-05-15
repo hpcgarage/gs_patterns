@@ -188,8 +188,8 @@ void instrument_function_if_needed(CUcontext ctx, CUfunction func) {
             // Line to Line_ID
             /* Get line information for a particular instruction offset if available, */
             /* binary must be compiled with --generate-line-info   (-lineinfo) */
-            char *line_str;
-            char *dir_str;
+            char * line_str;
+            char * dir_str;
             uint32_t line_num;
             bool status = nvbit_get_line_info(ctx, func, instr->getOffset(), &line_str, &dir_str, &line_num);
 
