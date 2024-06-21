@@ -41,8 +41,6 @@ int main(int argc, char ** argv)
         size_t pos = std::string(argv[0]).find_last_of("/");
         std::string prog_name = std::string(argv[0]).substr(pos+1);
 
-        std::unique_ptr<MemPatterns> mp (use_gs_nv ? (MemPatterns *) new MemPatternsForNV : (MemPatterns *) new MemPatternsForPin);
-
         if (argc < 3) {
             usage(prog_name);
             throw GSError("Invalid program arguments");
