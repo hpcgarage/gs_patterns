@@ -98,7 +98,7 @@ void MemPatternsForPin::generate_patterns()
 
     // ----------------- Create Spatter File -----------------
 
-    create_spatter_file(*this, get_file_prefix());
+    create_spatter_file<MEMORY_ACCESS_SIZE>(*this, get_file_prefix());
 
 }
 
@@ -208,7 +208,7 @@ void MemPatternsForPin::process_traces()
     get_trace_info().gather_occ_avg /= get_gather_metrics().cnt;
     get_trace_info().scatter_occ_avg /= get_scatter_metrics().cnt;
 
-    display_stats(*this);
+    display_stats<MEMORY_ACCESS_SIZE>(*this);
 
 }
 

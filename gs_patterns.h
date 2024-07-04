@@ -15,7 +15,6 @@
 
 //info
 #define CLSIZE (64)
-#define VBITS (512)
 #define NBUFS (1LL<<10)
 #define IWINDOW (1024)
 #define NGS (8096)
@@ -26,9 +25,6 @@
 #define OUTTHRESH (0.5) //Threshold for percentage of distances at boundaries of histogram
 #define NTOP (10)
 #define PSIZE (1<<28)   // Was 2^23 (8mb)
-
-//DONT CHANGE
-#define VBYTES (VBITS/8)
 
 #define MAX_LINE_LENGTH 1024
 
@@ -197,34 +193,73 @@ namespace gs_patterns
         uint64_t     mcnt  = 0;
     };
 
+    template <std::size_t MAX_ACCESS_SIZE>
     class InstrWindow
     {
     public:
         InstrWindow() {
-            //init window arrays
+            // First dimension is 0=GATHER/1=SCATTER
+            _w_iaddrs = new int64_t[2][IWINDOW];
+            _w_bytes  = new int64_t[2][IWINDOW];
+            _w_maddr  = new int64_t[2][IWINDOW][MAX_ACCESS_SIZE];
+            _w_cnt    = new int64_t[2][IWINDOW];
+
+            init();
+        }
+
+        virtual ~InstrWindow() {
+            delete [] _w_iaddrs;
+            delete [] _w_bytes;
+            delete [] _w_maddr;
+            delete [] _w_cnt;
+        }
+
+        void init() {
             for (int w = 0; w < 2; w++) {
                 for (int i = 0; i < IWINDOW; i++) {
-                    w_iaddrs[w][i] = -1;
-                    w_bytes[w][i] = 0;
-                    w_cnt[w][i] = 0;
-                    for (int j = 0; j < VBYTES; j++)
-                        w_maddr[w][i][j] = -1;
+                    _w_iaddrs[w][i] = -1;
+                    _w_bytes[w][i] = 0;
+                    _w_cnt[w][i] = 0;
+                    for (int j = 0; j < MAX_ACCESS_SIZE; j++)
+                        _w_maddr[w][i][j] = -1;
                 }
             }
         }
 
-        ~InstrWindow() { }
+        void reset(int w) {
+            for (int i = 0; i < IWINDOW; i++) {
+                _w_iaddrs[w][i] = -1;
+                _w_bytes[w][i] = 0;
+                _w_cnt[w][i] = 0;
+                for (int j = 0; j < MAX_ACCESS_SIZE; j++)
+                    _w_maddr[w][i][j] = -1;
+            }
+        }
+
+        void reset() {
+            for (int w = 0; w < 2; w++) {
+                reset(w);
+            }
+        }
 
         InstrWindow(const InstrWindow &) = delete;
         InstrWindow & operator=(const InstrWindow & right) = delete;
 
-        // moved from static storage to instance variables (watch out for stack overflow)
-        // Revisit and move to heap if an issue - estimate of 2k*3 + 128k
+        int64_t & w_iaddrs(int32_t i, int32_t j)             { return _w_iaddrs[i][j];   }
+        int64_t & w_bytes(int32_t i, int32_t j)              { return _w_bytes[i][j];    }
+        int64_t & w_maddr(int32_t i, int32_t j, int32_t k)   { return _w_maddr[i][j][k]; }
+        int64_t & w_cnt(int32_t i, int32_t j)                { return _w_cnt[i][j];      }
+
+        addr_t &  get_iaddr()       { return iaddr;      }
+        int64_t & get_maddr_prev()  { return maddr_prev; }
+        int64_t & get_maddr()       { return maddr;      }
+
+    private:
         // First dimension is 0=GATHER/1=SCATTER
-        int64_t w_iaddrs[2][IWINDOW];
-        int64_t w_bytes[2][IWINDOW];
-        int64_t w_maddr[2][IWINDOW][VBYTES];
-        int64_t w_cnt[2][IWINDOW];
+        int64_t (*_w_iaddrs)[IWINDOW];
+        int64_t (*_w_bytes)[IWINDOW];
+        int64_t (*_w_maddr)[IWINDOW][MAX_ACCESS_SIZE];
+        int64_t (*_w_cnt)[IWINDOW];
 
         // State which must be carried with each call to handle a trace
         addr_t   iaddr;
@@ -232,6 +267,7 @@ namespace gs_patterns
         int64_t  maddr;
     };
 
+    template <std::size_t MAX_ACCESS_SIZE>
     class MemPatterns
     {
     public:
@@ -252,8 +288,8 @@ namespace gs_patterns
         virtual InstrInfo &   get_gather_iinfo()        = 0;
         virtual InstrInfo &   get_scatter_iinfo()       = 0;
         virtual TraceInfo &   get_trace_info()          = 0;
-        virtual InstrWindow & get_instr_window()        = 0;
-
+        virtual InstrWindow<MAX_ACCESS_SIZE> &
+                              get_instr_window()        = 0;
         virtual void          set_log_level(int8_t ll)  = 0;
         virtual int8_t        get_log_level()           = 0;
     };

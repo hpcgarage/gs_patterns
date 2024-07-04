@@ -33,6 +33,8 @@ namespace gs_patterns
 {
 namespace gsnv_patterns
 {
+    constexpr std::size_t MEMORY_ACCESS_SIZE = 2048 / 8;
+
     struct _trace_entry_t {
         unsigned short type; // 2 bytes: trace_type_t
         unsigned short size;
@@ -99,7 +101,7 @@ namespace gsnv_patterns
         const trace_entry_t  _te;
     };
 
-    class MemPatternsForNV : public MemPatterns
+    class MemPatternsForNV : public MemPatterns<MEMORY_ACCESS_SIZE>
     {
     public:
         static const uint8_t CTA_LENGTH = 32;
@@ -134,7 +136,9 @@ namespace gsnv_patterns
         InstrInfo &   get_gather_iinfo () override   { return _iinfo.first;    }
         InstrInfo &   get_scatter_iinfo () override  { return _iinfo.second;   }
         TraceInfo &   get_trace_info() override      { return _trace_info;     }
-        InstrWindow & get_instr_window() override    { return _iw;             }
+
+        InstrWindow<MEMORY_ACCESS_SIZE> &
+                get_instr_window() override          { return _iw;             }
 
         void          set_log_level(int8_t level) override      { _log_level = level;      }
         int8_t        get_log_level() override                  { return _log_level;       }
@@ -213,7 +217,7 @@ namespace gsnv_patterns
         std::pair<Metrics, Metrics>        _metrics;
         std::pair<InstrInfo, InstrInfo>    _iinfo;
         TraceInfo                          _trace_info;
-        InstrWindow                        _iw;
+        InstrWindow<MEMORY_ACCESS_SIZE>    _iw;
 
         std::string                        _trace_file_name;            // Input compressed nvbit trace file
         std::string                        _file_prefix;                // Used by gs_patterns_core to write out pattern files

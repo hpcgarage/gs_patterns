@@ -26,10 +26,15 @@
 #define ADDREND   (0xFFFFFFFFFFFFFFFFUL)
 #define ADDRUSYNC (0xFFFFFFFFFFFFFFFEUL)
 
+#define VBITS (512)
+#define VBYTES (VBITS/8) //DONT CHANGE
+
 namespace gs_patterns
 {
 namespace gspin_patterns
 {
+    constexpr std::size_t MEMORY_ACCESS_SIZE = VBYTES;
+
     //FROM DR SOURCE
     //DR trace
     struct _trace_entry_t {
@@ -84,7 +89,7 @@ namespace gspin_patterns
         trace_entry_t _te;
     };
 
-    class MemPatternsForPin : public MemPatterns
+    class MemPatternsForPin : public MemPatterns<MEMORY_ACCESS_SIZE>
     {
     public:
         MemPatternsForPin() : _metrics(GATHER, SCATTER),
@@ -102,7 +107,8 @@ namespace gspin_patterns
         InstrInfo &   get_gather_iinfo () override         { return _iinfo.first;    }
         InstrInfo &   get_scatter_iinfo () override        { return _iinfo.second;   }
         TraceInfo &   get_trace_info() override            { return _trace_info;     }
-        InstrWindow & get_instr_window() override          { return _iw;             }
+        InstrWindow<MEMORY_ACCESS_SIZE> &
+                      get_instr_window() override          { return _iw;             }
 
         void          set_log_level(int8_t level) override { _log_level = level;     }
         int8_t        get_log_level() override             { return _log_level;      }
@@ -126,7 +132,7 @@ namespace gspin_patterns
         std::pair<Metrics, Metrics>     _metrics;
         std::pair<InstrInfo, InstrInfo> _iinfo;
         TraceInfo                       _trace_info;
-        InstrWindow                     _iw;
+        InstrWindow<MEMORY_ACCESS_SIZE> _iw;
 
         int8_t                          _log_level         = 0;
 
