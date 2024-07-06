@@ -86,7 +86,7 @@ The gzip command will compress the resulting trace file for use by gs_patterns i
 
 ### Generating Memory Patterns using an existing trace file.
 
-In the previous section on Instrumnenting an application, we used nvgs_trace.so to instrument an application, the resulting trace file was then compressed.
+In the previous section on Instrumnenting an application, we used gsnv_trace.so to instrument an application, the resulting trace file was then compressed.
 The instrumentation run also generated pattern files. 
 If we want to rerun the pattern generation we can do so using the generated (and compressed) trace file without re-instrumenting the application as this is much faster.
 To do this we just need to run the gs_pattern binary with the trace file and the "-nv " option.  The "-nv" option indicates that the trace file is an nvbit trace.  
@@ -103,8 +103,8 @@ $GS_PATTERNS_DIR/gs_patterns <trace_file.nvbit.bin.gz> -nv
 As of NVBit 1.5.5, when building gsnv_trace within the NVBit source tree it *may* be required to specify a version of the CUDA which is older
 in order to enable NVBit to correctly emit the runtime instructions.  Without this the gsnv_trace libary will still be built but will be unable to instrument CUDA kernels.
 
-For instance we were able to build a working nvgs_trace using CUDA api version 11.7 and lower and use that on higher versions of the CUDA environment such as CUDA 12.3.
-However as of NVBit 1.5.5 it was not possible to get a working version of nvgs_trace when we build it using 12.3 directly.
+For instance we were able to build a working gsnv_trace using CUDA api version 11.7 and lower and use that on higher versions of the CUDA environment such as CUDA 12.3.
+However as of NVBit 1.5.5 it was not possible to get a working version of gsnv_trace when we build it using 12.3 directly.
 
 Example:
 

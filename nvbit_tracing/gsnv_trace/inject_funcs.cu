@@ -43,6 +43,7 @@ extern "C" __device__ __noinline__ void instrument_mem(int pred,
                                                        int is_store,
                                                        int size,
                                                        int line_id,
+                                                       uint64_t iaddr,
                                                        uint64_t addr,
                                                        uint64_t grid_launch_id,
                                                        uint64_t pchannel_dev) {
@@ -74,7 +75,7 @@ extern "C" __device__ __noinline__ void instrument_mem(int pred,
     ma.is_store = is_store;
     ma.size = size;
     ma.line_id = line_id;
-
+    ma.iaddr = iaddr;
 
     /* first active lane pushes information on the channel */
     if (first_laneid == laneid) {

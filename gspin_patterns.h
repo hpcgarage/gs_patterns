@@ -62,11 +62,11 @@ namespace gspin_patterns
 
         virtual ~InstrAddrAdapterForPin() { }
 
-        virtual bool            is_valid() const override       { return !(0 == _te.type && 0 == _te.size);        }
-        virtual bool            is_mem_instr() const override   { return ((_te.type == 0x0) || (_te.type == 0x1)); }
-        virtual bool            is_other_instr() const override { return ((_te.type >= 0xa) && (_te.type <= 0x10)) || (_te.type == 0x1e); }
+        virtual inline bool            is_valid() const override        { return !(0 == _te.type && 0 == _te.size);        }
+        virtual inline bool            is_mem_instr() const override    { return ((_te.type == 0x0) || (_te.type == 0x1)); }
+        virtual inline bool            is_other_instr() const override  { return ((_te.type >= 0xa) && (_te.type <= 0x10)) || (_te.type == 0x1e); }
 
-        virtual mem_access_type get_mem_access_type() const override {
+        virtual mem_access_type get_mem_access_type() const override    {
             if (!is_mem_instr()) throw GSDataError("Not a Memory Instruction - unable to determine Access Type");
             // Must be 0x0 or 0x1
             if (_te.type == 0x0) return GATHER;
@@ -74,12 +74,13 @@ namespace gspin_patterns
         }
         virtual inline mem_instr_type  get_mem_instr_type() const override  { return VECTOR;  }
 
-        virtual size_t          get_size() const override     { return _te.size; }
-        virtual addr_t          get_address() const override  { return _te.addr; }
-        virtual addr_t          get_iaddr() const override    { return _te.addr; }
-        virtual addr_t          get_maddr() const override    { return _te.addr / _te.size; }
-        virtual unsigned short  get_type() const override     { return _te.type; } // must be 0 for GATHER, 1 for SCATTER !!
-        virtual int64_t         min_size() const override     { return VBYTES;   }
+        virtual inline size_t          get_size() const override        { return _te.size; }
+        virtual inline addr_t          get_base_addr() const override   { return _te.addr; }
+        virtual inline addr_t          get_address() const override     { return _te.addr; }
+        virtual inline addr_t          get_iaddr() const override       { return _te.addr; }
+        virtual inline addr_t          get_maddr() const override       { return _te.addr / _te.size; }
+        virtual inline unsigned short  get_type() const override        { return _te.type; } // must be 0 for GATHER, 1 for SCATTER !!
+        virtual inline int64_t         max_access_size() const override { return MEMORY_ACCESS_SIZE;  }
 
         virtual void output(std::ostream & os) const override {
             os << "InstrAddrAdapterForPin: trace entry: type: [" << _te.type << "] size: [" << _te.size << "]";

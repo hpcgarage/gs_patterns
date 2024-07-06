@@ -10,7 +10,7 @@
 #include "gsnv_patterns.h"
 #include "utils.h"
 
-#define NVGS_CONFIG_FILE "NVGS_CONFIG_FILE"
+#define GSNV_CONFIG_FILE "GSNV_CONFIG_FILE"
 
 using namespace gs_patterns;
 using namespace gs_patterns::gs_patterns_core;
@@ -52,7 +52,7 @@ int main(int argc, char ** argv)
 
             mp.set_trace_file(argv[1]);
 
-            const char * config_file = std::getenv(NVGS_CONFIG_FILE);
+            const char * config_file = std::getenv(GSNV_CONFIG_FILE);
             if (config_file) {
                 mp.set_config_file(config_file);
             }

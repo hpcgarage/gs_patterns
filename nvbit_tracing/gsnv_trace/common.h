@@ -33,15 +33,16 @@
  * on the channel from the GPU to the CPU */
 typedef struct {
     uint64_t grid_launch_id;
-    int cta_id_x;
-    int cta_id_y;
-    int cta_id_z;
-    int warp_id;
-    int opcode_id;
-    int opcode_short_id;
-    int is_load;
-    int is_store;
-    int size;
-    int line_id;
+    int      cta_id_x;
+    int      cta_id_y;
+    int      cta_id_z;
+    int      warp_id;
+    int      opcode_id;
+    int      opcode_short_id;
+    int      is_load;
+    int      is_store;
+    int      size;
+    int      line_id;
+    uint64_t iaddr;
     uint64_t addrs[32];
 } mem_access_t;

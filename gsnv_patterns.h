@@ -23,10 +23,6 @@
 // Enable to use a vector for storing trace data for use by second pass (if not defined data is stored to a temp file
 //#define USE_VECTOR_FOR_SECOND_PASS 1
 
-#define HEX(x)                                                            \
-    "0x" << std::setfill('0') << std::setw(16) << std::hex << (uint64_t)x \
-         << std::dec
-
 #include "nvbit_tracing/gsnv_trace/common.h"
 
 namespace gs_patterns
@@ -43,6 +39,7 @@ namespace gsnv_patterns
             unsigned char length[sizeof(addr_t)];
         };
         addr_t         base_addr;
+        addr_t         iaddr;
         char           padding[4];
     }  __attribute__((packed));
     typedef struct _trace_entry_t trace_entry_t;
@@ -51,8 +48,8 @@ namespace gsnv_patterns
     #define MAP_VALUE_SIZE 22
     #define MAP_VALUE_LONG_SIZE 94
     #define NUM_MAPS 3
-    // Setting this to fit within a 4k page e.g 170 * 24 bytes <= 4k
-    #define TRACE_BUFFER_LENGTH 170
+    // Setting this to fit within a 4k page e.g. 170 * 32 bytes <= 4k
+    #define TRACE_BUFFER_LENGTH 128
 
     struct _trace_map_entry_t
     {
@@ -79,23 +76,24 @@ namespace gsnv_patterns
 
         virtual ~InstrAddrAdapterForNV() { }
 
-        virtual inline bool            is_valid() const override       { return true;          }
-        virtual inline bool            is_mem_instr() const override   { return true;          }
-        virtual inline bool            is_other_instr() const override { return false;         }
+        virtual inline bool            is_valid() const override       { return true;           }
+        virtual inline bool            is_mem_instr() const override   { return true;           }
+        virtual inline bool            is_other_instr() const override { return false;          }
         virtual inline mem_access_type get_mem_access_type() const override { return (_te.type == 0) ? GATHER : SCATTER; }
-        virtual inline mem_instr_type  get_mem_instr_type() const override  { return CTA;      }
+        virtual inline mem_instr_type  get_mem_instr_type() const override  { return CTA;       }
 
-        virtual inline size_t          get_size() const override       { return _te.size;      } // in bytes
-        virtual inline addr_t          get_address() const override    { return _te.addr;      }
-        virtual inline addr_t          get_iaddr () const override     { return _te.base_addr; }
-        virtual inline addr_t          get_maddr () const override     { return _te.addr;      } // was _base_addr
-        virtual inline unsigned short  get_type() const override       { return _te.type;      } // must be 0 for GATHER, 1 for SCATTER !!
-        virtual inline int64_t         min_size() const override       { return  256;          } // 32 * 8 bytes
+        virtual inline size_t          get_size() const override        { return _te.size;      } // in bytes
+        virtual inline addr_t          get_base_addr() const override   { return _te.base_addr; }
+        virtual inline addr_t          get_address() const override     { return _te.addr;      }
+        virtual inline addr_t          get_iaddr () const override      { return _te.iaddr;     }
+        virtual inline addr_t          get_maddr () const override      { return _te.addr;      } // was _base_addr
+        virtual inline unsigned short  get_type() const override        { return _te.type;      } // must be 0 for GATHER, 1 for SCATTER !!
+        virtual inline int64_t         max_access_size() const override { return  MEMORY_ACCESS_SIZE; } // 32 * 8 bytes
 
         virtual void output(std::ostream & os) const override   {  os << "InstrAddrAdapterForNV: trace entry: type: ["
                                                                       << _te.type << "] size: [" << _te.size << "]";  }
 
-        const trace_entry_t & get_trace_entry() const                  { return _te; }
+        const trace_entry_t & get_trace_entry() const                   { return _te; }
 
     private:
         const trace_entry_t  _te;

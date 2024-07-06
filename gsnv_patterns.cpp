@@ -8,6 +8,7 @@
 #include <map>
 #include <unordered_map>
 #include <set>
+#include <algorithm>
 
 #include <zlib.h>
 #include <stdlib.h>
@@ -146,6 +147,11 @@ void MemPatternsForNV::handle_trace_entry(const InstrAddrAdapter & ia)
 
 void MemPatternsForNV::generate_patterns()
 {
+    if (_traces_handled < 1) {
+        std::cout << "No traces match criteria, skipping pattern generation" << std::endl;
+        return;
+    }
+
     // ----------------- Write out Trace Files (if requested ) -----------------
 
     write_trace_out_file();
@@ -508,7 +514,7 @@ bool MemPatternsForNV::convert_to_trace_entry(const mem_access_t & ma,
     {
         if (ma.addrs[i] != 0)
         {
-            trace_entry_t te { mem_type_code, mem_size, ma.addrs[i], base_addr };
+            trace_entry_t te { mem_type_code, mem_size, ma.addrs[i], base_addr, ma.iaddr };
             te_list.push_back(te);
 
             if (_addr_to_line_id.find(base_addr) == _addr_to_line_id.end()) {
@@ -548,12 +554,14 @@ void MemPatternsForNV::handle_cta_memory_access(const mem_access_t * ma)
         _traces_written++;
     }
 
-    if (_log_level >= 2) {
+    if (_log_level >= 3) {
         std::stringstream ss;
         //ss << "CTX " << HEX(ctx) << " - grid_launch_id "
         ss << "GSNV_TRACE: CTX " << " - grid_launch_id "
            << ma->grid_launch_id << " - CTA " << ma->cta_id_x << "," << ma->cta_id_y << "," << ma->cta_id_z
-           << " - warp " << ma->warp_id << " - " << get_opcode(ma->opcode_id)
+           << " - warp " << ma->warp_id << " - "
+           << " - iaddr: " << HEX(ma->iaddr)
+           << " - " << get_opcode(ma->opcode_id)
            << " - shortOpcode: " << ma->opcode_short_id
            << " isLoad: " << ma->is_load << " isStore: " << ma->is_store
            << " size: " << ma->size << " - ";
@@ -824,14 +832,26 @@ bool MemPatternsForNV::should_instrument(const std::string & kernel_name)
     }
 
     auto itr = _target_kernels.find (kernel_name);
-    if ( itr != _target_kernels.end())  // Hard code for now
+    if ( itr != _target_kernels.end())
     {
         if (_log_level >= 1) {
             std::cout << "Instrumenting: " << kernel_name << std::endl;
         }
         return  true;
     }
+    else {
+        // Try substring match
+        auto itr = std::find_if(_target_kernels.begin(), _target_kernels.end(),
+                                [kernel_name](const std::string & t_kernel) {
+                                    return (t_kernel.compare(kernel_name.substr(0, t_kernel.length())) == 0); } );
 
+        if (itr != _target_kernels.end())
+            return true;
+    }
+
+    if (_log_level >= 2) {
+        std::cout << "Not Instrumenting: " << kernel_name << std::endl;
+    }
     return false;
 }
 

@@ -79,11 +79,12 @@ namespace gs_patterns
         virtual mem_instr_type  get_mem_instr_type() const  = 0;
 
         virtual size_t         get_size() const            = 0;
+        virtual addr_t         get_base_addr() const       = 0;
         virtual addr_t         get_address() const         = 0;
         virtual addr_t         get_iaddr() const           = 0;
         virtual addr_t         get_maddr() const           = 0;
         virtual unsigned short get_type() const            = 0; // must be 0 for GATHER, 1 for SCATTER !!
-        virtual int64_t        min_size() const            = 0;
+        virtual int64_t        max_access_size() const     = 0;
 
         virtual bool is_gather() const
         { return (is_valid() && is_mem_instr() && GATHER == get_mem_access_type()) ? true : false; }
@@ -102,20 +103,22 @@ namespace gs_patterns
     public:
         Metrics(mem_access_type mType) : _mType(mType)
         {
-            /// TODO: Convert to new/delete
-            for (int j = 0; j < NTOP; j++) {
-                patterns[j] = (int64_t *) calloc(PSIZE, sizeof(int64_t));
-                if (patterns[j] == NULL) {
-                    throw GSAllocError("Could not allocate patterns for " + type_as_string() + "!");
+            try
+            {
+                for (int j = 0; j < NTOP; j++) {
+                    patterns[j] = new int64_t[PSIZE];
                 }
+            }
+            catch (const std::exception & ex)
+            {
+                throw GSAllocError("Could not allocate patterns for " + type_as_string() + "! due to: " + ex.what());
             }
         }
 
         ~Metrics()
         {
-            /// TODO: Convert to new/delete
             for (int i = 0; i < NTOP; i++) {
-                free(patterns[i]);
+                delete [] patterns[i];
             }
 
             delete [] srcline;

@@ -51,7 +51,7 @@ namespace gs_patterns_core
             /***********************/
         } else if (ia.is_mem_instr()) {
 
-            if (CTA == ia.get_mem_instr_type() && ia.get_iaddr() == ia.get_address()) {
+            if (CTA == ia.get_mem_instr_type() && ia.get_base_addr() == ia.get_address()) {
                 iw.get_iaddr() = ia.get_iaddr();
                 trace_info.opcodes++;
                 trace_info.did_opcode = true;
@@ -87,8 +87,8 @@ namespace gs_patterns_core
             }
 
             //new window
-            if ((w_idx == -1) || (iw.w_bytes(w_rw_idx, w_idx) >= ia.min_size()) ||   // was >= VBYTES
-                (iw.w_cnt(w_rw_idx, w_idx) >= ia.min_size())) {                      // was >= VBYTES
+            if ((w_idx == -1) || (iw.w_bytes(w_rw_idx, w_idx) >= ia.max_access_size()) ||   // was >= VBYTES
+                (iw.w_cnt(w_rw_idx, w_idx) >= ia.max_access_size())) {                      // was >= VBYTES
 
                 /***************************/
                 //do analysis

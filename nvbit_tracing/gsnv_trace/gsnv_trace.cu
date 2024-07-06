@@ -84,7 +84,7 @@ bool skip_callback_flag = false;
 uint32_t instr_begin_interval = 0;
 uint32_t instr_end_interval = UINT32_MAX;
 int verbose = 0;
-std::string nvgs_config_file;
+std::string gsnv_config_file;
 
 /* opcode to id map and reverse map  */
 std::map<std::string, int> opcode_to_id_map;
@@ -109,7 +109,7 @@ void nvbit_at_init() {
         "End of the instruction interval where to apply instrumentation");
     GET_VAR_INT(verbose, "TOOL_VERBOSE", 0, "Enable verbosity inside the tool");
 
-    GET_VAR_STR(nvgs_config_file, "NVGS_CONFIG_FILE", "Specify a NVGS config file");
+    GET_VAR_STR(gsnv_config_file, "GSNV_CONFIG_FILE", "Specify a GSNV config file");
 
     std::string pad(100, '-');
     printf("%s\n", pad.c_str());
@@ -151,10 +151,13 @@ void instrument_function_if_needed(CUcontext ctx, CUfunction func) {
 
         if (verbose) {
             printf(
-                "NVGS_TRACE: CTX %p, Inspecting CUfunction %p name %s at address "
+                "GSNV_TRACE: CTX %p, Inspecting CUfunction %p name %s at address "
                 "0x%lx\n",
                 ctx, f, nvbit_get_func_name(ctx, f), nvbit_get_func_addr(f));
         }
+
+        // Get address of function PC
+        uint64_t func_addr = nvbit_get_func_addr(f);
 
         uint32_t cnt = 0;
         /* iterate on all the static instructions in the function */
@@ -213,6 +216,8 @@ void instrument_function_if_needed(CUcontext ctx, CUfunction func) {
             mp->add_or_update_opcode_short(opcode_short_id, instr->getOpcodeShort());
             if (status) { mp->add_or_update_line(line_id, line); }
 
+            // Compute instruction address (function address + instruction offset)
+            uint64_t instr_addr = func_addr + instr->getOffset();
 
             int mref_idx = 0;
             /* iterate on the operands */
@@ -239,6 +244,9 @@ void instrument_function_if_needed(CUcontext ctx, CUfunction func) {
                     nvbit_add_call_arg_const_val32(instr, instr->getSize());
                     /* line number id */
                     nvbit_add_call_arg_const_val32(instr, line_id);
+
+                    /* Memory instruction address */
+                    nvbit_add_call_arg_const_val64(instr, instr_addr);
 
                     /* memory reference 64 bit address */
                     nvbit_add_call_arg_mref_addr64(instr, mref_idx);
@@ -317,7 +325,7 @@ void nvbit_at_cuda_event(CUcontext ctx, int is_exit, nvbit_api_cuda_t cbid,
             nvbit_enable_instrumented(ctx, p->f, true);
 
             printf(
-                "NVGS_TRACE: CTX 0x%016lx - LAUNCH - Kernel pc 0x%016lx - Kernel "
+                "GSNV_TRACE: CTX 0x%016lx - LAUNCH - Kernel pc 0x%016lx - Kernel "
                 "name %s - grid launch id %ld - grid size %d,%d,%d - block "
                 "size %d,%d,%d - nregs %d - shmem %d - cuda stream id %ld\n",
                 (uint64_t)ctx, pc, func_name, grid_launch_id, p->gridDimX,
@@ -366,13 +374,13 @@ void* recv_thread_fun(void* args) {
                    << ma->grid_launch_id << " - CTA " << ma->cta_id_x << ","
                    << ma->cta_id_y << "," << ma->cta_id_z << " - warp "
                    << ma->warp_id << " - " << id_to_opcode_map[ma->opcode_id]
-                   << " - ";
+                   << " - iaddr " << HEX(ma->iaddr) << " - ";
 
                 for (int i = 0; i < 32; i++) {
                     ss << HEX(ma->addrs[i]) << " ";
                 }
 
-                printf("NVGS_TRACE: %s\n", ss.str().c_str());
+                printf("GSNV_TRACE: %s\n", ss.str().c_str());
 #endif
                 num_processed_bytes += sizeof(mem_access_t);
 
@@ -396,7 +404,7 @@ void nvbit_at_ctx_init(CUcontext ctx) {
     pthread_mutex_lock(&mutex);
     //if (verbose) {
     if (1) {
-        printf("NVGS_TRACE: STARTING CONTEXT %p\n", ctx);
+        printf("GSNV_TRACE: STARTING CONTEXT %p\n", ctx);
     }
     CTXstate* ctx_state = new CTXstate;
     assert(ctx_state_map.find(ctx) == ctx_state_map.end());
@@ -409,8 +417,8 @@ void nvbit_at_ctx_init(CUcontext ctx) {
 
     // -- init #2 - whats the difference
     try {
-        if (!nvgs_config_file.empty()) {
-            mp->set_config_file(nvgs_config_file);
+        if (!gsnv_config_file.empty()) {
+            mp->set_config_file(gsnv_config_file);
         }
     }
     catch (const std::exception & ex) {
@@ -423,7 +431,7 @@ void nvbit_at_ctx_term(CUcontext ctx) {
     skip_callback_flag = true;
     //if (verbose) {
     if (1) {
-        printf("NVGS_TRACE: TERMINATING CONTEXT %p\n", ctx);
+        printf("GSNV_TRACE: TERMINATING CONTEXT %p\n", ctx);
     }
     /* get context state from map */
     assert(ctx_state_map.find(ctx) != ctx_state_map.end());

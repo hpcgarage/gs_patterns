@@ -250,7 +250,7 @@ namespace gs_patterns_core
 
             maddr = ia.get_maddr();
 
-            if (CTA == ia.get_mem_instr_type() && ia.get_address() == ia.get_iaddr()) {
+            if (CTA == ia.get_mem_instr_type() && ia.get_address() == ia.get_base_addr()) {
                 iaddr = ia.get_iaddr();
             }
 
