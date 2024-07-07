@@ -78,13 +78,13 @@ namespace gs_patterns
         virtual mem_access_type get_mem_access_type() const = 0;
         virtual mem_instr_type  get_mem_instr_type() const  = 0;
 
-        virtual size_t         get_size() const            = 0;
-        virtual addr_t         get_base_addr() const       = 0;
-        virtual addr_t         get_address() const         = 0;
-        virtual addr_t         get_iaddr() const           = 0;
-        virtual addr_t         get_maddr() const           = 0;
-        virtual unsigned short get_type() const            = 0; // must be 0 for GATHER, 1 for SCATTER !!
-        virtual int64_t        max_access_size() const     = 0;
+        virtual size_t         get_size() const             = 0;
+        virtual addr_t         get_base_addr() const        = 0;
+        virtual addr_t         get_address() const          = 0;
+        virtual addr_t         get_iaddr() const            = 0;
+        virtual addr_t         get_maddr() const            = 0;
+        virtual unsigned short get_type() const             = 0; // must be 0 for GATHER, 1 for SCATTER !!
+        virtual int64_t        get_max_access_size() const  = 0;
 
         virtual bool is_gather() const
         { return (is_valid() && is_mem_instr() && GATHER == get_mem_access_type()) ? true : false; }

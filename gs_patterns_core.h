@@ -87,8 +87,8 @@ namespace gs_patterns_core
             }
 
             //new window
-            if ((w_idx == -1) || (iw.w_bytes(w_rw_idx, w_idx) >= ia.max_access_size()) ||   // was >= VBYTES
-                (iw.w_cnt(w_rw_idx, w_idx) >= ia.max_access_size())) {                      // was >= VBYTES
+            if ((w_idx == -1) || (iw.w_bytes(w_rw_idx, w_idx) >= ia.get_max_access_size()) ||   // was >= VBYTES
+                (iw.w_cnt(w_rw_idx, w_idx) >= ia.get_max_access_size())) {                      // was >= VBYTES
 
                 /***************************/
                 //do analysis

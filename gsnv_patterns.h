@@ -76,24 +76,24 @@ namespace gsnv_patterns
 
         virtual ~InstrAddrAdapterForNV() { }
 
-        virtual inline bool            is_valid() const override       { return true;           }
-        virtual inline bool            is_mem_instr() const override   { return true;           }
-        virtual inline bool            is_other_instr() const override { return false;          }
+        virtual inline bool            is_valid() const override            { return true;          }
+        virtual inline bool            is_mem_instr() const override        { return true;          }
+        virtual inline bool            is_other_instr() const override      { return false;         }
         virtual inline mem_access_type get_mem_access_type() const override { return (_te.type == 0) ? GATHER : SCATTER; }
-        virtual inline mem_instr_type  get_mem_instr_type() const override  { return CTA;       }
+        virtual inline mem_instr_type  get_mem_instr_type() const override  { return CTA;           }
 
-        virtual inline size_t          get_size() const override        { return _te.size;      } // in bytes
-        virtual inline addr_t          get_base_addr() const override   { return _te.base_addr; }
-        virtual inline addr_t          get_address() const override     { return _te.addr;      }
-        virtual inline addr_t          get_iaddr () const override      { return _te.iaddr;     }
-        virtual inline addr_t          get_maddr () const override      { return _te.addr;      } // was _base_addr
-        virtual inline unsigned short  get_type() const override        { return _te.type;      } // must be 0 for GATHER, 1 for SCATTER !!
-        virtual inline int64_t         max_access_size() const override { return  MEMORY_ACCESS_SIZE; } // 32 * 8 bytes
+        virtual inline size_t          get_size() const override            { return _te.size;      } // in bytes
+        virtual inline addr_t          get_base_addr() const override       { return _te.base_addr; }
+        virtual inline addr_t          get_address() const override         { return _te.addr;      }
+        virtual inline addr_t          get_iaddr () const override          { return _te.iaddr;     }
+        virtual inline addr_t          get_maddr () const override          { return _te.addr;      } // was _base_addr
+        virtual inline unsigned short  get_type() const override            { return _te.type;      } // must be 0 for GATHER, 1 for SCATTER !!
+        virtual inline int64_t         get_max_access_size() const override { return  MEMORY_ACCESS_SIZE; } // 32 * 8 bytes
 
         virtual void output(std::ostream & os) const override   {  os << "InstrAddrAdapterForNV: trace entry: type: ["
                                                                       << _te.type << "] size: [" << _te.size << "]";  }
 
-        const trace_entry_t & get_trace_entry() const                   { return _te; }
+        const trace_entry_t & get_trace_entry() const                       { return _te; }
 
     private:
         const trace_entry_t  _te;
