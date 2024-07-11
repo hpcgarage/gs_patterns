@@ -518,7 +518,7 @@ bool MemPatternsForNV::convert_to_trace_entry(const mem_access_t & ma,
             te_list.push_back(te);
 
             if (_addr_to_line_id.find(base_addr) == _addr_to_line_id.end()) {
-                _addr_to_line_id[base_addr] = ma.line_id;
+                _addr_to_line_id[ma.iaddr] = ma.line_id;
             }
         }
         else if (ignore_partial_warps)
@@ -557,10 +557,11 @@ void MemPatternsForNV::handle_cta_memory_access(const mem_access_t * ma)
     if (_log_level >= 3) {
         std::stringstream ss;
         //ss << "CTX " << HEX(ctx) << " - grid_launch_id "
-        ss << "GSNV_TRACE: CTX " << " - grid_launch_id "
-           << ma->grid_launch_id << " - CTA " << ma->cta_id_x << "," << ma->cta_id_y << "," << ma->cta_id_z
-           << " - warp " << ma->warp_id << " - "
+        ss << "GSNV_TRACE: grid_launch_id: "
+           << ma->grid_launch_id << " - CTA: " << ma->cta_id_x << "," << ma->cta_id_y << "," << ma->cta_id_z
+           << " - warp: " << ma->warp_id
            << " - iaddr: " << HEX(ma->iaddr)
+           << " line_id: " << ma->line_id
            << " - " << get_opcode(ma->opcode_id)
            << " - shortOpcode: " << ma->opcode_short_id
            << " isLoad: " << ma->is_load << " isStore: " << ma->is_store

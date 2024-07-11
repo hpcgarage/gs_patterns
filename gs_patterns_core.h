@@ -35,21 +35,23 @@ namespace gs_patterns_core
             throw GSDataError(os.str());
         }
 
-        /*****************************/
-        /** INSTR 0xa-0x10 and 0x1e **/
-        /*****************************/
-        if (ia.is_other_instr()) {
+        if (ia.is_other_instr())
+        {
+            /*****************************/
+            /** INSTR                   **/
+            /*****************************/
 
             iw.get_iaddr() = ia.get_iaddr(); // was get_address in orig code -> get_iaddr()
 
             //nops
             trace_info.opcodes++;
             trace_info.did_opcode = true;
-
+        }
+        else if (ia.is_mem_instr())
+        {
             /***********************/
-            /** MEM 0x00 and 0x01 **/
+            /** MEM instruction   **/
             /***********************/
-        } else if (ia.is_mem_instr()) {
 
             if (CTA == ia.get_mem_instr_type() && ia.get_base_addr() == ia.get_address()) {
                 iw.get_iaddr() = ia.get_iaddr();
@@ -91,9 +93,9 @@ namespace gs_patterns_core
                 (iw.w_cnt(w_rw_idx, w_idx) >= ia.get_max_access_size())) {                      // was >= VBYTES
 
                 /***************************/
-                //do analysis
+                // do analysis
                 /***************************/
-                //i = each window
+                // i = each window
                 for (w = 0; w < 2; w++) {  // 2
 
                     for (i = 0; i < IWINDOW; i++) {  // 1024
@@ -103,21 +105,19 @@ namespace gs_patterns_core
 
                         int byte = iw.w_bytes(w, i) / iw.w_cnt(w, i);
 
-                        //First pass
-                        //Determine
-                        //gather/scatter?
+                        // First pass - Determine gather/scatter?
                         gs = -1;
                         for (j = 0; j < iw.w_cnt(w, i); j++) {
 
-                            //address and cl
+                            // address and cl
                             iw.get_maddr() = iw.w_maddr(w, i, j);
                             assert(iw.get_maddr() > -1);
 
-                            //previous addr
+                            // previous addr
                             if (j == 0)
                                 iw.get_maddr_prev() = iw.get_maddr() - 1;
 
-                            //gather / scatter
+                            // gather / scatter
                             if (iw.get_maddr() != iw.get_maddr_prev()) {
                                 if ((gs == -1) && (abs(iw.get_maddr() - iw.get_maddr_prev()) > 1))  // ? > 1 stride (non-contiguous)   <--------------------
                                     gs = w;
@@ -155,23 +155,22 @@ namespace gs_patterns_core
                                     break;
                                 }
                             }
-                        }
-                    } //WINDOW i
+                        } // - if
+                    } //WINDOW i - for
 
                     w_idx = 0;
 
-                    //reset windows
+                    // reset windows
                     iw.reset(w);
-                } // rw w
-            } //analysis
+                } // rw w - for
+            } // analysis - if
 
-            //Set window values
+            // Set window values
             iw.w_iaddrs(w_rw_idx, w_idx) = iw.get_iaddr();
-            //iw.w_maddr(w_rw_idx, w_idx, iw.w_cnt[w_rw_idx][w_idx]]) = ia.get_maddr();
             iw.w_maddr(w_rw_idx, w_idx, iw.w_cnt(w_rw_idx, w_idx)) = ia.get_maddr();
             iw.w_bytes(w_rw_idx, w_idx) += ia.get_size();
 
-            //num access per iaddr in loop
+            // num access per iaddr in loop
             iw.w_cnt(w_rw_idx, w_idx)++;
 
             if (trace_info.did_opcode) {
@@ -183,11 +182,13 @@ namespace gs_patterns_core
             } else {
                 trace_info.addrs++;
             }
-
+        }
+        else
+        {
             /***********************/
             /** SOMETHING ELSE **/
             /***********************/
-        } else {
+
             trace_info.other++;
         }
 
@@ -251,7 +252,7 @@ namespace gs_patterns_core
             throw GSFileError("Could not open " + gs_info + "!");
         }
 
-        //Header
+        // Header
         fprintf(fp, "[ ");
         fprintf(fp2, "#sourceline, g/s, indices, percentage of g/s in trace\n");
 
@@ -260,7 +261,7 @@ namespace gs_patterns_core
 
         create_metrics_file(fp, fp2, file_prefix, mp.get_scatter_metrics(), first_spatter);
 
-        //Footer
+        // Footer
         fprintf(fp, " ]");
         fclose(fp);
         fclose(fp2);

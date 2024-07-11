@@ -182,14 +182,14 @@ namespace gs_patterns_core
         int target_ntop = 0;
         int bestcnt;
 
-        for (int j = 0; j < NTOP; j++) {
-
+        for (int j = 0; j < NTOP; j++)
+        {
             int bestcnt = 0;
             addr_t best_iaddr = 0;
             int bestidx = -1;
 
-            for (int k = 0; k < NGS; k++) {
-
+            for (int k = 0; k < NGS; k++)
+            {
                 if (target_iinfo.get_icnt()[k] == 0)
                     continue;
 
@@ -204,9 +204,12 @@ namespace gs_patterns_core
                 }
             }
 
-            if (best_iaddr == 0) {
+            if (best_iaddr == 0)
+            {
                 break;
-            } else {
+            }
+            else
+            {
                 target_ntop++;
                 target_metrics.top[j] = best_iaddr;
                 target_metrics.top_idx[j] = bestidx;
@@ -215,7 +218,7 @@ namespace gs_patterns_core
 
                 //printf("%sIADDR -- %016lx: %16lu -- %s\n", target_metrics.getShortName().c_str(), target_metrics.top[j], target_metrics.tot[j], target_metrics.get_srcline()[bestidx]);
             }
-        }
+        } // for
 
         return target_ntop;
     }
@@ -239,14 +242,15 @@ namespace gs_patterns_core
             throw GSDataError(os.str());
         }
 
-        if (ia.is_other_instr()) {
+        if (ia.is_other_instr())
+        {
             iaddr = ia.get_iaddr();  // was get_address in orig code  -> get_iaddr()
-
-            /***********************/
-            /** MEM 0x00 and 0x01 **/
-            /***********************/
         }
-        else if (ia.is_mem_instr()) {
+        else if (ia.is_mem_instr())
+        {
+            /***********************/
+            /** MEM               **/
+            /***********************/
 
             maddr = ia.get_maddr();
 
@@ -263,10 +267,10 @@ namespace gs_patterns_core
             }
 
             // gather ?
-            if (GATHER == ia.get_mem_access_type()) {
-
-                for (i = 0; i < gather_metrics.ntop; i++) {
-
+            if (GATHER == ia.get_mem_access_type())
+            {
+                for (i = 0; i < gather_metrics.ntop; i++)
+                {
                     //found it
                     if (iaddr == gather_metrics.top[i]) {
 
@@ -286,13 +290,14 @@ namespace gs_patterns_core
                 }
             }
             // scatter ?
-            else if (SCATTER == ia.get_mem_access_type()) {
+            else if (SCATTER == ia.get_mem_access_type())
+            {
 
-                for (i = 0; i < scatter_metrics.ntop; i++) {
-
+                for (i = 0; i < scatter_metrics.ntop; i++)
+                {
                     //found it
-                    if (iaddr == scatter_metrics.top[i]) {
-
+                    if (iaddr == scatter_metrics.top[i])
+                    {
                         //set base
                         if (scatter_base[i] == 0)
                             scatter_base[i] = maddr;
@@ -307,7 +312,8 @@ namespace gs_patterns_core
                     }
                 }
             }
-            else { // belt and suspenders, yep = but helps to validate correct logic in children of InstrAddresInfo
+            else
+            { // belt and suspenders, yep = but helps to validate correct logic in children of InstrAddresInfo
                 throw GSDataError("Unknown Memory Access Type: " + std::to_string(ia.get_mem_access_type()));
             }
         } // MEM
@@ -323,6 +329,6 @@ std::ostream & operator<<(std::ostream & os, const gs_patterns::InstrAddrAdapter
     return os;
 }
 
-} //namespace gs_patterns
+} // namespace gs_patterns
 
 
