@@ -108,9 +108,7 @@ Metrics & MemPatternsForNV::get_metrics(mem_access_type m)
     switch (m)
     {
         case GATHER : return _metrics.first;
-            break;
         case SCATTER : return _metrics.second;
-            break;
         default:
             throw GSError("Unable to get Metrics - Invalid Metrics Type: " + std::to_string(m));
     }
@@ -121,9 +119,7 @@ InstrInfo & MemPatternsForNV::get_iinfo(mem_access_type m)
     switch (m)
     {
         case GATHER : return _iinfo.first;
-            break;
         case SCATTER : return _iinfo.second;
-            break;
         default:
             throw GSError("Unable to get InstrInfo - Invalid Metrics Type: " + std::to_string(m));
     }
@@ -425,7 +421,6 @@ double MemPatternsForNV::update_source_lines_from_binary(mem_access_type mType)
 void MemPatternsForNV::process_second_pass()
 {
     uint64_t mcnt = 0;  // used our own local mcnt while iterating over file in this method.
-    int iret = 0;
 
     // State carried thru
     addr_t iaddr;
@@ -597,7 +592,6 @@ void MemPatternsForNV::handle_cta_memory_access(const mem_access_t * ma)
 
 bool MemPatternsForNV::valid_gs_stride(const std::vector<trace_entry_t> & te_list, const uint32_t min_stride)
 {
-    bool valid_stride = false;
     uint32_t min_stride_found = INT32_MAX;
     uint64_t last_addr = 0;
     bool first = true;
