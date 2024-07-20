@@ -490,6 +490,10 @@ bool MemPatternsForNV::convert_to_trace_entry(const mem_access_t & ma,
                                               bool ignore_partial_warps,
                                               std::vector<trace_entry_t> & te_list)
 {
+    // Optionally, use traces from warp_id 0 only
+    if (_one_warp_mode && ma.warp_id != 0 )
+        return false;
+
     uint16_t mem_size = ma.size;
     uint16_t mem_type_code;
 
@@ -517,7 +521,7 @@ bool MemPatternsForNV::convert_to_trace_entry(const mem_access_t & ma,
             trace_entry_t te { mem_type_code, mem_size, ma.addrs[i], base_addr, ma.iaddr };
             te_list.push_back(te);
 
-            if (_addr_to_line_id.find(base_addr) == _addr_to_line_id.end()) {
+            if (_addr_to_line_id.find(ma.iaddr) == _addr_to_line_id.end()) {
                 _addr_to_line_id[ma.iaddr] = ma.line_id;
             }
         }
@@ -698,7 +702,6 @@ void MemPatternsForNV::write_trace_out_file()
         }
 
         strncpy(m_entry.map_name, ID_TO_OPCODE_SHORT, MAP_NAME_SIZE-1);
-        //uint64_t opcode_short_map_len = _id_to_opcode_short_map.size();
         for (auto itr = _id_to_opcode_short_map.begin(); itr != _id_to_opcode_short_map.end(); itr++)
         {
             m_entry.id = itr->first;
@@ -707,7 +710,6 @@ void MemPatternsForNV::write_trace_out_file()
         }
 
         strncpy(m_entry.map_name, ID_TO_LINE, MAP_NAME_SIZE-1);
-        //uint64_t line_map_len = _id_to_line_map.size();
         for (auto itr = _id_to_line_map.begin(); itr != _id_to_line_map.end(); itr++)
         {
             m_entry.id = itr->first;
@@ -803,6 +805,11 @@ void MemPatternsForNV::set_config_file(const std::string & config_file)
             else if (GSNV_LOG_LEVEL == name) {
                 int8_t level = atoi(value.c_str());
                 set_log_level(level);
+            }
+            else if (GSNV_ONE_WARP_MODE == name) {
+                int8_t val = atoi(value.c_str());
+                bool mode = val ? true : false;
+                set_one_warp_mode(mode);
             }
             else {
                 std::cerr << "Unknown setting <" << name << "> with value <" << value << "> "

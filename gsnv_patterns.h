@@ -48,7 +48,7 @@ namespace gsnv_patterns
     #define MAP_VALUE_SIZE 22
     #define MAP_VALUE_LONG_SIZE 94
     #define NUM_MAPS 3
-    // Setting this to fit within a 4k page e.g. 170 * 32 bytes <= 4k
+    // Setting this to fit within a 4k page e.g. 128 * 32 bytes <= 4k
     #define TRACE_BUFFER_LENGTH 128
 
     struct _trace_map_entry_t
@@ -114,6 +114,7 @@ namespace gsnv_patterns
         static constexpr const char * GSNV_FILE_PREFIX     = "GSNV_FILE_PREFIX";
         static constexpr const char * GSNV_MAX_TRACE_COUNT = "GSNV_MAX_TRACE_COUNT";
         static constexpr const char * GSNV_LOG_LEVEL       = "GSNV_LOG_LEVEL";
+        static constexpr const char * GSNV_ONE_WARP_MODE   = "GSNV_ONE_WARP_MODE";
 
 
         MemPatternsForNV(): _metrics(GATHER, SCATTER),
@@ -147,6 +148,8 @@ namespace gsnv_patterns
         inline void set_file_prefix(const std::string & prefix) { _file_prefix = prefix;   }
         std::string get_file_prefix();
 
+        void set_one_warp_mode(bool val)                        { _one_warp_mode = val;    }
+
         void set_max_trace_count(int64_t max_trace_count);
         inline bool exceed_max_count() const {
             if (_limit_trace_count && (_trace_info.trace_lines >= _max_trace_count)) {
@@ -157,7 +160,6 @@ namespace gsnv_patterns
 
         // Mainly Called by nvbit kernel
         void set_config_file (const std::string & config_file);
-
 
         void update_metrics();
 
@@ -233,6 +235,7 @@ namespace gsnv_patterns
         bool                               _first_trace_seen  = false;
 
         int8_t                             _log_level         = 0;
+        bool                               _one_warp_mode     = false;
 
         /* The output stream used to temporarily hold raw trace warp data (mem_access_t) before being writen to _trace_out_file_name */
         std::fstream                       _ofs_tmp;

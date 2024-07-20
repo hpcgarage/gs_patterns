@@ -20,7 +20,7 @@ using namespace gs_patterns::gspin_patterns;
 void usage (const std::string & prog_name)
 {
     std::cerr << "Usage: " << prog_name << " <pin_trace.gz> <prog_bin> \n"
-              << "       " << prog_name << " <nvbit_trace.gz> -nv [-v]" << std::endl;
+              << "       " << prog_name << " <nvbit_trace.gz> -nv [-ow] [-v]" << std::endl;
 }
 
 int main(int argc, char ** argv)
@@ -29,12 +29,16 @@ int main(int argc, char ** argv)
     {
         bool use_gs_nv = false;
         bool verbose = false;
+        bool one_warp = false;
         for (int i = 0; i < argc; i++) {
             if (std::string(argv[i]) == "-nv") {
                 use_gs_nv = true;
             }
             else if (std::string(argv[i]) == "-v") {
                 verbose = true;
+            }
+            else if (std::string(argv[i]) == "-ow") {
+                one_warp = true;
             }
         }
 
@@ -57,6 +61,7 @@ int main(int argc, char ** argv)
                 mp.set_config_file(config_file);
             }
             if (verbose) mp.set_log_level(1);
+            if (one_warp) mp.set_one_warp_mode(one_warp);
 
             // ----------------- Process Traces -----------------
 

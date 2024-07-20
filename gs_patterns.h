@@ -3,6 +3,8 @@
 
 #include <exception>
 #include <string>
+#include <cstring>
+#include <vector>
 
 #define MAX(X, Y) (((X) < (Y)) ? Y : X)
 #define MIN(X, Y) (((X) > (Y)) ? Y : X)
@@ -24,7 +26,8 @@
 #define NSTRIDES 15     //Threshold for number of unique distances
 #define OUTTHRESH (0.5) //Threshold for percentage of distances at boundaries of histogram
 #define NTOP (10)
-#define PSIZE (1<<28)   // Was 2^23 (8mb)
+#define INITIAL_PSIZE (1<<15)
+#define MAX_PSIZE     (1<<30)
 
 #define MAX_LINE_LENGTH 1024
 
@@ -101,12 +104,13 @@ namespace gs_patterns
     class Metrics
     {
     public:
-        Metrics(mem_access_type mType) : _mType(mType)
+        Metrics(mem_access_type mType) : _mType(mType), _pattern_sizes(NTOP)
         {
             try
             {
                 for (int j = 0; j < NTOP; j++) {
-                    patterns[j] = new int64_t[PSIZE];
+                    patterns[j] = new int64_t[INITIAL_PSIZE];
+                    _pattern_sizes[j] = INITIAL_PSIZE;
                 }
             }
             catch (const std::exception & ex)
@@ -122,6 +126,32 @@ namespace gs_patterns
             }
 
             delete [] srcline;
+        }
+
+        size_t get_pattern_size(int pattern_index) {
+            return _pattern_sizes[pattern_index];
+        }
+
+        bool grow(int pattern_index) {
+            try {
+                size_t old_size = _pattern_sizes[pattern_index];
+                size_t new_size = old_size * 2;
+                if (new_size > MAX_PSIZE) {
+                    return false;
+                }
+
+                int64_t *tmp = new int64_t[new_size];
+                memcpy(tmp, patterns[pattern_index], old_size * sizeof(int64_t));
+
+                delete [] patterns[pattern_index];
+                patterns[pattern_index] = tmp;
+                _pattern_sizes[pattern_index] = new_size;
+
+                return true;
+            }
+            catch (...) {
+                return false;
+            }
         }
 
         Metrics(const Metrics &) = delete;
@@ -147,6 +177,8 @@ namespace gs_patterns
         char (*srcline)[NGS][MAX_LINE_LENGTH] = new char[2][NGS][MAX_LINE_LENGTH];
 
         mem_access_type _mType;
+
+        std::vector<size_t>  _pattern_sizes;
     };
 
 

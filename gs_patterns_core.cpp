@@ -272,19 +272,19 @@ namespace gs_patterns_core
                 for (i = 0; i < gather_metrics.ntop; i++)
                 {
                     //found it
-                    if (iaddr == gather_metrics.top[i]) {
-
+                    if (iaddr == gather_metrics.top[i])
+                    {
                         if (gather_base[i] == 0)
                             gather_base[i] = maddr;
 
                         //Add index
-                        if (gather_metrics.offset[i] >= PSIZE) {
-                            printf("WARNING: Need to increase PSIZE. Truncating trace...\n");
-                            breakout = true;
+                        if (gather_metrics.offset[i] >= gather_metrics.get_pattern_size(i)) {
+                            if (!gather_metrics.grow(i)) {
+                                printf("WARNING: Unable to increase PSIZE. Truncating trace...\n");
+                                breakout = true;
+                            }
                         }
-                        //printf("g -- %d % d\n", i, gather_offset[i]); fflush(stdout);
                         gather_metrics.patterns[i][gather_metrics.offset[i]++] = (int64_t) (maddr - gather_base[i]);
-
                         break;
                     }
                 }
@@ -292,7 +292,6 @@ namespace gs_patterns_core
             // scatter ?
             else if (SCATTER == ia.get_mem_access_type())
             {
-
                 for (i = 0; i < scatter_metrics.ntop; i++)
                 {
                     //found it
@@ -303,9 +302,11 @@ namespace gs_patterns_core
                             scatter_base[i] = maddr;
 
                         //Add index
-                        if (scatter_metrics.offset[i] >= PSIZE) {
-                            printf("WARNING: Need to increase PSIZE. Truncating trace...\n");
-                            breakout = true;
+                        if (scatter_metrics.offset[i] >= scatter_metrics.get_pattern_size(i)) {
+                            if (!scatter_metrics.grow(i)) {
+                                printf("WARNING: Unable to increase PSIZE. Truncating trace...\n");
+                                breakout = true;
+                            }
                         }
                         scatter_metrics.patterns[i][scatter_metrics.offset[i]++] = (int64_t) (maddr - scatter_base[i]);
                         break;
