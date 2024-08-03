@@ -3,25 +3,27 @@ Download NVBit from the following locations:
 
 https://github.com/NVlabs/NVBit
 
-#### Tested with version 1.5.5
+#### Tested with version 1.7
 
-https://github.com/NVlabs/NVBit/releases/tag/1.5.5
+https://github.com/NVlabs/NVBit/releases/tag/1.7
+
+#### From the parent directory of the gs_patterns distribution
 
 ```
-# or (for example for Linux x86_64)
+# For example for Linux x86_64)
 
-wget https://github.com/NVlabs/NVBit/releases/download/1.5.5/nvbit-Linux-x86_64-1.5.5.tar.bz2
+wget https://github.com/NVlabs/NVBit/releases/download/1.7/nvbit-Linux-aarch64-1.7.tar.bz2
 ```
 
 
 ```
 module load gcc #or make sure you have gcc. Tested with 8.5.0 and 11.4.0
 
-tar zxvf <nvbit-$platform-1.5.5.tar.gz>
+tar xvf <nvbit-$platform-1.7.tar.bz2>
 
-export NVBIT_DIR=</location/of/nvbit/root/directory>  # full path
+export NVBIT_DIR=</location/of/nvbit_release/>  # full path
 
-cp -rv nvbit_tracing/gsnv_trace $NVBIT_DIR/tools/
+cp -rv gs_patterns/nvbit_tracing/gsnv_trace $NVBIT_DIR/tools/
 
 cd $NVBIT_DIR
 
@@ -48,8 +50,8 @@ The following are a list of configuration items currently supported:
 |----------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------------------------------|
 | GSNV_LOG_LEVEL       | Sets the log level (only 0-2 are currently supported)                                                                                                                                                                      | 0 to 255                       |
 | GSNV_TARGET_KERNEL   | Specifies the names of Kernels which will be instrumented seperated by space, it none is provided all Kernels will be instrumented. If no exact match found, Will match all kernels which starts with the string provided. | A String                       |
-| GSNV_FILE_PREFIX     | Can be used if specify the prefix of output files e.g if prefix is "trace_file" then output files will be names trace_file.json, etc. If non is provided one will be infered from the output file if that is provided      | A String                       |
-| GSNV_TRACE_OUT_FILE  | Specifies the name of the output file which will be written with trace data.                                                                                                                                               | A String                       |
+| GSNV_FILE_PREFIX     | Can be used if specify the prefix of output files e.g if prefix is "trace_file" then output files will be names trace_file.json, etc. If none is provided one will be inferred from the input trace file if provided.      | A String                       |
+| GSNV_TRACE_OUT_FILE  | Specifies the name of the output file which will be written with trace data. Trace file will not be written if this is not provided.                                                                                       | A String                       |
 | GSNV_MAX_TRACE_COUNT | Specifies the maximum number of memory traces which are processed, once this number of traces are seen instrumentation is disabled (Can be useful to produce a small trace file for testing)                               | An Integer e.g 1000000         |
 | GSNV_ONE_WARP_MODE   | Enable handling traces for a single warp (defaults to warp 0 if enabled). Analogous to trace of first thread in CPU mode.                                                                                                  | 1 (on) or 0 (off) the default) |
 
@@ -73,7 +75,7 @@ Setting covered here are specific to the gsnv_trace tool.
 
 ### Instrumenting an application
 
-To starat instrumenting a CUDA application using gsnv_trace.  The gsnv_trace.so libary previously built will need to be specified using LD_PRELOAD. 
+To start instrumenting a CUDA application using gsnv_trace.  The gsnv_trace.so libary previously built will need to be specified using LD_PRELOAD. 
 
 Example:
 
@@ -101,28 +103,15 @@ $GS_PATTERNS_DIR/gs_patterns <trace_file.nvbit.bin.gz> -nv
 
 ### Important Notes 
 
-As of NVBit 1.5.5, when building gsnv_trace within the NVBit source tree it *may* be required to specify a version of the CUDA which is older
-in order to enable NVBit to correctly emit the runtime instructions.  Without this the gsnv_trace library will still be built but will be unable to instrument CUDA kernels.
-
-For instance, we were able to build a working gsnv_trace using CUDA api version 11.7 and lower and use that on higher versions of the CUDA environment such as CUDA 12.3.
-However, as of NVBit 1.5.5 it was not possible to get a working version of gsnv_trace when we build it using 12.3 directly.
+This version of gsnv_trace works with NVBit >= 1.7 
 
 Example:
-
-```
-export LD_LIBARY_PATH=/path/to/cuda/11.7/lib:$LD_LIBRARY_PATH
-export PATH=/path/to/cuda/11.7/bin:$PATH
-cd $NVBIT_DIR
-make 
-```
-
-Then in another shell simply load the desired CUDA library version using module load or manually, e.g:
 
 ```
 export LD_LIBARY_PATH=/path/to/new/cuda/12.3/lib:$LD_LIBRARY_PATH
 export PATH=/path/to/new/cuda/12.3/bin:$PATH
 
-# point to where you build gsnv_trace.so (We can now instrument under CUDA 12.3)
-LD_PRELOAD=$NVBIT_DIR/tools/gsnv_trace/gsnv_trace.so <application> <application options>
+# Point to where you built gsnv_trace.so and invoke the application with its command line arguments
+LD_PRELOAD=$NVBIT_DIR/tools/gsnv_trace/gsnv_trace.so <application> <application arguments>
 gzip trace_file.nvbit.bin
 ```
