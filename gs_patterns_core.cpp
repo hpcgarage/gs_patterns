@@ -16,8 +16,6 @@ namespace gs_patterns_core
 
     void translate_iaddr(const std::string & binary, char * source_line, addr_t iaddr)
     {
-        int i = 0;
-        int ntranslated = 0;
         char path[MAX_LINE_LENGTH];
         char cmd[MAX_LINE_LENGTH];
         FILE *fp;
@@ -50,9 +48,8 @@ namespace gs_patterns_core
         //Create stride histogram and create spatter
         int sidx;
         int unique_strides;
-        int64_t idx, pidx;
         int64_t n_stride[1027];
-        double outbounds;
+//      double outbounds;
 
         if (file_prefix.empty()) throw GSFileError ("Empty file prefix provided.");
 
@@ -79,10 +76,10 @@ namespace gs_patterns_core
                 }
             }
 
-            outbounds = (double) (n_stride[0] + n_stride[1026]) / (double) target_metrics.offset[i];
+            //outbounds = (double) (n_stride[0] + n_stride[1026]) / (double) target_metrics.offset[i];
 
             //if ( ( (unique_strides > NSTRIDES) || (outbounds > OUTTHRESH) ) && (gather_offset[i] > USTRIDES ) ){
-            if (1) {
+            if (true) {
 
                 //create a binary file
                 FILE *fp_bin;
@@ -180,7 +177,6 @@ namespace gs_patterns_core
     int get_top_target(InstrInfo & target_iinfo, Metrics & target_metrics)
     {
         int target_ntop = 0;
-        int bestcnt;
 
         for (int j = 0; j < NTOP; j++)
         {

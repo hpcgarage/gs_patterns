@@ -59,9 +59,7 @@ Metrics & MemPatternsForPin::get_metrics(mem_access_type m)
     switch (m)
     {
         case GATHER : return _metrics.first;
-            break;
         case SCATTER : return _metrics.second;
-            break;
         default:
             throw GSError("Unable to get Metrics - Invalid Metrics Type: " + std::to_string(m));
     }
@@ -72,9 +70,7 @@ InstrInfo & MemPatternsForPin::get_iinfo(mem_access_type m)
     switch (m)
     {
         case GATHER : return _iinfo.first;
-            break;
         case SCATTER : return _iinfo.second;
-            break;
         default:
             throw GSError("Unable to get InstrInfo - Invalid Metrics Type: " + std::to_string(m));
     }
