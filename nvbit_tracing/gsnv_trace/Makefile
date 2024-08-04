@@ -23,10 +23,6 @@ NVBIT_PATH=../../core
 GSPATTERNS_CORE_PATH=../../../gs_patterns
 INCLUDES=-I$(NVBIT_PATH) -I$(GSPATTERNS_CORE_PATH)
 
-NVBIT_PATH=../../core
-GSPATTERNS_CORE_PATH=../../../gs_patterns
-INCLUDES=-I$(NVBIT_PATH) -I$(GSPATTERNS_CORE_PATH)
-
 LIBS=-L$(NVBIT_PATH) -lnvbit -L$(GSPATTERNS_CORE_PATH)/build -lgs_patterns_core
 NVCC_PATH=-L $(subst bin/nvcc,lib64,$(shell which nvcc | tr -s /))
 
