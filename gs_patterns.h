@@ -255,7 +255,7 @@ namespace gs_patterns
                     _w_iaddrs[w][i] = -1;
                     _w_bytes[w][i] = 0;
                     _w_cnt[w][i] = 0;
-                    for (int j = 0; j < MAX_ACCESS_SIZE; j++)
+                    for (uint64_t j = 0; j < MAX_ACCESS_SIZE; j++)
                         _w_maddr[w][i][j] = -1;
                 }
             }
@@ -266,7 +266,7 @@ namespace gs_patterns
                 _w_iaddrs[w][i] = -1;
                 _w_bytes[w][i] = 0;
                 _w_cnt[w][i] = 0;
-                for (int j = 0; j < MAX_ACCESS_SIZE; j++)
+                for (uint64_t j = 0; j < MAX_ACCESS_SIZE; j++)
                     _w_maddr[w][i][j] = -1;
             }
         }
