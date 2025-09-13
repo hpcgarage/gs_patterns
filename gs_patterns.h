@@ -5,6 +5,7 @@
 #include <string>
 #include <cstring>
 #include <vector>
+#include <cstdint>
 
 //symbol lookup options
 #if !defined(SYMBOLS_ONLY)
