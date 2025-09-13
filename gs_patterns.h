@@ -4,33 +4,21 @@
 #include <exception>
 #include <string>
 #include <cstring>
+#include <utility>
 #include <vector>
+#include <cstdint>
+#include <memory>
+
+#include "errors.h"
+#include "config.h"
 
 //symbol lookup options
 #if !defined(SYMBOLS_ONLY)
 #define SYMBOLS_ONLY 1 //Filter out instructions that have no symbol
 #endif
 
-//triggers
-#define PERSAMPLE 10000000
-
 //info
-#define CLSIZE (64) //cacheline bytes
-#define NBUFS (1LL<<10) //trace reading buffer size
-#define IWINDOW (1024) //number of iaddrs per window
-#define NGS (8096) //max number for gathers and scatters
-#define OBOUNDS (512) //histogram positive max
-#define OBOUNDS_ALLOC (2*OBOUNDS + 3)
-
-//patterns
-#define USTRIDES 1024   //Threshold for number of accesses
-#define NSTRIDES 15     //Threshold for number of unique distances
-#define OUTTHRESH (0.5) //Threshold for percentage of distances at boundaries of histogram
-#define NTOP (10)       //Final gather / scatters to keep
-#define INITIAL_PSIZE (1<<15)
-#define MAX_PSIZE     (1<<30) //Max number of indices recorded per gather/scatter
-
-#define MAX_LINE_LENGTH 1024
+// #define CLSIZE (64) //cacheline bytes - Unused - available via Config::get_instance().get_cache_line_size()
 
 #if !defined(VBITS)
 # define VBITS (512L)
@@ -43,62 +31,32 @@ namespace gs_patterns
     typedef enum { GATHER=0, SCATTER } mem_access_type;
     typedef enum { VECTOR=0, CTA } mem_instr_type;
 
-    class GSError : public std::exception
-    {
-    public:
-        GSError (const std::string & reason) : _reason(reason) { }
-        ~GSError() {}
 
-        const char * what() const noexcept override { return _reason.c_str(); }
-    private:
-        std::string _reason;
-    };
-
-    class GSFileError : public GSError
-    {
-    public:
-        GSFileError (const std::string & reason) : GSError(reason) { }
-        ~GSFileError() {}
-    };
-
-    class GSDataError : public GSError
-    {
-    public:
-        GSDataError (const std::string & reason) : GSError(reason) { }
-        ~GSDataError() {}
-    };
-
-    class GSAllocError : public GSError
-    {
-    public:
-        GSAllocError (const std::string & reason) : GSError(reason) { }
-        ~GSAllocError() {}
-    };
 
     class InstrAddrAdapter
     {
     public:
-        InstrAddrAdapter() { }
-        virtual ~InstrAddrAdapter() { }
+        InstrAddrAdapter() = default;
+        virtual ~InstrAddrAdapter() = default;
 
-        virtual bool            is_valid() const            = 0;
-        virtual bool            is_mem_instr() const        = 0;
-        virtual bool            is_other_instr() const      = 0;
-        virtual mem_access_type get_mem_access_type() const = 0;
-        virtual mem_instr_type  get_mem_instr_type() const  = 0;
+        [[nodiscard]] virtual bool            is_valid() const            = 0;
+        [[nodiscard]] virtual bool            is_mem_instr() const        = 0;
+        [[nodiscard]] virtual bool            is_other_instr() const      = 0;
+        [[nodiscard]] virtual mem_access_type get_mem_access_type() const = 0;
+        [[nodiscard]] virtual mem_instr_type  get_mem_instr_type() const  = 0;
 
-        virtual size_t         get_size() const             = 0;
-        virtual addr_t         get_base_addr() const        = 0;
-        virtual addr_t         get_address() const          = 0;
-        virtual addr_t         get_iaddr() const            = 0;
-        virtual addr_t         get_maddr() const            = 0;
-        virtual unsigned short get_type() const             = 0; // must be 0 for GATHER, 1 for SCATTER !!
-        virtual int64_t        get_max_access_size() const  = 0;
+        [[nodiscard]] virtual size_t         get_size() const             = 0;
+        [[nodiscard]] virtual addr_t         get_base_addr() const        = 0;
+        [[nodiscard]] virtual addr_t         get_address() const          = 0;
+        [[nodiscard]] virtual addr_t         get_iaddr() const            = 0;
+        [[nodiscard]] virtual addr_t         get_maddr() const            = 0;
+        [[nodiscard]] virtual unsigned short get_type() const             = 0; // must be 0 for GATHER, 1 for SCATTER !!
+        [[nodiscard]] virtual int64_t        get_max_access_size() const  = 0;
 
-        virtual bool is_gather() const
+        [[nodiscard]] virtual bool is_gather() const
         { return (is_valid() && is_mem_instr() && GATHER == get_mem_access_type()) ? true : false; }
 
-        virtual bool is_scatter() const
+        [[nodiscard]] virtual bool is_scatter() const
         { return (is_valid() && is_mem_instr() && SCATTER == get_mem_access_type()) ? true : false; }
 
         virtual void output(std::ostream & os) const      = 0;
@@ -109,14 +67,57 @@ namespace gs_patterns
 
     class Metrics
     {
+    private:
+        const size_t _initial_size;
+        const size_t _top_patterns;
+        const size_t _max_gather_scatter;
+        const size_t _max_line_length;
+        const size_t _max_pattern_size;
+
+        std::unique_ptr<char[]> srcline;
+
+        mem_access_type _mType;
+
     public:
-        Metrics(mem_access_type mType) : _mType(mType), _pattern_sizes(NTOP)
+        // Proxy class for 2D array access
+        // This class is public so it can be the return type of get_srcline()
+
+        class SrcLine2D {
+            char* base;
+            size_t max_len;
+        public:
+            SrcLine2D(char* ptr, size_t ml) : base(ptr), max_len(ml) {}
+
+            char* get(size_t j) {
+                return base + (j * max_len);
+            }
+        };
+        explicit Metrics(mem_access_type mType,
+                size_t initial_size = Config::get_instance().get_initial_pattern_size(),
+                size_t top_patterns = Config::get_instance().get_top_patterns(),
+                size_t max_gather_scatter = Config::get_instance().get_max_gather_scatter(),
+                size_t max_line_length = Config::get_instance().get_max_line_length(),
+                size_t max_pattern_size = Config::get_instance().get_max_pattern_size()
+            )
+        :       _initial_size{initial_size},
+                _top_patterns{top_patterns},
+                _max_gather_scatter{max_gather_scatter},
+                _max_line_length{max_line_length},
+                _max_pattern_size{max_pattern_size},
+                srcline(std::make_unique<char[]>(2 * _max_gather_scatter * _max_line_length)),
+                _mType(mType),
+                offset(std::make_unique<int[]>(_top_patterns)),
+                size(std::make_unique<int[]>(_top_patterns)),
+                tot(std::make_unique<addr_t[]>(_top_patterns)),
+                top(std::make_unique<addr_t[]>(_top_patterns)),
+                top_idx(std::make_unique<addr_t[]>(_top_patterns)),
+                patterns(_top_patterns)
         {
             try
             {
-                for (int j = 0; j < NTOP; j++) {
-                    patterns[j] = new int64_t[INITIAL_PSIZE];
-                    _pattern_sizes[j] = INITIAL_PSIZE;
+                for (int j = 0; j < _top_patterns; j++)
+                {
+                    patterns[j].resize(_initial_size);
                 }
             }
             catch (const std::exception & ex)
@@ -125,33 +126,22 @@ namespace gs_patterns
             }
         }
 
-        ~Metrics()
+        ~Metrics() = default;
+
+        [[nodiscard]] size_t get_pattern_size(int pattern_index) const
         {
-            for (int i = 0; i < NTOP; i++) {
-                delete [] patterns[i];
-            }
-
-            delete [] srcline;
-        }
-
-        size_t get_pattern_size(int pattern_index) {
-            return _pattern_sizes[pattern_index];
+            return patterns[pattern_index].size();
         }
 
         bool grow(int pattern_index) {
             try {
-                size_t old_size = _pattern_sizes[pattern_index];
+                size_t old_size = patterns[pattern_index].size();
                 size_t new_size = old_size * 2;
-                if (new_size > MAX_PSIZE) {
+                if (new_size > _max_pattern_size) {
                     return false;
                 }
 
-                int64_t *tmp = new int64_t[new_size];
-                memcpy(tmp, patterns[pattern_index], old_size * sizeof(int64_t));
-
-                delete [] patterns[pattern_index];
-                patterns[pattern_index] = tmp;
-                _pattern_sizes[pattern_index] = new_size;
+                patterns[pattern_index].resize(new_size);
 
                 return true;
             }
@@ -163,12 +153,14 @@ namespace gs_patterns
         Metrics(const Metrics &) = delete;
         Metrics & operator=(const Metrics & right) = delete;
 
-        std::string type_as_string() { return !_mType ? "GATHER" : "SCATTER"; }
-        std::string getName()        { return !_mType ? "Gather" : "Scatter"; }
-        std::string getShortName()   { return !_mType ? "G" : "S"; }
-        std::string getShortNameLower()   { return !_mType ? "g" : "s"; }
+        [[nodiscard]] std::string type_as_string() const { return !_mType ? "GATHER" : "SCATTER"; }
+        [[nodiscard]] std::string getName() const { return !_mType ? "Gather" : "Scatter"; }
+        [[nodiscard]] std::string getShortName() const { return !_mType ? "G" : "S"; }
+        [[nodiscard]] std::string getShortNameLower() const { return !_mType ? "g" : "s"; }
 
-        auto get_srcline() { return srcline[_mType]; }
+        SrcLine2D get_srcline() {
+            return SrcLine2D(srcline.get() + (_mType * _max_gather_scatter * _max_line_length), _max_line_length);
+        }
 
         int      ntop = 0;
         int64_t  iaddrs_nosym = 0;
@@ -176,45 +168,44 @@ namespace gs_patterns
         int64_t  iaddrs_sym = 0;
         int64_t  indices_sym = 0;
         double   cnt = 0.0;
-        int      offset[NTOP]  = {0};
-        int      size[NTOP]  = {0};
 
-        addr_t   tot[NTOP]     = {0};
-        addr_t   top[NTOP]     = {0};
-        addr_t   top_idx[NTOP] = {0};
+        std::unique_ptr<int[]> offset;
+        std::unique_ptr<int[]> size;
 
-        int64_t* patterns[NTOP] = {0};
-
-    private:
-        char (*srcline)[NGS][MAX_LINE_LENGTH] = new char[2][NGS][MAX_LINE_LENGTH];
-
-        mem_access_type _mType;
-
-        std::vector<size_t>  _pattern_sizes;
+        std::unique_ptr<addr_t[]> tot;
+        std::unique_ptr<addr_t[]> top;
+        std::unique_ptr<addr_t[]> top_idx;
+        std::vector<std::vector<int64_t>> patterns;
     };
 
 
     class InstrInfo
     {
     public:
-        InstrInfo(mem_access_type mType) : _mType(mType) { }
-        ~InstrInfo() {
-            delete [] iaddrs;
-            delete [] icnt;
-            delete [] occ;
-        }
+        explicit InstrInfo(
+                mem_access_type mType,
+                size_t max_gather_scatter = Config::get_instance().get_max_gather_scatter())
+        :
+            _mType(mType),
+            _max_gather_scatter(max_gather_scatter),
+            _iaddrs(std::make_unique<addr_t[]>(2 * _max_gather_scatter)),
+            _icnt(std::make_unique<int64_t[]>(2 * _max_gather_scatter)),
+            _occ(std::make_unique<int64_t[]>(2 * _max_gather_scatter))
+        {}
+        ~InstrInfo() = default;
 
         InstrInfo(const InstrInfo &) = delete;
         InstrInfo & operator=(const InstrInfo & right) = delete;
 
-        addr_t*  get_iaddrs() { return iaddrs[_mType]; }
-        int64_t* get_icnt()   { return icnt[_mType]; }
-        int64_t* get_occ()    { return occ[_mType]; }
+        addr_t*  get_iaddrs() { return &_iaddrs[_mType * _max_gather_scatter]; }
+        int64_t* get_icnt()   { return &_icnt[_mType * _max_gather_scatter]; }
+        int64_t* get_occ()    { return &_occ[_mType * _max_gather_scatter]; }
 
     private:
-        addr_t (*iaddrs)[NGS] = new addr_t[2][NGS];
-        int64_t (*icnt)[NGS]  = new int64_t[2][NGS]; //vector instances
-        int64_t (*occ)[NGS]   = new int64_t[2][NGS];  //load/store instances
+        const size_t _max_gather_scatter;
+        std::unique_ptr<addr_t[]> _iaddrs;
+        std::unique_ptr<int64_t[]> _icnt; //vector instances
+        std::unique_ptr<int64_t[]> _occ; //load/store instances
 
         mem_access_type _mType;
     };
@@ -244,42 +235,38 @@ namespace gs_patterns
     class InstrWindow
     {
     public:
-        InstrWindow() {
+        explicit InstrWindow(size_t iaddr_per_window = Config::get_instance().get_iaddr_per_window())
+        : _iaddr_per_window(iaddr_per_window),
+          _w_iaddrs{std::make_unique<int64_t[]>(2 * _iaddr_per_window)},
+          _w_bytes {std::make_unique<int64_t[]>(2 * _iaddr_per_window)},
+          _w_maddr {std::make_unique<int64_t[]>(2 * _iaddr_per_window * MAX_ACCESS_SIZE)},
+          _w_cnt   {std::make_unique<int64_t[]>(2 * _iaddr_per_window)}
+        {
             // First dimension is 0=GATHER/1=SCATTER
-            _w_iaddrs = new int64_t[2][IWINDOW];
-            _w_bytes  = new int64_t[2][IWINDOW];
-            _w_maddr  = new int64_t[2][IWINDOW][MAX_ACCESS_SIZE];
-            _w_cnt    = new int64_t[2][IWINDOW];
-
             init();
         }
 
-        virtual ~InstrWindow() {
-            delete [] _w_iaddrs;
-            delete [] _w_bytes;
-            delete [] _w_maddr;
-            delete [] _w_cnt;
-        }
+        virtual ~InstrWindow() = default;
 
         void init() {
             for (int w = 0; w < 2; w++) {
-                for (int i = 0; i < IWINDOW; i++) {
-                    _w_iaddrs[w][i] = -1;
-                    _w_bytes[w][i] = 0;
-                    _w_cnt[w][i] = 0;
+                for (int i = 0; i < _iaddr_per_window; i++) {
+                    w_iaddrs(w, i) = -1;
+                    w_bytes(w, i) = 0;
+                    w_cnt(w, i) = 0;
                     for (uint64_t j = 0; j < MAX_ACCESS_SIZE; j++)
-                        _w_maddr[w][i][j] = -1;
+                        w_maddr(w, i, j) = -1;
                 }
             }
         }
 
         void reset(int w) {
-            for (int i = 0; i < IWINDOW; i++) {
-                _w_iaddrs[w][i] = -1;
-                _w_bytes[w][i] = 0;
-                _w_cnt[w][i] = 0;
+            for (int i = 0; i < _iaddr_per_window; i++) {
+                w_iaddrs(w, i) = -1;
+                w_bytes(w, i) = 0;
+                w_cnt(w, i) = 0;
                 for (uint64_t j = 0; j < MAX_ACCESS_SIZE; j++)
-                    _w_maddr[w][i][j] = -1;
+                    w_maddr(w, i, j) = -1;
             }
         }
 
@@ -292,34 +279,48 @@ namespace gs_patterns
         InstrWindow(const InstrWindow &) = delete;
         InstrWindow & operator=(const InstrWindow & right) = delete;
 
-        int64_t & w_iaddrs(int32_t i, int32_t j)             { return _w_iaddrs[i][j];   }
-        int64_t & w_bytes(int32_t i, int32_t j)              { return _w_bytes[i][j];    }
-        int64_t & w_maddr(int32_t i, int32_t j, int32_t k)   { return _w_maddr[i][j][k]; }
-        int64_t & w_cnt(int32_t i, int32_t j)                { return _w_cnt[i][j];      }
+        int64_t & w_iaddrs(int32_t i, int32_t j)
+        {
+            return _w_iaddrs[i * _iaddr_per_window + j];
+        }
+        int64_t & w_bytes(int32_t i, int32_t j)
+        {
+            return _w_bytes[i * _iaddr_per_window + j];
+        }
+        int64_t & w_maddr(int32_t i, int32_t j, int32_t k)
+        {
+            return _w_maddr[i * _iaddr_per_window * MAX_ACCESS_SIZE + j * MAX_ACCESS_SIZE + k];
+        }
+        int64_t & w_cnt(int32_t i, int32_t j)
+        {
+            return _w_cnt[i * _iaddr_per_window + j];
+        }
 
+        [[nodiscard]] size_t get_window_size() const { return _iaddr_per_window; }
         addr_t &  get_iaddr()       { return iaddr;      }
         int64_t & get_maddr_prev()  { return maddr_prev; }
         int64_t & get_maddr()       { return maddr;      }
 
     private:
+        const size_t _iaddr_per_window;
         // First dimension is 0=GATHER/1=SCATTER
-        int64_t (*_w_iaddrs)[IWINDOW];
-        int64_t (*_w_bytes)[IWINDOW];
-        int64_t (*_w_maddr)[IWINDOW][MAX_ACCESS_SIZE];
-        int64_t (*_w_cnt)[IWINDOW];
+        std::unique_ptr<int64_t[]> _w_iaddrs;
+        std::unique_ptr<int64_t[]> _w_bytes;
+        std::unique_ptr<int64_t[]> _w_maddr;
+        std::unique_ptr<int64_t[]> _w_cnt;
 
         // State which must be carried with each call to handle a trace
-        addr_t   iaddr;
-        int64_t  maddr_prev;
-        int64_t  maddr;
+        addr_t   iaddr = -1;
+        int64_t  maddr_prev = -1;
+        int64_t  maddr = -1;
     };
 
     template <std::size_t MAX_ACCESS_SIZE>
     class MemPatterns
     {
     public:
-        MemPatterns() { }
-        virtual ~MemPatterns() { };
+        MemPatterns() = default;
+        virtual ~MemPatterns() = default;
 
         MemPatterns(const MemPatterns &) = delete;
         MemPatterns & operator=(const MemPatterns &) = delete;
