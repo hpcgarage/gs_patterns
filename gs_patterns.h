@@ -4,6 +4,7 @@
 #include <exception>
 #include <string>
 #include <cstring>
+#include <utility>
 #include <vector>
 
 //symbol lookup options
@@ -46,7 +47,7 @@ namespace gs_patterns
     class GSError : public std::exception
     {
     public:
-        explicit GSError (const std::string & reason) : _reason(reason) { }
+        explicit GSError (std::string  reason) : _reason(std::move(reason)) { }
         ~GSError() {}
 
         const char * what() const noexcept override { return _reason.c_str(); }
@@ -57,21 +58,21 @@ namespace gs_patterns
     class GSFileError : public GSError
     {
     public:
-        explicit GSFileError (const std::string & reason) : GSError(reason) { }
+        explicit GSFileError (std::string reason) : GSError(std::move(reason)) { }
         ~GSFileError() {}
     };
 
     class GSDataError : public GSError
     {
     public:
-        explicit GSDataError (const std::string & reason) : GSError(reason) { }
+        explicit GSDataError (std::string reason) : GSError(std::move(reason)) { }
         ~GSDataError() {}
     };
 
     class GSAllocError : public GSError
     {
     public:
-        explicit GSAllocError (const std::string & reason) : GSError(reason) { }
+        explicit GSAllocError (std::string reason) : GSError(std::move(reason)) { }
         ~GSAllocError() {}
     };
 
