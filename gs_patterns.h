@@ -310,9 +310,9 @@ namespace gs_patterns
         int64_t (*_w_cnt)[IWINDOW];
 
         // State which must be carried with each call to handle a trace
-        addr_t   iaddr;
-        int64_t  maddr_prev;
-        int64_t  maddr;
+        addr_t   iaddr = -1;
+        int64_t  maddr_prev = -1;
+        int64_t  maddr = -1;
     };
 
     template <std::size_t MAX_ACCESS_SIZE>
