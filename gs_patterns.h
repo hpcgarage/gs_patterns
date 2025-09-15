@@ -47,7 +47,7 @@ namespace gs_patterns
     class GSError : public std::exception
     {
     public:
-        GSError (const std::string & reason) : _reason(reason) { }
+        explicit GSError (const std::string & reason) : _reason(reason) { }
         ~GSError() {}
 
         const char * what() const noexcept override { return _reason.c_str(); }
@@ -58,21 +58,21 @@ namespace gs_patterns
     class GSFileError : public GSError
     {
     public:
-        GSFileError (const std::string & reason) : GSError(reason) { }
+        explicit GSFileError (const std::string & reason) : GSError(reason) { }
         ~GSFileError() {}
     };
 
     class GSDataError : public GSError
     {
     public:
-        GSDataError (const std::string & reason) : GSError(reason) { }
+        explicit GSDataError (const std::string & reason) : GSError(reason) { }
         ~GSDataError() {}
     };
 
     class GSAllocError : public GSError
     {
     public:
-        GSAllocError (const std::string & reason) : GSError(reason) { }
+        explicit GSAllocError (const std::string & reason) : GSError(reason) { }
         ~GSAllocError() {}
     };
 
@@ -111,7 +111,7 @@ namespace gs_patterns
     class Metrics
     {
     public:
-        Metrics(mem_access_type mType) : _mType(mType), _pattern_sizes(NTOP)
+        explicit Metrics(mem_access_type mType) : _mType(mType), _pattern_sizes(NTOP)
         {
             try
             {
@@ -198,7 +198,7 @@ namespace gs_patterns
     class InstrInfo
     {
     public:
-        InstrInfo(mem_access_type mType) : _mType(mType) { }
+        explicit InstrInfo(mem_access_type mType) : _mType(mType) { }
         ~InstrInfo() {
             delete [] iaddrs;
             delete [] icnt;
