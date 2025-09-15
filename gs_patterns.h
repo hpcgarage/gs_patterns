@@ -48,7 +48,7 @@ namespace gs_patterns
     {
     public:
         explicit GSError (std::string  reason) : _reason(std::move(reason)) { }
-        ~GSError() {}
+        ~GSError() override = default;
 
         const char * what() const noexcept override { return _reason.c_str(); }
     private:
@@ -59,28 +59,28 @@ namespace gs_patterns
     {
     public:
         explicit GSFileError (std::string reason) : GSError(std::move(reason)) { }
-        ~GSFileError() {}
+        ~GSFileError() override = default;
     };
 
     class GSDataError : public GSError
     {
     public:
         explicit GSDataError (std::string reason) : GSError(std::move(reason)) { }
-        ~GSDataError() {}
+        ~GSDataError() override = default;
     };
 
     class GSAllocError : public GSError
     {
     public:
         explicit GSAllocError (std::string reason) : GSError(std::move(reason)) { }
-        ~GSAllocError() {}
+        ~GSAllocError() override = default;
     };
 
     class InstrAddrAdapter
     {
     public:
-        InstrAddrAdapter() { }
-        virtual ~InstrAddrAdapter() { }
+        InstrAddrAdapter() = default;
+        virtual ~InstrAddrAdapter() = default;
 
         virtual bool            is_valid() const            = 0;
         virtual bool            is_mem_instr() const        = 0;
@@ -319,8 +319,8 @@ namespace gs_patterns
     class MemPatterns
     {
     public:
-        MemPatterns() { }
-        virtual ~MemPatterns() { };
+        MemPatterns() = default;
+        virtual ~MemPatterns() = default;
 
         MemPatterns(const MemPatterns &) = delete;
         MemPatterns & operator=(const MemPatterns &) = delete;
