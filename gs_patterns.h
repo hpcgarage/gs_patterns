@@ -136,7 +136,8 @@ namespace gs_patterns
             delete [] srcline;
         }
 
-        size_t get_pattern_size(int pattern_index) {
+        size_t get_pattern_size(int pattern_index) const
+        {
             return _pattern_sizes[pattern_index];
         }
 
@@ -165,10 +166,10 @@ namespace gs_patterns
         Metrics(const Metrics &) = delete;
         Metrics & operator=(const Metrics & right) = delete;
 
-        std::string type_as_string() { return !_mType ? "GATHER" : "SCATTER"; }
-        std::string getName()        { return !_mType ? "Gather" : "Scatter"; }
-        std::string getShortName()   { return !_mType ? "G" : "S"; }
-        std::string getShortNameLower()   { return !_mType ? "g" : "s"; }
+        std::string type_as_string() const { return !_mType ? "GATHER" : "SCATTER"; }
+        std::string getName() const { return !_mType ? "Gather" : "Scatter"; }
+        std::string getShortName() const { return !_mType ? "G" : "S"; }
+        std::string getShortNameLower() const { return !_mType ? "g" : "s"; }
 
         auto get_srcline() { return srcline[_mType]; }
 
