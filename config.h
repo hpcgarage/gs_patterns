@@ -31,8 +31,6 @@ namespace gs_patterns
 
         void parseArgs(int argc, char* argv[]);
 
-        // to do: discuss need for implementation
-        // void loadFromFile(const std::string& filename);
 
         // expose compile-time choices for run time inspection
         static constexpr size_t vector_bits = VBITS;
