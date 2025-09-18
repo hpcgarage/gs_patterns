@@ -51,7 +51,7 @@ namespace gs_patterns
         explicit GSError (std::string  reason) : _reason(std::move(reason)) { }
         ~GSError() override = default;
 
-        const char * what() const noexcept override { return _reason.c_str(); }
+        [[nodiscard]] const char * what() const noexcept override { return _reason.c_str(); }
     private:
         std::string _reason;
     };
@@ -83,24 +83,24 @@ namespace gs_patterns
         InstrAddrAdapter() = default;
         virtual ~InstrAddrAdapter() = default;
 
-        virtual bool            is_valid() const            = 0;
-        virtual bool            is_mem_instr() const        = 0;
-        virtual bool            is_other_instr() const      = 0;
-        virtual mem_access_type get_mem_access_type() const = 0;
-        virtual mem_instr_type  get_mem_instr_type() const  = 0;
+        [[nodiscard]] virtual bool            is_valid() const            = 0;
+        [[nodiscard]] virtual bool            is_mem_instr() const        = 0;
+        [[nodiscard]] virtual bool            is_other_instr() const      = 0;
+        [[nodiscard]] virtual mem_access_type get_mem_access_type() const = 0;
+        [[nodiscard]] virtual mem_instr_type  get_mem_instr_type() const  = 0;
 
-        virtual size_t         get_size() const             = 0;
-        virtual addr_t         get_base_addr() const        = 0;
-        virtual addr_t         get_address() const          = 0;
-        virtual addr_t         get_iaddr() const            = 0;
-        virtual addr_t         get_maddr() const            = 0;
-        virtual unsigned short get_type() const             = 0; // must be 0 for GATHER, 1 for SCATTER !!
-        virtual int64_t        get_max_access_size() const  = 0;
+        [[nodiscard]] virtual size_t         get_size() const             = 0;
+        [[nodiscard]] virtual addr_t         get_base_addr() const        = 0;
+        [[nodiscard]] virtual addr_t         get_address() const          = 0;
+        [[nodiscard]] virtual addr_t         get_iaddr() const            = 0;
+        [[nodiscard]] virtual addr_t         get_maddr() const            = 0;
+        [[nodiscard]] virtual unsigned short get_type() const             = 0; // must be 0 for GATHER, 1 for SCATTER !!
+        [[nodiscard]] virtual int64_t        get_max_access_size() const  = 0;
 
-        virtual bool is_gather() const
+        [[nodiscard]] virtual bool is_gather() const
         { return (is_valid() && is_mem_instr() && GATHER == get_mem_access_type()) ? true : false; }
 
-        virtual bool is_scatter() const
+        [[nodiscard]] virtual bool is_scatter() const
         { return (is_valid() && is_mem_instr() && SCATTER == get_mem_access_type()) ? true : false; }
 
         virtual void output(std::ostream & os) const      = 0;
@@ -136,7 +136,7 @@ namespace gs_patterns
             delete [] srcline;
         }
 
-        size_t get_pattern_size(int pattern_index) const
+        [[nodiscard]] size_t get_pattern_size(int pattern_index) const
         {
             return _pattern_sizes[pattern_index];
         }
@@ -166,10 +166,10 @@ namespace gs_patterns
         Metrics(const Metrics &) = delete;
         Metrics & operator=(const Metrics & right) = delete;
 
-        std::string type_as_string() const { return !_mType ? "GATHER" : "SCATTER"; }
-        std::string getName() const { return !_mType ? "Gather" : "Scatter"; }
-        std::string getShortName() const { return !_mType ? "G" : "S"; }
-        std::string getShortNameLower() const { return !_mType ? "g" : "s"; }
+        [[nodiscard]] std::string type_as_string() const { return !_mType ? "GATHER" : "SCATTER"; }
+        [[nodiscard]] std::string getName() const { return !_mType ? "Gather" : "Scatter"; }
+        [[nodiscard]] std::string getShortName() const { return !_mType ? "G" : "S"; }
+        [[nodiscard]] std::string getShortNameLower() const { return !_mType ? "g" : "s"; }
 
         auto get_srcline() { return srcline[_mType]; }
 
