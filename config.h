@@ -23,7 +23,7 @@ namespace gs_patterns
         Config(const Config&) = delete;
         Config& operator=(const Config&) = delete;
 
-        static Config& getInstance()
+        static Config& get_instance()
         {
             static Config instance;
             return instance;
