@@ -24,7 +24,6 @@
 #define OBOUNDS_ALLOC (2*OBOUNDS + 3)
 
 //patterns
-#define USTRIDES 1024   //Threshold for number of accesses
 #define NSTRIDES 15     //Threshold for number of unique distances
 #define OUTTHRESH (0.5) //Threshold for percentage of distances at boundaries of histogram
 #define NTOP (10)       //Final gather / scatters to keep
