@@ -8,6 +8,8 @@
 #include <vector>
 #include <cstdint>
 
+#include "config.h"
+
 //symbol lookup options
 #if !defined(SYMBOLS_ONLY)
 #define SYMBOLS_ONLY 1 //Filter out instructions that have no symbol
@@ -24,8 +26,8 @@
 #define OBOUNDS_ALLOC (2*OBOUNDS + 3)
 
 //patterns
-#define NTOP (10)       //Final gather / scatters to keep
-#define INITIAL_PSIZE (1<<15)
+#define NTOP (10)       //Final gather / scatters to keep - Used as compile time constant for
+// sizing static arrays - skipping for now
 #define MAX_PSIZE     (1<<30) //Max number of indices recorded per gather/scatter
 
 #define MAX_LINE_LENGTH 1024
@@ -112,9 +114,10 @@ namespace gs_patterns
         {
             try
             {
+                const size_t initial_size = Config::get_instance().get_initial_pattern_size();
                 for (int j = 0; j < NTOP; j++) {
-                    patterns[j] = new int64_t[INITIAL_PSIZE];
-                    _pattern_sizes[j] = INITIAL_PSIZE;
+                    patterns[j] = new int64_t[initial_size];
+                    _pattern_sizes[j] = initial_size;
                 }
             }
             catch (const std::exception & ex)
