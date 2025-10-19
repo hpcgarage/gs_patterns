@@ -7,6 +7,7 @@
 #include <string>
 
 #include "gs_patterns.h"
+#include "config.h"
 
 namespace gs_patterns
 {
@@ -63,7 +64,7 @@ namespace gs_patterns_core
             //printf("M DRTRACE -- iaddr: %016lx addr: %016lx cl_start: %d bytes: %d\n",
             //     iw.iaddr,  ia.get_address(), ia.get_address() % 64, ia.get_size());
 
-            if ((++trace_info.mcnt % PERSAMPLE) == 0) {
+            if ((++trace_info.mcnt % Config::get_instance().get_per_sample()) == 0) {
                 printf(".");
                 fflush(stdout);
             }

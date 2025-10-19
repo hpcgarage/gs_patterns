@@ -7,6 +7,7 @@
 
 #include "utils.h"
 #include "gs_patterns.h"
+#include "config.h"
 
 namespace gs_patterns
 {
@@ -283,7 +284,7 @@ namespace gs_patterns_core
                 iaddr = ia.get_iaddr();
             }
 
-            if ((++mcnt % PERSAMPLE) == 0) {
+            if ((++mcnt % Config::get_instance().get_per_sample()) == 0) {
                 printf(".");
                 fflush(stdout);
             }
