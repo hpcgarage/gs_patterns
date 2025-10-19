@@ -13,15 +13,14 @@
 #define SYMBOLS_ONLY 1 //Filter out instructions that have no symbol
 #endif
 
-//triggers
-#define PERSAMPLE 10000000
-
 //info
-#define CLSIZE (64) //cacheline bytes
-#define NBUFS (1LL<<10) //trace reading buffer size
-#define IWINDOW (1024) //number of iaddrs per window
-#define NGS (8096) //max number for gathers and scatters
-#define OBOUNDS (512) //histogram positive max
+// #define CLSIZE (64) //cacheline bytes - Unused - available via Config::get_instance().get_cache_line_size()
+#define NBUFS (1LL<<10) //trace reading buffer size - Redefined in multiple files. Used as compile time constant for
+// sizing static arrays - skipping for now
+#define IWINDOW (1024) //number of iaddrs per window - Used as compile time constant for
+// sizing static arrays - skipping for now
+#define NGS (8096) //max number for gathers and scatters - Used as compile time constant for
+// sizing static arrays - skipping for now
 #define OBOUNDS_ALLOC (2*OBOUNDS + 3)
 
 //patterns

@@ -67,7 +67,7 @@ namespace gs_patterns_core
                 n_stride[j] = 0;
 
             for (j = 1; j < target_metrics.offset[i]; j++) {
-                sidx = target_metrics.patterns[i][j] - target_metrics.patterns[i][j - 1] + OBOUNDS + 1;
+                sidx = target_metrics.patterns[i][j] - target_metrics.patterns[i][j - 1] + Config::get_instance().get_histogram_bounds() + 1;
                 sidx = (sidx < 1) ? 0 : sidx;
                 sidx = (sidx > OBOUNDS_ALLOC - 1) ? OBOUNDS_ALLOC - 1 : sidx;
                 n_stride[sidx]++;
@@ -141,7 +141,7 @@ namespace gs_patterns_core
 		   printf("( -inf, %5ld]: %ld\n", (int64_t)(-(VBITS+1)), n_stride[j]);
 		   hbin = 0;
 	  
-		 } else if (j == OBOUNDS +1) {	    
+		 } else if (j == Config::get_instance().get_histogram_bounds() +1) {
 		   printf("[%5ld,     0): %ld\n", (int64_t)-VBITS, hbin);
 		   hbin = 0;
 	  
