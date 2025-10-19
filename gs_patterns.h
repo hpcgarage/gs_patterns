@@ -28,7 +28,6 @@
 //patterns
 #define NTOP (10)       //Final gather / scatters to keep - Used as compile time constant for
 // sizing static arrays - skipping for now
-#define MAX_PSIZE     (1<<30) //Max number of indices recorded per gather/scatter
 
 #define MAX_LINE_LENGTH 1024
 
@@ -144,7 +143,7 @@ namespace gs_patterns
             try {
                 size_t old_size = _pattern_sizes[pattern_index];
                 size_t new_size = old_size * 2;
-                if (new_size > MAX_PSIZE) {
+                if (new_size > Config::get_instance().get_max_pattern_size()) {
                     return false;
                 }
 
