@@ -255,7 +255,7 @@ namespace gs_patterns
         static constexpr size_t MAX_TOP_PATTERNS = 100;
 
         static constexpr size_t MIN_PATTERN_SIZE = 1LL << 10; // 1 KB
-        static constexpr size_t MAX_PATTERN_SIZE = 1LL << 30; // 1 GB
+        static constexpr size_t MAX_PATTERN_SIZE = 1LL << 33; // 1 GB
 
         static constexpr size_t MIN_MAX_LINE_LENGTH = 80;
         static constexpr size_t MAX_MAX_LINE_LENGTH = 1LL << 13;
