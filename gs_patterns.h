@@ -29,7 +29,8 @@
 #define NTOP (10)       //Final gather / scatters to keep - Used as compile time constant for
 // sizing static arrays - skipping for now
 
-#define MAX_LINE_LENGTH 1024
+#define MAX_LINE_LENGTH 1024 // Used as compile time constant for
+// sizing static arrays - skipping for now
 
 #if !defined(VBITS)
 # define VBITS (512L)
