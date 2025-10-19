@@ -81,7 +81,7 @@ namespace gs_patterns_core
 
             outbounds = (double) (n_stride[0] + n_stride[OBOUNDS_ALLOC-1]) / (double) target_metrics.offset[i];
 
-            if (((unique_strides > NSTRIDES) || (outbounds > OUTTHRESH)  && (target_metrics.offset[i] > Config::get_instance().get_unique_strides_threshold() ) )) {
+            if (((unique_strides > Config::get_instance().get_num_unique_distances()) || (outbounds > OUTTHRESH)  && (target_metrics.offset[i] > Config::get_instance().get_unique_strides_threshold() ) )) {
 		//if (true) {
 
 	        if (firstgs) {
