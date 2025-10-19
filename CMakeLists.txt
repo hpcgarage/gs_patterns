@@ -16,6 +16,8 @@ add_library(gs_patterns_core SHARED
         gsnv_patterns.cpp
         gspin_patterns.h
         gspin_patterns.cpp
+        config.h
+        config.cpp
 )
 
 add_executable( gs_patterns

@@ -136,7 +136,7 @@ namespace gs_patterns
         std::cout << "  --max-line-length, -mll <value>     Maximum line length (default: " << cfg.get_max_line_length() << ")\n";
         std::cout << "                                      Range: [" << MIN_MAX_LINE_LENGTH << ", " << MAX_MAX_LINE_LENGTH << "]\n\n";
 
-        std::cout << "Note: All numeric values must be powers of 2 (except out-threshold).\n\n";
+        std::cout << "Note: All numeric values must be powers of 2 (except out-threshold, num-unique-distances, and top-patterns).\n\n";
     }
 
 } // namespace gs_patterns
