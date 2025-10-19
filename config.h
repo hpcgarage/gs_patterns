@@ -30,6 +30,7 @@ namespace gs_patterns
         }
 
         void parseArgs(int argc, char* argv[]);
+        void printHelp();
 
 
         // expose compile-time choices for run time inspection
@@ -135,9 +136,6 @@ namespace gs_patterns
             if (num_unique_distances < MIN_NUM_UNIQUE_DISTANCES || num_unique_distances > MAX_NUM_UNIQUE_DISTANCES ) {
                 throw GSError("Invalid num_unique_distances");
             }
-            if (!isPowerOf2(num_unique_distances)) {
-                throw GSError("Must be power of 2");
-            }
             _num_unique_distances = num_unique_distances;
         }
 
@@ -146,9 +144,6 @@ namespace gs_patterns
             if (out_threshold < MIN_OUT_THRESHOLD || out_threshold > MAX_OUT_THRESHOLD ) {
                 throw GSError("Invalid out_threshold");
             }
-            if (!isPowerOf2(out_threshold)) {
-                throw GSError("Must be power of 2");
-            }
             _out_threshold = out_threshold;
         }
 
@@ -156,9 +151,6 @@ namespace gs_patterns
         {
             if (top_patterns < MIN_TOP_PATTERNS || top_patterns > MAX_TOP_PATTERNS ) {
                 throw GSError("Invalid top_patterns");
-            }
-            if (!isPowerOf2(top_patterns)) {
-                throw GSError("Must be power of 2");
             }
             _top_patterns = top_patterns;
         }
