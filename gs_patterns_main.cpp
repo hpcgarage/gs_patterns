@@ -17,16 +17,20 @@ using namespace gs_patterns::gs_patterns_core;
 using namespace gs_patterns::gsnv_patterns;
 using namespace gs_patterns::gspin_patterns;
 
-void usage (const std::string & prog_name)
-{
-    std::cerr << "Usage: " << prog_name << " <pin_trace.gz> <prog_bin> \n"
-              << "       " << prog_name << " <nvbit_trace.gz> -nv [-ow] [-v]" << std::endl;
-}
+// explained in helper function in config.cpp
+// void usage (const std::string & prog_name)
+// {
+//     std::cerr << "Usage: " << prog_name << " <pin_trace.gz> <prog_bin> \n"
+//               << "       " << prog_name << " <nvbit_trace.gz> -nv [-ow] [-v]" << std::endl;
+// }
 
 int main(int argc, char ** argv)
 {
     try
     {
+        // Parse configuration arguments first
+        Config& config = Config::get_instance();
+        config.parseArgs(argc, argv);
         bool use_gs_nv = false;
         bool verbose = false;
         bool one_warp = false;
@@ -45,10 +49,11 @@ int main(int argc, char ** argv)
         size_t pos = std::string(argv[0]).find_last_of("/");
         std::string prog_name = std::string(argv[0]).substr(pos+1);
 
-        if (argc < 3) {
-            usage(prog_name);
-            throw GSError("Invalid program arguments");
-        }
+        // parser in config.cpp deals with it
+        // if (argc < 3) {
+        //     usage(prog_name);
+        //     throw GSError("Invalid program arguments");
+        // }
 
         if (use_gs_nv)
         {

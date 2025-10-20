@@ -1,5 +1,7 @@
 #include <iostream>
 #include <string>
+#include <iomanip>
+
 #include "config.h"
 #include "errors.h"
 
@@ -141,136 +143,213 @@ namespace gs_patterns
     }
     void Config::parseArgs(int argc, char* argv[])
     {
-        for (int i = 1; i < argc; i++)
-        {
+        for (int i = 1; i < argc; ++i) {
             std::string arg = argv[i];
 
-            // Skip non-config arguments (trace files, binary files, special flags)
-            if (arg[0] != '-' || arg == "-" || arg == "--" ||
-                arg == "-nv" || arg == "-v" || arg == "-ow") {
+            // Ignore empty tokens or non-options
+            if (arg.empty() || arg[0] != '-') {
                 continue;
             }
 
-            // Handle help flag (doesn't need a value)
+            // End-of-options marker
+            if (arg == "--") {
+                break;
+            }
+
+            // Treat lone "-" as a positional stdin/stdout placeholder
+            if (arg == "-") {
+                continue;
+            }
+
+            // Known non-config flags to ignore
+            if (arg == "-nv" || arg == "-v" || arg == "-ow") {
+                continue;
+            }
+
+            // Help
             if (arg == "--help" || arg == "-h") {
-                printHelp();
-                exit(0);
+                printHelp(argv[0]);      // keep your existing help text
+                std::exit(0);     // or return if you don’t want to exit here
             }
 
-            // Check if we have a value after the flag
-            if (i + 1 >= argc) {
-                throw GSError("Missing value for argument: " + arg);
+            // Accept both "--opt=value" and "--opt value"
+            std::string value;
+            std::size_t eq = arg.find('=');
+            if (eq != std::string::npos) {
+                // '=' was found
+                value = arg.substr(eq + 1);
+                arg.erase(eq); // keep only the option and value for the ladder comparison
+                if (value.empty()) {
+                    throw GSError("Missing value for " + arg);
+                }
+            } else {
+                // '=' wasn't found
+                if (i + 1 >= argc) {
+                    // end of string
+                    throw GSError("Missing value for " + arg);
+                }
+                // using space instead of '='
+                value = argv[++i];
             }
-
-            std::string value = argv[i + 1];
 
             try {
                 if (arg == "--per-sample" || arg == "-ps") {
                     set_per_sample(std::stoull(value));
-                    i++; // Skip the value we just processed
                 }
                 else if (arg == "--cache-line-size" || arg == "-cls") {
                     set_cache_line_size(std::stoull(value));
-                    i++;
                 }
                 else if (arg == "--num-buffers" || arg == "-nb") {
                     set_num_buffers(std::stoll(value));
-                    i++;
                 }
                 else if (arg == "--instruction-window" || arg == "-iw") {
                     set_instruction_window(std::stoull(value));
-                    i++;
                 }
                 else if (arg == "--max-gather-scatter" || arg == "-mgs") {
                     set_max_gather_scatter(std::stoull(value));
-                    i++;
                 }
                 else if (arg == "--histogram-bounds" || arg == "-hb") {
                     set_histogram_bounds(std::stoull(value));
-                    i++;
                 }
                 else if (arg == "--unique-strides-threshold" || arg == "-ust") {
                     set_unique_strides_threshold(std::stoull(value));
-                    i++;
                 }
                 else if (arg == "--num-unique-distances" || arg == "-nud") {
                     set_num_unique_distances(std::stoull(value));
-                    i++;
                 }
                 else if (arg == "--out-threshold" || arg == "-ot") {
                     set_out_threshold(std::stod(value));
-                    i++;
                 }
                 else if (arg == "--top-patterns" || arg == "-tp") {
                     set_top_patterns(std::stoull(value));
-                    i++;
                 }
                 else if (arg == "--initial-pattern-size" || arg == "-ips") {
                     set_initial_pattern_size(std::stoull(value));
-                    i++;
                 }
                 else if (arg == "--max-pattern-size" || arg == "-mps") {
                     set_max_pattern_size(std::stoull(value));
-                    i++;
                 }
                 else if (arg == "--max-line-length" || arg == "-mll") {
                     set_max_line_length(std::stoull(value));
-                    i++;
                 }
                 else {
-                    // throw an error to catch typos
                     throw GSError("Unknown configuration argument: " + arg);
                 }
-            }
-            catch (const std::invalid_argument& e) {
+            } catch (const std::invalid_argument&) {
                 throw GSError("Invalid value for " + arg + ": " + value);
-            }
-            catch (const std::out_of_range& e) {
+            } catch (const std::out_of_range&) {
                 throw GSError("Value out of range for " + arg + ": " + value);
             }
         }
     }
 
-    void Config::printHelp()
+    void Config::printHelp(const char* program_name /*= "program"*/)
     {
-        // Create a temporary instance to get default values
-        Config& cfg = Config::get_instance();
+        const Config& cfg = get_instance();
+        constexpr int option_width = 45;
 
-        std::cout << "\nConfiguration Options:\n\n";
+        // --- Usage header (generic) ---
+        std::cout << "\nUsage:\n"
+                  << "  " << program_name << " [options] <trace.gz> [<binary>|-nv]\n\n"
+                  << "  Options accept both '--opt value' and '--opt=value' formats.\n"
+                  << "  Argument parsing stops at '--'. A lone '-' is treated as stdin/stdout.\n\n";
 
+        // (from README) ---
+        std::cout << "Invocation:\n"
+                  << "  For Pin/DynamoRIO traces:\n"
+                  << "    " << program_name << " <pin_trace.gz> <binary>\n"
+                  << "  For NVBit (CUDA kernels):\n"
+                  << "    " << program_name << " <nvbit_trace.gz> -nv\n\n";
+
+        // --- Examples ---
+        std::cout << "Examples:\n"
+                  << "  " << program_name << " app.pin.trace.gz ./app_with_symbols\n"
+                  << "  " << program_name << " kernel.nvbit.trace.gz -nv\n\n";
+
+        // --- Notes / prerequisites ---
+        std::cout << "Notes:\n"
+                  << "  • Trace file must be gzipped ('.gz') — not 'tar.gz'.\n"
+                  << "  • For Pin/DynamoRIO, the <binary> should be compiled with symbols (e.g., -g).\n"
+                  << "  • For NVBit, compile CUDA kernels with line info (--generate-line-info).\n"
+                  << "  • See nvbit_tracing/README.md for extracting compatible CUDA traces.\n\n";
+
+        // --- Configuration Options ---
+        std::cout << "Configuration Options:\n\n";
         std::cout << "Triggers:\n";
-        std::cout << "  --per-sample, -ps <value>           Samples per trigger (default: " << cfg.get_per_sample() << ")\n";
-        std::cout << "                                      Range: [" << MIN_PER_SAMPLE << ", " << MAX_PER_SAMPLE << "]\n\n";
+        std::cout << "  " << std::left << std::setw(option_width) << "--per-sample, -ps <value>"
+                  << "Samples per trigger (default: " << cfg.get_per_sample() << ")\n";
+        std::cout << "  " << std::left << std::setw(option_width) << ""
+                  << "Range: [" << MIN_PER_SAMPLE << ", " << MAX_PER_SAMPLE << "]\n\n";
 
         std::cout << "Info Parameters:\n";
-        std::cout << "  --cache-line-size, -cls <value>     Cache line size in bytes (default: " << cfg.get_cache_line_size() << ")\n";
-        std::cout << "                                      Range: [" << MIN_CACHE_LINE_SIZE << ", " << MAX_CACHE_LINE_SIZE << "]\n";
-        std::cout << "  --num-buffers, -nb <value>          Number of trace buffers (default: " << cfg.get_num_buffers() << ")\n";
-        std::cout << "                                      Range: [" << MIN_NUM_BUFFERS << ", " << MAX_NUM_BUFFERS << "]\n";
-        std::cout << "  --instruction-window, -iw <value>   Instruction window size (default: " << cfg.get_instruction_window() << ")\n";
-        std::cout << "                                      Range: [" << MIN_INSTRUCTION_WINDOW << ", " << MAX_INSTRUCTION_WINDOW << "]\n";
-        std::cout << "  --max-gather-scatter, -mgs <value>  Max gather/scatter elements (default: " << cfg.get_max_gather_scatter() << ")\n";
-        std::cout << "                                      Range: [" << MIN_MAX_GATHER_SCATTER << ", " << MAX_MAX_GATHER_SCATTER << "]\n";
-        std::cout << "  --histogram-bounds, -hb <value>     Histogram bounds (default: " << cfg.get_histogram_bounds() << ")\n";
-        std::cout << "                                      Range: [" << MIN_HISTOGRAM_BOUNDS << ", " << MAX_HISTOGRAM_BOUNDS << "]\n\n";
+        // std::cout << "  " << std::left << std::setw(option_width) << "--cache-line-size, -cls <value>"
+        //           << "Cache line size in bytes (default: " << cfg.get_cache_line_size() << ")\n";
+        // std::cout << "  " << std::left << std::setw(option_width) << ""
+        //           << "Range: [" << MIN_CACHE_LINE_SIZE << ", " << MAX_CACHE_LINE_SIZE << "]\n";
+        // std::cout << "  " << std::left << std::setw(option_width) << "--num-buffers, -nb <value>"
+        //           << "Number of trace buffers (default: " << cfg.get_num_buffers() << ")\n";
+        // std::cout << "  " << std::left << std::setw(option_width) << ""
+        //           << "Range: [" << MIN_NUM_BUFFERS << ", " << MAX_NUM_BUFFERS << "]\n";
+        // std::cout << "  " << std::left << std::setw(option_width) << "--instruction-window, -iw <value>"
+        //           << "Instruction window size (default: " << cfg.get_instruction_window() << ")\n";
+        // std::cout << "  " << std::left << std::setw(option_width) << ""
+        //           << "Range: [" << MIN_INSTRUCTION_WINDOW << ", " << MAX_INSTRUCTION_WINDOW << "]\n";
+        // std::cout << "  " << std::left << std::setw(option_width) << "--max-gather-scatter, -mgs <value>"
+        //           << "Max gather/scatter elements (default: " << cfg.get_max_gather_scatter() << ")\n";
+        // std::cout << "  " << std::left << std::setw(option_width) << ""
+        //           << "Range: [" << MIN_MAX_GATHER_SCATTER << ", " << MAX_MAX_GATHER_SCATTER << "]\n";
+        std::cout << "  " << std::left << std::setw(option_width) << "--histogram-bounds, -hb <value>"
+                  << "Histogram bounds (default: " << cfg.get_histogram_bounds() << ")\n";
+        std::cout << "  " << std::left << std::setw(option_width) << ""
+                  << "Range: [" << MIN_HISTOGRAM_BOUNDS << ", " << MAX_HISTOGRAM_BOUNDS << "]\n\n";
 
         std::cout << "Pattern Parameters:\n";
-        std::cout << "  --unique-strides-threshold, -ust    Unique strides threshold (default: " << cfg.get_unique_strides_threshold() << ")\n";
-        std::cout << "                                      Range: [" << MIN_UNIQUE_STRIDES_THRESHOLD << ", " << MAX_UNIQUE_STRIDES_THRESHOLD << "]\n";
-        std::cout << "  --num-unique-distances, -nud        Number of unique distances (default: " << cfg.get_num_unique_distances() << ")\n";
-        std::cout << "                                      Range: [" << MIN_NUM_UNIQUE_DISTANCES << ", " << MAX_NUM_UNIQUE_DISTANCES << "]\n";
-        std::cout << "  --out-threshold, -ot <value>        Out threshold (default: " << cfg.get_out_threshold() << ")\n";
-        std::cout << "                                      Range: [" << MIN_OUT_THRESHOLD << ", " << MAX_OUT_THRESHOLD << "]\n";
-        std::cout << "  --top-patterns, -tp <value>         Number of top patterns to keep (default: " << cfg.get_top_patterns() << ")\n";
-        std::cout << "                                      Range: [" << MIN_TOP_PATTERNS << ", " << MAX_TOP_PATTERNS << "]\n";
-        std::cout << "  --initial-pattern-size, -ips        Initial pattern size (default: " << cfg.get_initial_pattern_size() << ")\n";
-        std::cout << "                                      Range: [" << MIN_PATTERN_SIZE << ", " << MAX_PATTERN_SIZE << "]\n";
-        std::cout << "  --max-pattern-size, -mps <value>    Maximum pattern size (default: " << cfg.get_max_pattern_size() << ")\n";
-        std::cout << "                                      Range: [" << MIN_PATTERN_SIZE << ", " << MAX_PATTERN_SIZE << "]\n";
-        std::cout << "  --max-line-length, -mll <value>     Maximum line length (default: " << cfg.get_max_line_length() << ")\n";
-        std::cout << "                                      Range: [" << MIN_MAX_LINE_LENGTH << ", " << MAX_MAX_LINE_LENGTH << "]\n\n";
+        std::cout << "  " << std::left << std::setw(option_width) << "--unique-strides-threshold, -ust <value>"
+                  << "Unique strides threshold (default: " << cfg.get_unique_strides_threshold() << ")\n";
+        std::cout << "  " << std::left << std::setw(option_width) << ""
+                  << "Range: [" << MIN_UNIQUE_STRIDES_THRESHOLD << ", " << MAX_UNIQUE_STRIDES_THRESHOLD << "]\n";
+        std::cout << "  " << std::left << std::setw(option_width) << "--num-unique-distances, -nud <value>"
+                  << "Number of unique distances (default: " << cfg.get_num_unique_distances() << ")\n";
+        std::cout << "  " << std::left << std::setw(option_width) << ""
+                  << "Range: [" << MIN_NUM_UNIQUE_DISTANCES << ", " << MAX_NUM_UNIQUE_DISTANCES << "]\n";
+        std::cout << "  " << std::left << std::setw(option_width) << "--out-threshold, -ot <value>"
+                  << "Out threshold (default: " << cfg.get_out_threshold() << ")\n";
+        std::cout << "  " << std::left << std::setw(option_width) << ""
+                  << "Range: [" << MIN_OUT_THRESHOLD << ", " << MAX_OUT_THRESHOLD << "]\n";
+        // std::cout << "  " << std::left << std::setw(option_width) << "--top-patterns, -tp <value>"
+        //           << "Number of top patterns to keep (default: " << cfg.get_top_patterns() << ")\n";
+        // std::cout << "  " << std::left << std::setw(option_width) << ""
+        //           << "Range: [" << MIN_TOP_PATTERNS << ", " << MAX_TOP_PATTERNS << "]\n";
+        std::cout << "  " << std::left << std::setw(option_width) << "--initial-pattern-size, -ips <value>"
+                  << "Initial pattern size (default: " << cfg.get_initial_pattern_size() << ")\n";
+        std::cout << "  " << std::left << std::setw(option_width) << ""
+                  << "Range: [" << MIN_PATTERN_SIZE << ", " << MAX_PATTERN_SIZE << "]\n";
+        std::cout << "  " << std::left << std::setw(option_width) << "--max-pattern-size, -mps <value>"
+                  << "Maximum pattern size (default: " << cfg.get_max_pattern_size() << ")\n";
+        std::cout << "  " << std::left << std::setw(option_width) << ""
+                  << "Range: [" << MIN_PATTERN_SIZE << ", " << MAX_PATTERN_SIZE << "]\n";
+        // std::cout << "  " << std::left << std::setw(option_width) << "--max-line-length, -mll <value>"
+        //           << "Maximum line length (default: " << cfg.get_max_line_length() << ")\n";
+        // std::cout << "  " << std::left << std::setw(option_width) << ""
+        //           << "Range: [" << MIN_MAX_LINE_LENGTH << ", " << MAX_MAX_LINE_LENGTH << "]\n\n";
 
-        std::cout << "Note: All numeric values must be powers of 2 (except out-threshold, num-unique-distances, and top-patterns).\n\n";
+        std::cout << "Note: Most numeric values must be powers of 2.\n"
+                  << "      Exceptions: out-threshold, num-unique-distances, and top-patterns.\n\n";
+
+        // --- How it works ---
+        std::cout << "How gs_patterns works:\n"
+                  << "  • Detects gather/scatter (g/s) by finding repeated instruction addresses (loops)\n"
+                  << "    that correspond to memory instructions (scalar or vector).\n"
+                  << "  • Pass 1: ranks top g/s instructions and filters out trivial access patterns.\n"
+                  << "  • Pass 2: focuses on those top g/s; records normalized address array indices\n"
+                  << "    to a binary file and a spatter YAML file.\n\n";
+
+        // --- Quick flags reminder (non-config) ---
+        std::cout << "Other flags:\n"
+                  << "  -nv          Interpret trace as NVBit (CUDA) trace.\n"
+                  << "  -v           Verbose logging.\n"
+                  << "  -ow          Overwrite outputs if present.\n\n";
     }
+
 
 } // namespace gs_patterns

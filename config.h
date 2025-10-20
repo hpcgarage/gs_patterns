@@ -25,7 +25,7 @@ namespace gs_patterns
         }
 
         void parseArgs(int argc, char* argv[]);
-        void printHelp();
+        void printHelp(const char* program_name);
 
 
         // expose compile-time choices for run time inspection
