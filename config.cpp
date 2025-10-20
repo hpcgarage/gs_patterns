@@ -1,10 +1,144 @@
 #include <iostream>
-#include <cstring>
-
+#include <string>
 #include "config.h"
+#include "errors.h"
 
 namespace gs_patterns
 {
+    // setters
+    void Config::set_per_sample(size_t per_sample)
+    {
+        if (per_sample < MIN_PER_SAMPLE || per_sample > MAX_PER_SAMPLE ) {
+            throw GSError("Invalid per_sample");
+        }
+        if (!isPowerOf2(per_sample)) {
+            throw GSError("Must be power of 2");
+        }
+        _per_sample = per_sample;
+    }
+
+    void Config::set_cache_line_size(size_t cache_line_size)
+    {
+        if (cache_line_size < MIN_CACHE_LINE_SIZE || cache_line_size > MAX_CACHE_LINE_SIZE ) {
+            throw gs_patterns::GSError("Invalid cache_line_size");
+        }
+        if (!isPowerOf2(cache_line_size)) {
+            throw GSError("Must be power of 2");
+        }
+        _cache_line_size = cache_line_size;
+    }
+
+    void Config::set_num_buffers(int64_t num_buffers)
+    {
+        if (num_buffers < MIN_NUM_BUFFERS || num_buffers > MAX_NUM_BUFFERS ) {
+            throw GSError("Invalid num_buffers");
+        }
+        if (!isPowerOf2(num_buffers)) {
+            throw GSError("Must be power of 2");
+        }
+        _num_buffers = num_buffers;
+    }
+
+    void Config::set_instruction_window(size_t instruction_window)
+    {
+        if (instruction_window < MIN_INSTRUCTION_WINDOW || instruction_window > MAX_INSTRUCTION_WINDOW ) {
+            throw GSError("Invalid instruction_window");
+        }
+        if (!isPowerOf2(instruction_window)) {
+            throw GSError("Must be power of 2");
+        }
+        _instruction_window = instruction_window;
+    }
+
+    void Config::set_max_gather_scatter(size_t max_gather_scatter)
+    {
+        if (max_gather_scatter < MIN_MAX_GATHER_SCATTER || max_gather_scatter > MAX_MAX_GATHER_SCATTER ) {
+            throw GSError("Invalid max_gather_scatter");
+        }
+        if (!isPowerOf2(max_gather_scatter)) {
+            throw GSError("Must be power of 2");
+        }
+        _max_gather_scatter = max_gather_scatter;
+    }
+
+    void Config::set_histogram_bounds(size_t histogram_bounds)
+    {
+        if (histogram_bounds < MIN_HISTOGRAM_BOUNDS || histogram_bounds > MAX_HISTOGRAM_BOUNDS ) {
+            throw GSError("Invalid histogram_bounds");
+        }
+        if (!isPowerOf2(histogram_bounds)) {
+            throw GSError("Must be power of 2");
+        }
+        _histogram_bounds = histogram_bounds;
+    }
+
+    void Config::set_unique_strides_threshold(size_t unique_strides_threshold)
+    {
+        if (unique_strides_threshold < MIN_UNIQUE_STRIDES_THRESHOLD || unique_strides_threshold > MAX_UNIQUE_STRIDES_THRESHOLD ) {
+            throw GSError("Invalid unique_strides_threshold");
+        }
+        if (!isPowerOf2(unique_strides_threshold)) {
+            throw GSError("Must be power of 2");
+        }
+        _unique_strides_threshold = unique_strides_threshold;
+    }
+
+    void Config::set_num_unique_distances(size_t num_unique_distances)
+    {
+        if (num_unique_distances < MIN_NUM_UNIQUE_DISTANCES || num_unique_distances > MAX_NUM_UNIQUE_DISTANCES ) {
+            throw GSError("Invalid num_unique_distances");
+        }
+        _num_unique_distances = num_unique_distances;
+    }
+
+    void Config::set_out_threshold(double out_threshold)
+    {
+        if (out_threshold < MIN_OUT_THRESHOLD || out_threshold > MAX_OUT_THRESHOLD ) {
+            throw GSError("Invalid out_threshold");
+        }
+        _out_threshold = out_threshold;
+    }
+
+    void Config::set_top_patterns(size_t top_patterns)
+    {
+        if (top_patterns < MIN_TOP_PATTERNS || top_patterns > MAX_TOP_PATTERNS ) {
+            throw GSError("Invalid top_patterns");
+        }
+        _top_patterns = top_patterns;
+    }
+
+    void Config::set_initial_pattern_size(size_t initial_pattern_size)
+    {
+        if (initial_pattern_size < MIN_PATTERN_SIZE || initial_pattern_size > MAX_PATTERN_SIZE ) {
+            throw GSError("Invalid initial_pattern_size");
+        }
+        if (!isPowerOf2(initial_pattern_size)) {
+            throw GSError("Must be power of 2");
+        }
+        _initial_pattern_size = initial_pattern_size;
+    }
+
+    void Config::set_max_pattern_size(size_t max_pattern_size)
+    {
+        if (max_pattern_size < MIN_PATTERN_SIZE || max_pattern_size > MAX_PATTERN_SIZE ) {
+            throw GSError("Invalid max_pattern_size");
+        }
+        if (!isPowerOf2(max_pattern_size)) {
+            throw GSError("Must be power of 2");
+        }
+        _max_pattern_size = max_pattern_size;
+    }
+
+    void Config::set_max_line_length(size_t max_line_length)
+    {
+        if (max_line_length < MIN_MAX_LINE_LENGTH || max_line_length > MAX_MAX_LINE_LENGTH ) {
+            throw GSError("Invalid max_pattern_size");
+        }
+        if (!isPowerOf2(max_line_length)) {
+            throw GSError("Must be power of 2");
+        }
+        _max_line_length = max_line_length;
+    }
     void Config::parseArgs(int argc, char* argv[])
     {
         for (int i = 1; i < argc; i++)

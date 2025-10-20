@@ -8,6 +8,7 @@
 #include <vector>
 #include <cstdint>
 
+#include "errors.h"
 #include "config.h"
 
 //symbol lookup options
