@@ -14,7 +14,7 @@ namespace gs_patterns
             throw GSError("Invalid per_sample");
         }
         if (!isPowerOf2(per_sample)) {
-            throw GSError("Must be power of 2");
+            throw GSError("per_sample must be power of 2");
         }
         _per_sample = per_sample;
     }
@@ -25,7 +25,7 @@ namespace gs_patterns
             throw gs_patterns::GSError("Invalid cache_line_size");
         }
         if (!isPowerOf2(cache_line_size)) {
-            throw GSError("Must be power of 2");
+            throw GSError("cache_line_size must be power of 2");
         }
         _cache_line_size = cache_line_size;
     }
@@ -36,7 +36,7 @@ namespace gs_patterns
             throw GSError("Invalid num_buffers");
         }
         if (!isPowerOf2(num_buffers)) {
-            throw GSError("Must be power of 2");
+            throw GSError("num_buffers must be power of 2");
         }
         _num_buffers = num_buffers;
     }
@@ -47,7 +47,7 @@ namespace gs_patterns
             throw GSError("Invalid instruction_window");
         }
         if (!isPowerOf2(instruction_window)) {
-            throw GSError("Must be power of 2");
+            throw GSError("instruction_window must be power of 2");
         }
         _instruction_window = instruction_window;
     }
@@ -58,7 +58,7 @@ namespace gs_patterns
             throw GSError("Invalid max_gather_scatter");
         }
         if (!isPowerOf2(max_gather_scatter)) {
-            throw GSError("Must be power of 2");
+            throw GSError("max_gather_scatter must be power of 2");
         }
         _max_gather_scatter = max_gather_scatter;
     }
@@ -69,7 +69,7 @@ namespace gs_patterns
             throw GSError("Invalid histogram_bounds");
         }
         if (!isPowerOf2(histogram_bounds)) {
-            throw GSError("Must be power of 2");
+            throw GSError("histogram_bounds must be power of 2");
         }
         _histogram_bounds = histogram_bounds;
     }
@@ -80,7 +80,7 @@ namespace gs_patterns
             throw GSError("Invalid unique_strides_threshold");
         }
         if (!isPowerOf2(unique_strides_threshold)) {
-            throw GSError("Must be power of 2");
+            throw GSError("unique_strides_threshold must be power of 2");
         }
         _unique_strides_threshold = unique_strides_threshold;
     }
@@ -115,7 +115,7 @@ namespace gs_patterns
             throw GSError("Invalid initial_pattern_size");
         }
         if (!isPowerOf2(initial_pattern_size)) {
-            throw GSError("Must be power of 2");
+            throw GSError("initial_pattern_size must be power of 2");
         }
         _initial_pattern_size = initial_pattern_size;
     }
@@ -126,7 +126,7 @@ namespace gs_patterns
             throw GSError("Invalid max_pattern_size");
         }
         if (!isPowerOf2(max_pattern_size)) {
-            throw GSError("Must be power of 2");
+            throw GSError("max_pattern_size must be power of 2");
         }
         _max_pattern_size = max_pattern_size;
     }
@@ -137,7 +137,7 @@ namespace gs_patterns
             throw GSError("Invalid max_pattern_size");
         }
         if (!isPowerOf2(max_line_length)) {
-            throw GSError("Must be power of 2");
+            throw GSError("max_line_length must be power of 2");
         }
         _max_line_length = max_line_length;
     }
