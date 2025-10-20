@@ -23,7 +23,9 @@
 // sizing static arrays - skipping for now
 #define NGS (8096) //max number for gathers and scatters - Used as compile time constant for
 // sizing static arrays - skipping for now
-#define OBOUNDS_ALLOC (2*OBOUNDS + 3)
+#define OBOUNDS (512) // kept because OBOUNDS_ALLOC needs it
+#define OBOUNDS_ALLOC (2*OBOUNDS + 3) // Used as compile time constant for
+// sizing static arrays - skipping for now
 
 //patterns
 #define NTOP (10)       //Final gather / scatters to keep - Used as compile time constant for
@@ -43,37 +45,7 @@ namespace gs_patterns
     typedef enum { GATHER=0, SCATTER } mem_access_type;
     typedef enum { VECTOR=0, CTA } mem_instr_type;
 
-    class GSError : public std::exception
-    {
-    public:
-        explicit GSError (std::string  reason) : _reason(std::move(reason)) { }
-        ~GSError() override = default;
 
-        [[nodiscard]] const char * what() const noexcept override { return _reason.c_str(); }
-    private:
-        std::string _reason;
-    };
-
-    class GSFileError : public GSError
-    {
-    public:
-        explicit GSFileError (std::string reason) : GSError(std::move(reason)) { }
-        ~GSFileError() override = default;
-    };
-
-    class GSDataError : public GSError
-    {
-    public:
-        explicit GSDataError (std::string reason) : GSError(std::move(reason)) { }
-        ~GSDataError() override = default;
-    };
-
-    class GSAllocError : public GSError
-    {
-    public:
-        explicit GSAllocError (std::string reason) : GSError(std::move(reason)) { }
-        ~GSAllocError() override = default;
-    };
 
     class InstrAddrAdapter
     {

@@ -1,9 +1,9 @@
 
 # pragma once
 
-#include <cstddef>
 #include <string>
-#include "gs_patterns.h"
+
+#include "errors.h"
 
 // symbol lookup options
 #if !defined(SYMBOLS_ONLY)
@@ -40,20 +40,20 @@ namespace gs_patterns
 
 
         // runtime arguments
-        size_t get_per_sample() const { return _per_sample; }
-        size_t get_cache_line_size() const { return _cache_line_size; }
-        int64_t get_num_buffers() const { return _num_buffers; }
-        size_t get_instruction_window() const { return _instruction_window; }
-        size_t get_max_gather_scatter() const { return _max_gather_scatter; }
-        size_t get_histogram_bounds() const { return _histogram_bounds; }
-        size_t get_histogram_bounds_alloc() const { return 2 * _histogram_bounds + 3; }
-        size_t get_unique_strides_threshold() const { return _unique_strides_threshold; }
-        size_t get_num_unique_distances() const { return _num_unique_distances; }
-        double get_out_threshold() const { return _out_threshold; }
-        size_t get_top_patterns() const { return _top_patterns; }
-        size_t get_initial_pattern_size() const { return _initial_pattern_size; }
-        size_t get_max_pattern_size() const { return _max_pattern_size; }
-        size_t get_max_line_length() const { return _max_line_length; }
+        [[nodiscard]] size_t get_per_sample() const { return _per_sample; }
+        [[nodiscard]] size_t get_cache_line_size() const { return _cache_line_size; }
+        [[nodiscard]] int64_t get_num_buffers() const { return _num_buffers; }
+        [[nodiscard]] size_t get_instruction_window() const { return _instruction_window; }
+        [[nodiscard]] size_t get_max_gather_scatter() const { return _max_gather_scatter; }
+        [[nodiscard]] size_t get_histogram_bounds() const { return _histogram_bounds; }
+        [[nodiscard]] size_t get_histogram_bounds_alloc() const { return 2 * _histogram_bounds + 3; }
+        [[nodiscard]] size_t get_unique_strides_threshold() const { return _unique_strides_threshold; }
+        [[nodiscard]] size_t get_num_unique_distances() const { return _num_unique_distances; }
+        [[nodiscard]] double get_out_threshold() const { return _out_threshold; }
+        [[nodiscard]] size_t get_top_patterns() const { return _top_patterns; }
+        [[nodiscard]] size_t get_initial_pattern_size() const { return _initial_pattern_size; }
+        [[nodiscard]] size_t get_max_pattern_size() const { return _max_pattern_size; }
+        [[nodiscard]] size_t get_max_line_length() const { return _max_line_length; }
 
         void set_per_sample(size_t per_sample) {
             if (per_sample < MIN_PER_SAMPLE || per_sample > MAX_PER_SAMPLE ) {
@@ -255,7 +255,7 @@ namespace gs_patterns
         static constexpr size_t MAX_TOP_PATTERNS = 100;
 
         static constexpr size_t MIN_PATTERN_SIZE = 1LL << 10; // 1 KB
-        static constexpr size_t MAX_PATTERN_SIZE = 1LL << 33; // 1 GB
+        static constexpr size_t MAX_PATTERN_SIZE = 1LL << 33; // 8 GB
 
         static constexpr size_t MIN_MAX_LINE_LENGTH = 80;
         static constexpr size_t MAX_MAX_LINE_LENGTH = 1LL << 13;

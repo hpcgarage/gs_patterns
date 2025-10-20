@@ -1,7 +1,7 @@
-#include "config.h"
 #include <iostream>
 #include <cstring>
-#include <cstdlib>
+
+#include "config.h"
 
 namespace gs_patterns
 {

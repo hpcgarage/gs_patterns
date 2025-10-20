@@ -33,6 +33,7 @@
 
 #Build and pin directories
 /build
+/build-after-changes
 /pin_dir
 
 # IDE-specific files
