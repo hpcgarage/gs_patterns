@@ -13,9 +13,6 @@ namespace gs_patterns
         if (per_sample < MIN_PER_SAMPLE || per_sample > MAX_PER_SAMPLE ) {
             throw GSError("Invalid per_sample");
         }
-        if (!isPowerOf2(per_sample)) {
-            throw GSError("per_sample must be power of 2");
-        }
         _per_sample = per_sample;
     }
 
@@ -56,9 +53,6 @@ namespace gs_patterns
     {
         if (max_gather_scatter < MIN_MAX_GATHER_SCATTER || max_gather_scatter > MAX_MAX_GATHER_SCATTER ) {
             throw GSError("Invalid max_gather_scatter");
-        }
-        if (!isPowerOf2(max_gather_scatter)) {
-            throw GSError("max_gather_scatter must be power of 2");
         }
         _max_gather_scatter = max_gather_scatter;
     }
