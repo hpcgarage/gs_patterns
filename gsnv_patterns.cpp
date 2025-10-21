@@ -81,7 +81,7 @@ int tline_read_maps(gzFile fp, trace_map_entry_t * val, trace_map_entry_t **p_va
     return 1;
 }
 
-int tline_read(gzFile fp, mem_access_t * val, mem_access_t **p_val, int *edx)
+int tline_read(gzFile fp, mem_access_t * val, mem_access_t **p_val, int *edx, size_t num_buffers)
 {
 
     int idx;
@@ -89,11 +89,11 @@ int tline_read(gzFile fp, mem_access_t * val, mem_access_t **p_val, int *edx)
     idx = (*edx) / sizeof(mem_access_t);
     //first read
     if (NULL == *p_val) {
-        *edx = gzread(fp, val, sizeof(mem_access_t) * NBUFS);
+        *edx = gzread(fp, val, sizeof(mem_access_t) * num_buffers);
         *p_val = val;
 
     } else if (*p_val == &val[idx]) {
-        *edx = gzread(fp, val, sizeof(mem_access_t) * NBUFS);
+        *edx = gzread(fp, val, sizeof(mem_access_t) * num_buffers);
         *p_val = val;
     }
 
@@ -327,8 +327,9 @@ void MemPatternsForNV::process_traces()
     uint64_t lines_read = 0;
     uint64_t pos = 0;
     mem_access_t * p_trace = NULL;
-    mem_access_t trace_buff[NBUFS]; // was static (1024 bytes)
-    while (tline_read(fp_trace, trace_buff, &p_trace, &iret))
+    const int64_t num_buffers = Config::get_instance().get_num_buffers();
+    auto trace_buff = std::make_unique<mem_access_t[]>(num_buffers);
+    while (tline_read(fp_trace, trace_buff.get(), &p_trace, &iret, num_buffers))
     {
         // Decode trace
         t_line = p_trace;

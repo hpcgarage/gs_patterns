@@ -280,8 +280,8 @@ namespace gs_patterns
         //           << "Cache line size in bytes (default: " << cfg.get_cache_line_size() << ")\n";
         // std::cout << "  " << std::left << std::setw(option_width) << ""
         //           << "Range: [" << MIN_CACHE_LINE_SIZE << ", " << MAX_CACHE_LINE_SIZE << "]\n";
-        // std::cout << "  " << std::left << std::setw(option_width) << "--num-buffers, -nb <value>"
-        //           << "Number of trace buffers (default: " << cfg.get_num_buffers() << ")\n";
+        std::cout << "  " << std::left << std::setw(option_width) << "--num-buffers, -nb <value>"
+                  << "Number of trace buffers (default: " << cfg.get_num_buffers() << ")\n";
         // std::cout << "  " << std::left << std::setw(option_width) << ""
         //           << "Range: [" << MIN_NUM_BUFFERS << ", " << MAX_NUM_BUFFERS << "]\n";
         // std::cout << "  " << std::left << std::setw(option_width) << "--instruction-window, -iw <value>"

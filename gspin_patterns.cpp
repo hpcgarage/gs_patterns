@@ -11,6 +11,9 @@
 #include "gs_patterns.h"
 #include "gs_patterns_core.h"
 #include "gspin_patterns.h"
+
+#include <memory>
+
 #include "utils.h"
 
 namespace gs_patterns
@@ -20,7 +23,7 @@ namespace gspin_patterns
 
 using namespace gs_patterns::gs_patterns_core;
 
-int drline_read(gzFile fp, trace_entry_t * val, trace_entry_t ** p_val, int * edx)
+int drline_read(gzFile fp, trace_entry_t * val, trace_entry_t ** p_val, int * edx, size_t num_buffers)
 {
 
     int idx;
@@ -28,11 +31,11 @@ int drline_read(gzFile fp, trace_entry_t * val, trace_entry_t ** p_val, int * ed
     idx = (*edx) / sizeof(trace_entry_t);
     //first read
     if (NULL == *p_val) {
-        *edx = gzread(fp, val, sizeof(trace_entry_t) * NBUFS);
+        *edx = gzread(fp, val, sizeof(trace_entry_t) * num_buffers);
         *p_val = val;
 
     } else if (*p_val == &val[idx]) {
-        *edx = gzread(fp, val, sizeof(trace_entry_t) * NBUFS);
+        *edx = gzread(fp, val, sizeof(trace_entry_t) * num_buffers);
         *p_val = val;
     }
 
@@ -182,10 +185,11 @@ void MemPatternsForPin::process_traces()
 
     uint64_t lines_read = 0;
     trace_entry_t *p_drtrace = NULL;
-    trace_entry_t drtrace[NBUFS];  // was static (1024 bytes)
+    const int64_t num_buffers = Config::get_instance().get_num_buffers();
+    auto drtrace = std::make_unique<trace_entry_t[]>(num_buffers); // was static (1024 bytes)
 
     
-    while (drline_read(fp_drtrace, drtrace, &p_drtrace, &iret)) {
+    while (drline_read(fp_drtrace, drtrace.get(), &p_drtrace, &iret, num_buffers)) {
         //decode drtrace
         drline = p_drtrace;
 
@@ -228,9 +232,10 @@ void MemPatternsForPin::process_second_pass(gzFile & fp_drtrace)
     fflush(stdout);
 
     trace_entry_t *p_drtrace = NULL;
-    trace_entry_t drtrace[NBUFS];   // was static (1024 bytes)
+    const int64_t num_buffers = Config::get_instance().get_num_buffers();
+    auto drtrace = std::make_unique<trace_entry_t[]>(num_buffers); // was static (1024 bytes)
 
-    while (drline_read(fp_drtrace, drtrace, &p_drtrace, &iret) && !breakout) {
+    while (drline_read(fp_drtrace, drtrace.get(), &p_drtrace, &iret, num_buffers) && !breakout) {
         //decode drtrace
         drline = p_drtrace;
 
