@@ -7,6 +7,7 @@
 #include <utility>
 #include <vector>
 #include <cstdint>
+#include <memory>
 
 #include "errors.h"
 #include "config.h"
@@ -19,8 +20,6 @@
 //info
 // #define CLSIZE (64) //cacheline bytes - Unused - available via Config::get_instance().get_cache_line_size()
 
-#define IWINDOW (1024) //number of iaddrs per window - Used as compile time constant for
-// sizing static arrays - skipping for now
 #define NGS (8096) //max number for gathers and scatters - Used as compile time constant for
 // sizing static arrays - skipping for now
 #define OBOUNDS (512) // kept because OBOUNDS_ALLOC needs it
@@ -219,41 +218,40 @@ namespace gs_patterns
     {
     public:
         InstrWindow() {
+            _window_size = Config::get_instance().get_instruction_window();
+
             // First dimension is 0=GATHER/1=SCATTER
-            _w_iaddrs = new int64_t[2][IWINDOW];
-            _w_bytes  = new int64_t[2][IWINDOW];
-            _w_maddr  = new int64_t[2][IWINDOW][MAX_ACCESS_SIZE];
-            _w_cnt    = new int64_t[2][IWINDOW];
+            _w_iaddrs = std::make_unique<int64_t[]>(2 * _window_size);
+            _w_bytes  = std::make_unique<int64_t[]>(2 * _window_size);
+            _w_cnt    = std::make_unique<int64_t[]>(2 * _window_size);
+            _w_maddr = std::make_unique<int64_t[]>(2 * _window_size * MAX_ACCESS_SIZE);
 
             init();
         }
 
         virtual ~InstrWindow() {
-            delete [] _w_iaddrs;
-            delete [] _w_bytes;
-            delete [] _w_maddr;
-            delete [] _w_cnt;
+            // unique_pointers auto delete their memory in heap
         }
 
         void init() {
             for (int w = 0; w < 2; w++) {
-                for (int i = 0; i < IWINDOW; i++) {
-                    _w_iaddrs[w][i] = -1;
-                    _w_bytes[w][i] = 0;
-                    _w_cnt[w][i] = 0;
+                for (int i = 0; i < _window_size; i++) {
+                    w_iaddrs(w, i) = -1;
+                    w_bytes(w, i) = 0;
+                    w_cnt(w, i) = 0;
                     for (uint64_t j = 0; j < MAX_ACCESS_SIZE; j++)
-                        _w_maddr[w][i][j] = -1;
+                        w_maddr(w, i, j) = -1;
                 }
             }
         }
 
         void reset(int w) {
-            for (int i = 0; i < IWINDOW; i++) {
-                _w_iaddrs[w][i] = -1;
-                _w_bytes[w][i] = 0;
-                _w_cnt[w][i] = 0;
+            for (int i = 0; i < _window_size; i++) {
+                w_iaddrs(w, i) = -1;
+                w_bytes(w, i) = 0;
+                w_cnt(w, i) = 0;
                 for (uint64_t j = 0; j < MAX_ACCESS_SIZE; j++)
-                    _w_maddr[w][i][j] = -1;
+                    w_maddr(w, i, j) = -1;
             }
         }
 
@@ -266,21 +264,35 @@ namespace gs_patterns
         InstrWindow(const InstrWindow &) = delete;
         InstrWindow & operator=(const InstrWindow & right) = delete;
 
-        int64_t & w_iaddrs(int32_t i, int32_t j)             { return _w_iaddrs[i][j];   }
-        int64_t & w_bytes(int32_t i, int32_t j)              { return _w_bytes[i][j];    }
-        int64_t & w_maddr(int32_t i, int32_t j, int32_t k)   { return _w_maddr[i][j][k]; }
-        int64_t & w_cnt(int32_t i, int32_t j)                { return _w_cnt[i][j];      }
+        int64_t & w_iaddrs(int32_t i, int32_t j)
+        {
+            return _w_iaddrs[i * _window_size + j];
+        }
+        int64_t & w_bytes(int32_t i, int32_t j)
+        {
+            return _w_bytes[i * _window_size + j];
+        }
+        int64_t & w_maddr(int32_t i, int32_t j, int32_t k)
+        {
+            return _w_maddr[i * _window_size * MAX_ACCESS_SIZE + j * MAX_ACCESS_SIZE + k];
+        }
+        int64_t & w_cnt(int32_t i, int32_t j)
+        {
+            return _w_cnt[i * _window_size + j];
+        }
 
+        [[nodiscard]] size_t get_window_size() const { return _window_size; }
         addr_t &  get_iaddr()       { return iaddr;      }
         int64_t & get_maddr_prev()  { return maddr_prev; }
         int64_t & get_maddr()       { return maddr;      }
 
     private:
+        size_t _window_size;
         // First dimension is 0=GATHER/1=SCATTER
-        int64_t (*_w_iaddrs)[IWINDOW];
-        int64_t (*_w_bytes)[IWINDOW];
-        int64_t (*_w_maddr)[IWINDOW][MAX_ACCESS_SIZE];
-        int64_t (*_w_cnt)[IWINDOW];
+        std::unique_ptr<int64_t[]> _w_iaddrs;
+        std::unique_ptr<int64_t[]> _w_bytes;
+        std::unique_ptr<int64_t[]> _w_maddr;
+        std::unique_ptr<int64_t[]> _w_cnt;
 
         // State which must be carried with each call to handle a trace
         addr_t   iaddr = -1;

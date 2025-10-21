@@ -71,7 +71,7 @@ namespace gs_patterns_core
 
             //is iaddr in window
             w_idx = -1;
-            for (i = 0; i < IWINDOW; i++) {
+            for (i = 0; i < iw.get_window_size(); i++) {
 
                 //new iaddr
                 if (iw.w_iaddrs(w_rw_idx, i) == -1) {
@@ -95,7 +95,7 @@ namespace gs_patterns_core
                 // i = each window
                 for (w = 0; w < 2; w++) {  // 2
 
-                    for (i = 0; i < IWINDOW; i++) {  // 1024
+                    for (i = 0; i < iw.get_window_size(); i++) {  // 1024
 
                         if (iw.w_iaddrs(w,i) == -1)
                             break;
