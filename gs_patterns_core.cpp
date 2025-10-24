@@ -106,7 +106,7 @@ namespace gs_patterns_core
                     throw GSFileError("Could not open " + std::string(bin_name) + "!");             
 
                 printf("%sIADDR    -- %p\n", target_metrics.getShortName().c_str(), (void*) target_metrics.top[i]);
-                printf("SRCLINE   -- %s\n", target_metrics.get_srcline()[target_metrics.top_idx[i]]);
+                printf("SRCLINE   -- %s\n", target_metrics.get_srcline().get(target_metrics.top_idx[i]));
                 printf("GATHER %c -- %6.3f%c (%4ld-bit chunks)\n",
 	               '%', 100.0 * (double) target_metrics.tot[i] / target_metrics.cnt, '%', VBITS);
                 printf("DTYPE      -- %d bytes\n", target_metrics.size[i]);
@@ -174,7 +174,7 @@ namespace gs_patterns_core
 
 		fprintf(fp2, "0x%lx,%s,%d,%s,%d,%6.3f\n",
 			target_metrics.top[i],
-			target_metrics.get_srcline()[target_metrics.top_idx[i]],
+			target_metrics.get_srcline().get(target_metrics.top_idx[i]),
 			target_metrics.size[i],
 			target_metrics.getShortName().c_str(),
 			target_metrics.offset[i],

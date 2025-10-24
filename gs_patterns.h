@@ -80,15 +80,52 @@ namespace gs_patterns
 
     class Metrics
     {
+    private:
+        const size_t _initial_size;
+        const size_t _top_patterns;
+        const size_t _max_gather_scatter;
+        const size_t _max_line_length;
+
+        std::unique_ptr<char[]> srcline;
+
+        mem_access_type _mType;
+
+        std::vector<size_t>  _pattern_sizes;
+
     public:
-        explicit Metrics(mem_access_type mType) : _mType(mType), _pattern_sizes(NTOP)
+        // Proxy class for 2D array access
+        // This class is public so it can be the return type of get_srcline()
+
+        class SrcLine2D {
+            char* base;
+            size_t max_len;
+        public:
+            SrcLine2D(char* ptr, size_t ml) : base(ptr), max_len(ml) {}
+
+            char* get(size_t j) {
+                return base + (j * max_len);
+            }
+        };
+        explicit Metrics(mem_access_type mType)
+            :   _initial_size{Config::get_instance().get_initial_pattern_size()},
+                _top_patterns{Config::get_instance().get_top_patterns()},
+                _max_gather_scatter{Config::get_instance().get_max_gather_scatter()},
+                _max_line_length{Config::get_instance().get_max_pattern_size()},
+                _mType(mType),
+                _pattern_sizes(_top_patterns),
+                srcline(new char[2 * _max_gather_scatter * _max_line_length]),
+                offset(new int[_top_patterns]),
+                size(new int[_top_patterns]),
+                tot(new addr_t[_top_patterns]),
+                top(new addr_t[_top_patterns]),
+                top_idx(new addr_t[_top_patterns]),
+                patterns(new int64_t*[_top_patterns]{})
         {
             try
             {
-                const size_t initial_size = Config::get_instance().get_initial_pattern_size();
-                for (int j = 0; j < NTOP; j++) {
-                    patterns[j] = new int64_t[initial_size];
-                    _pattern_sizes[j] = initial_size;
+                for (int j = 0; j < _top_patterns; j++) {
+                    patterns[j] = new int64_t[_initial_size];
+                    _pattern_sizes[j] = _initial_size;
                 }
             }
             catch (const std::exception & ex)
@@ -99,11 +136,9 @@ namespace gs_patterns
 
         ~Metrics()
         {
-            for (int i = 0; i < NTOP; i++) {
+            for (int i = 0; i < _top_patterns; i++) {
                 delete [] patterns[i];
             }
-
-            delete [] srcline;
         }
 
         [[nodiscard]] size_t get_pattern_size(int pattern_index) const
@@ -141,7 +176,9 @@ namespace gs_patterns
         [[nodiscard]] std::string getShortName() const { return !_mType ? "G" : "S"; }
         [[nodiscard]] std::string getShortNameLower() const { return !_mType ? "g" : "s"; }
 
-        auto get_srcline() { return srcline[_mType]; }
+        SrcLine2D get_srcline() {
+            return SrcLine2D(srcline.get() + (_mType * _max_gather_scatter * _max_line_length), _max_line_length);
+        }
 
         int      ntop = 0;
         int64_t  iaddrs_nosym = 0;
@@ -149,21 +186,14 @@ namespace gs_patterns
         int64_t  iaddrs_sym = 0;
         int64_t  indices_sym = 0;
         double   cnt = 0.0;
-        int      offset[NTOP]  = {0};
-        int      size[NTOP]  = {0};
 
-        addr_t   tot[NTOP]     = {0};
-        addr_t   top[NTOP]     = {0};
-        addr_t   top_idx[NTOP] = {0};
+        std::unique_ptr<int[]> offset;
+        std::unique_ptr<int[]> size;
 
-        int64_t* patterns[NTOP] = {0};
-
-    private:
-        char (*srcline)[NGS][MAX_LINE_LENGTH] = new char[2][NGS][MAX_LINE_LENGTH];
-
-        mem_access_type _mType;
-
-        std::vector<size_t>  _pattern_sizes;
+        std::unique_ptr<addr_t[]> tot;
+        std::unique_ptr<addr_t[]> top;
+        std::unique_ptr<addr_t[]> top_idx;
+        std::unique_ptr<int64_t*[]> patterns;
     };
 
 
@@ -217,21 +247,18 @@ namespace gs_patterns
     class InstrWindow
     {
     public:
-        InstrWindow() {
-            _window_size = Config::get_instance().get_instruction_window();
-
+        InstrWindow()
+        : _window_size{Config::get_instance().get_instruction_window()},
+          _w_iaddrs{std::make_unique<int64_t[]>(2 * _window_size)},
+          _w_bytes {std::make_unique<int64_t[]>(2 * _window_size)},
+          _w_maddr {std::make_unique<int64_t[]>(2 * _window_size * MAX_ACCESS_SIZE)},
+          _w_cnt   {std::make_unique<int64_t[]>(2 * _window_size)}
+        {
             // First dimension is 0=GATHER/1=SCATTER
-            _w_iaddrs = std::make_unique<int64_t[]>(2 * _window_size);
-            _w_bytes  = std::make_unique<int64_t[]>(2 * _window_size);
-            _w_cnt    = std::make_unique<int64_t[]>(2 * _window_size);
-            _w_maddr = std::make_unique<int64_t[]>(2 * _window_size * MAX_ACCESS_SIZE);
-
             init();
         }
 
-        virtual ~InstrWindow() {
-            // unique_pointers auto delete their memory in heap
-        }
+        virtual ~InstrWindow() = default;
 
         void init() {
             for (int w = 0; w < 2; w++) {
@@ -287,7 +314,7 @@ namespace gs_patterns
         int64_t & get_maddr()       { return maddr;      }
 
     private:
-        size_t _window_size;
+        const size_t _window_size;
         // First dimension is 0=GATHER/1=SCATTER
         std::unique_ptr<int64_t[]> _w_iaddrs;
         std::unique_ptr<int64_t[]> _w_bytes;
