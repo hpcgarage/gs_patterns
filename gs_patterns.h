@@ -192,10 +192,11 @@ namespace gs_patterns
     class InstrInfo
     {
     public:
-        explicit InstrInfo(mem_access_type mType)
+        explicit InstrInfo(mem_access_type mType,
+                size_t max_gather_scatter = Config::get_instance().get_max_gather_scatter())
         :
             _mType(mType),
-            _max_gather_scatter{Config::get_instance().get_max_gather_scatter()},
+            _max_gather_scatter(max_gather_scatter),
             _iaddrs(std::make_unique<addr_t[]>(2 * _max_gather_scatter)),
             _icnt(std::make_unique<int64_t[]>(2 * _max_gather_scatter)),
             _occ(std::make_unique<int64_t[]>(2 * _max_gather_scatter))
@@ -244,8 +245,8 @@ namespace gs_patterns
     class InstrWindow
     {
     public:
-        InstrWindow()
-        : _window_size{Config::get_instance().get_instruction_window()},
+        explicit InstrWindow(size_t window_size = Config::get_instance().get_instruction_window())
+        : _window_size(window_size),
           _w_iaddrs{std::make_unique<int64_t[]>(2 * _window_size)},
           _w_bytes {std::make_unique<int64_t[]>(2 * _window_size)},
           _w_maddr {std::make_unique<int64_t[]>(2 * _window_size * MAX_ACCESS_SIZE)},
