@@ -115,13 +115,6 @@ namespace gs_patterns
         {
             try
             {
-                // Zero-initialize numeric arrays
-                std::fill_n(offset.get(),   _top_patterns, 0);
-                std::fill_n(size.get(),     _top_patterns, 0);
-                std::fill_n(tot.get(),      _top_patterns, 0);
-                std::fill_n(top.get(),      _top_patterns, 0);
-                std::fill_n(top_idx.get(),  _top_patterns, 0);
-
                 for (int j = 0; j < _top_patterns; j++)
                 {
                     patterns[j].resize(_initial_size);

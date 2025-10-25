@@ -427,8 +427,6 @@ void MemPatternsForNV::process_second_pass()
     int64_t maddr;
     std::unique_ptr<addr_t[]> gather_base(new addr_t[_top_patterns]());
     std::unique_ptr<addr_t[]> scatter_base(new addr_t[_top_patterns]());
-    std::fill_n(gather_base.get(), _top_patterns * sizeof(addr_t), 0);
-    std::fill_n(scatter_base.get(), _top_patterns * sizeof(addr_t), 0);
 
     bool breakout = false;
     printf("\nSecond pass to fill gather / scatter subtraces\n");
