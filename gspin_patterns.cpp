@@ -221,11 +221,11 @@ void MemPatternsForPin::process_second_pass(gzFile & fp_drtrace)
     int iret = 0;
     trace_entry_t *drline;
 
-    // State carried thru
+    // State carried through
     addr_t iaddr;
     int64_t maddr;
-    addr_t gather_base[NTOP] = {0};
-    addr_t scatter_base[NTOP] = {0};
+    auto gather_base = std::make_unique<addr_t[]>(_top_patterns);
+    auto scatter_base = std::make_unique<addr_t[]>(_top_patterns);
 
     bool breakout = false;
     printf("\nSecond pass to fill gather / scatter subtraces\n");
@@ -240,7 +240,7 @@ void MemPatternsForPin::process_second_pass(gzFile & fp_drtrace)
         drline = p_drtrace;
 
         breakout = handle_2nd_pass_trace_entry(InstrAddrAdapterForPin(drline), get_gather_metrics(), get_scatter_metrics(),
-                                                 iaddr, maddr, mcnt, gather_base, scatter_base);
+                                                 iaddr, maddr, mcnt, gather_base.get(), scatter_base.get());
 
         p_drtrace++;
     }
