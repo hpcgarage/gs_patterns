@@ -138,7 +138,7 @@ double MemPatternsForPin::update_source_lines_from_binary(mem_access_type mType)
     Metrics &   target_metrics = get_metrics(mType);
 
     //Check it is not a library
-    for (int k = 0; k < NGS; k++) {
+    for (int k = 0; k < _max_gather_scatter; k++) {
 
         if (0 == target_iinfo.get_iaddrs()[k]) {
             break;

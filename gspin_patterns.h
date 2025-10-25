@@ -87,8 +87,10 @@ namespace gspin_patterns
     class MemPatternsForPin : public MemPatterns<MEMORY_ACCESS_SIZE>
     {
     public:
-        MemPatternsForPin() : _metrics(GATHER, SCATTER),
-                              _iinfo(GATHER, SCATTER) { }
+        MemPatternsForPin(size_t max_gather_scatter = Config::get_instance().get_max_gather_scatter()) :
+                    _max_gather_scatter(max_gather_scatter),
+                    _metrics(GATHER, SCATTER),
+                    _iinfo(GATHER, SCATTER) { }
         virtual ~MemPatternsForPin() override { }
 
         void handle_trace_entry(const InstrAddrAdapter & ia) override;
@@ -124,6 +126,7 @@ namespace gspin_patterns
         void process_second_pass(gzFile & fp_drtrace);
 
     private:
+        size_t _max_gather_scatter;
         std::pair<Metrics, Metrics>     _metrics;
         std::pair<InstrInfo, InstrInfo> _iinfo;
         TraceInfo                       _trace_info;
