@@ -327,9 +327,8 @@ void MemPatternsForNV::process_traces()
     uint64_t lines_read = 0;
     uint64_t pos = 0;
     mem_access_t * p_trace = NULL;
-    const int64_t num_buffers = Config::get_instance().get_num_buffers();
-    auto trace_buff = std::make_unique<mem_access_t[]>(num_buffers);
-    while (tline_read(fp_trace, trace_buff.get(), &p_trace, &iret, num_buffers))
+    auto trace_buff = std::make_unique<mem_access_t[]>(_num_buffers);
+    while (tline_read(fp_trace, trace_buff.get(), &p_trace, &iret, _num_buffers))
     {
         // Decode trace
         t_line = p_trace;

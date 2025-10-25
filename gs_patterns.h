@@ -72,6 +72,7 @@ namespace gs_patterns
         const size_t _top_patterns;
         const size_t _max_gather_scatter;
         const size_t _max_line_length;
+        const size_t _max_pattern_size;
 
         std::unique_ptr<char[]> srcline;
 
@@ -95,12 +96,14 @@ namespace gs_patterns
                 size_t initial_size = Config::get_instance().get_initial_pattern_size(),
                 size_t top_patterns = Config::get_instance().get_top_patterns(),
                 size_t max_gather_scatter = Config::get_instance().get_max_gather_scatter(),
-                size_t max_line_length = Config::get_instance().get_max_pattern_size()
+                size_t max_line_length = Config::get_instance().get_max_line_length(),
+                size_t max_pattern_size = Config::get_instance().get_max_pattern_size()
             )
         :       _initial_size{initial_size},
                 _top_patterns{top_patterns},
                 _max_gather_scatter{max_gather_scatter},
                 _max_line_length{max_line_length},
+                _max_pattern_size{max_pattern_size},
                 srcline(std::make_unique<char[]>(2 * _max_gather_scatter * _max_line_length)),
                 _mType(mType),
                 offset(std::make_unique<int[]>(_top_patterns)),
@@ -141,7 +144,7 @@ namespace gs_patterns
             try {
                 size_t old_size = patterns[pattern_index].size();
                 size_t new_size = old_size * 2;
-                if (new_size > Config::get_instance().get_max_pattern_size()) {
+                if (new_size > _max_pattern_size) {
                     return false;
                 }
 
