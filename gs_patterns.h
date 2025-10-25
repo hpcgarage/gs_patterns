@@ -104,11 +104,16 @@ namespace gs_patterns
                 return base + (j * max_len);
             }
         };
-        explicit Metrics(mem_access_type mType)
-            :   _initial_size{Config::get_instance().get_initial_pattern_size()},
-                _top_patterns{Config::get_instance().get_top_patterns()},
-                _max_gather_scatter{Config::get_instance().get_max_gather_scatter()},
-                _max_line_length{Config::get_instance().get_max_pattern_size()},
+        explicit Metrics(mem_access_type mType,
+                size_t initial_size = Config::get_instance().get_initial_pattern_size(),
+                size_t top_patterns = Config::get_instance().get_top_patterns(),
+                size_t max_gather_scatter = Config::get_instance().get_max_gather_scatter(),
+                size_t max_line_length = Config::get_instance().get_max_pattern_size()
+            )
+        :       _initial_size{initial_size},
+                _top_patterns{top_patterns},
+                _max_gather_scatter{max_gather_scatter},
+                _max_line_length{max_line_length},
                 srcline(std::make_unique<char[]>(2 * _max_gather_scatter * _max_line_length)),
                 _mType(mType),
                 offset(std::make_unique<int[]>(_top_patterns)),
