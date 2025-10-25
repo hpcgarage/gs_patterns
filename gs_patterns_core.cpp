@@ -208,13 +208,13 @@ namespace gs_patterns_core
     {
         int target_ntop = 0;
 
-        for (int j = 0; j < NTOP; j++)
+        for (int j = 0; j < Config::get_instance().get_top_patterns(); j++)
         {
             int bestcnt = 0;
             addr_t best_iaddr = 0;
             int bestidx = -1;
 
-            for (int k = 0; k < NGS; k++)
+            for (int k = 0; k < Config::get_instance().get_max_gather_scatter(); k++)
             {
                 if (target_iinfo.get_icnt()[k] == 0)
                     continue;

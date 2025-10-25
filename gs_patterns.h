@@ -20,7 +20,6 @@
 //info
 // #define CLSIZE (64) //cacheline bytes - Unused - available via Config::get_instance().get_cache_line_size()
 
-#define NGS (8096) //max number for gathers and scatters - Used as compile time constant for
 // sizing static arrays - skipping for now
 #define OBOUNDS (512) // kept because OBOUNDS_ALLOC needs it
 #define OBOUNDS_ALLOC (2*OBOUNDS + 3) // Used as compile time constant for
