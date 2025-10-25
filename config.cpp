@@ -38,15 +38,15 @@ namespace gs_patterns
         _trace_buffer_size = trace_buffer_size;
     }
 
-    void Config::set_instruction_window(size_t instruction_window)
+    void Config::set_iaddr_per_window(size_t iaddr_per_window)
     {
-        if (instruction_window < MIN_INSTRUCTION_WINDOW || instruction_window > MAX_INSTRUCTION_WINDOW ) {
-            throw GSError("Invalid instruction_window");
+        if (iaddr_per_window < MIN_IADDR_PER_WINDOW || iaddr_per_window > MAX_IADDR_PER_WINDOW ) {
+            throw GSError("Invalid iaddr_per_window");
         }
-        if (!isPowerOf2(instruction_window)) {
-            throw GSError("instruction_window must be power of 2");
+        if (!isPowerOf2(iaddr_per_window)) {
+            throw GSError("iaddr_per_window must be power of 2");
         }
-        _instruction_window = instruction_window;
+        _iaddr_per_window = iaddr_per_window;
     }
 
     void Config::set_max_gather_scatter(size_t max_gather_scatter)
@@ -196,8 +196,8 @@ namespace gs_patterns
                 else if (arg == "--trace-buffer-size" || arg == "-tbs") {
                     set_trace_buffer_size(std::stoll(value));
                 }
-                else if (arg == "--instruction-window" || arg == "-iw") {
-                    set_instruction_window(std::stoull(value));
+                else if (arg == "--iaddr-per-window" || arg == "-iw") {
+                    set_iaddr_per_window(std::stoull(value));
                 }
                 else if (arg == "--max-gather-scatter" || arg == "-mgs") {
                     set_max_gather_scatter(std::stoull(value));
@@ -281,13 +281,13 @@ namespace gs_patterns
         std::cout << "  " << std::left << std::setw(option_width) << ""
                   << "Range: [" << MIN_CACHE_LINE_SIZE << ", " << MAX_CACHE_LINE_SIZE << "]\n";
         std::cout << "  " << std::left << std::setw(option_width) << "--trace-buffer-size, -tbs <value>"
-                  << "Number of trace buffers (default: " << cfg.get_trace_buffer_size() << ")\n";
+                  << "Trace buffer size (default: " << cfg.get_trace_buffer_size() << ")\n";
         std::cout << "  " << std::left << std::setw(option_width) << ""
                   << "Range: [" << MIN_TRACE_BUFFER_SIZE << ", " << MAX_TRACE_BUFFER_SIZE << "]\n";
-        std::cout << "  " << std::left << std::setw(option_width) << "--instruction-window, -iw <value>"
-                  << "Instruction window size (default: " << cfg.get_instruction_window() << ")\n";
+        std::cout << "  " << std::left << std::setw(option_width) << "--iaddr-per-window, -iw <value>"
+                  << "Iaddr per window (default: " << cfg.get_iaddr_per_window() << ")\n";
         std::cout << "  " << std::left << std::setw(option_width) << ""
-                  << "Range: [" << MIN_INSTRUCTION_WINDOW << ", " << MAX_INSTRUCTION_WINDOW << "]\n";
+                  << "Range: [" << MIN_IADDR_PER_WINDOW << ", " << MAX_IADDR_PER_WINDOW << "]\n";
         std::cout << "  " << std::left << std::setw(option_width) << "--max-gather-scatter, -mgs <value>"
                   << "Max gather/scatter elements (default: " << cfg.get_max_gather_scatter() << ")\n";
         std::cout << "  " << std::left << std::setw(option_width) << ""
@@ -303,7 +303,7 @@ namespace gs_patterns
         std::cout << "  " << std::left << std::setw(option_width) << ""
                   << "Range: [" << MIN_UNIQUE_STRIDES_THRESHOLD << ", " << MAX_UNIQUE_STRIDES_THRESHOLD << "]\n";
         std::cout << "  " << std::left << std::setw(option_width) << "--unique-distances-threshold, -udt <value>"
-                  << "Number of unique distances (default: " << cfg.get_unique_distances_threshold() << ")\n";
+                  << "Unique distances threshold (default: " << cfg.get_unique_distances_threshold() << ")\n";
         std::cout << "  " << std::left << std::setw(option_width) << ""
                   << "Range: [" << MIN_UNIQUE_DISTANCES_THRESHOLD << ", " << MAX_UNIQUE_DISTANCES_THRESHOLD << "]\n";
         std::cout << "  " << std::left << std::setw(option_width) << "--out-threshold, -ot <value>"

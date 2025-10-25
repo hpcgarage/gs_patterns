@@ -38,7 +38,7 @@ namespace gs_patterns
         [[nodiscard]] size_t get_per_sample() const { return _per_sample; }
         [[nodiscard]] size_t get_cache_line_size() const { return _cache_line_size; }
         [[nodiscard]] size_t get_trace_buffer_size() const { return _trace_buffer_size; }
-        [[nodiscard]] size_t get_instruction_window() const { return _instruction_window; }
+        [[nodiscard]] size_t get_iaddr_per_window() const { return _iaddr_per_window; }
         [[nodiscard]] size_t get_max_gather_scatter() const { return _max_gather_scatter; }
         [[nodiscard]] size_t get_histogram_bounds() const { return _histogram_bounds; }
         [[nodiscard]] size_t get_histogram_bounds_alloc() const { return 2 * _histogram_bounds + 3; }
@@ -54,7 +54,7 @@ namespace gs_patterns
         void set_per_sample(size_t per_sample);
         void set_cache_line_size(size_t cache_line_size);
         void set_trace_buffer_size(size_t trace_buffer_size);
-        void set_instruction_window(size_t instruction_window);
+        void set_iaddr_per_window(size_t iaddr_per_window);
         void set_max_gather_scatter(size_t max_gather_scatter);
         void set_histogram_bounds(size_t histogram_bounds);
         void set_unique_strides_threshold(size_t unique_strides_threshold);
@@ -81,7 +81,7 @@ namespace gs_patterns
         // info
         size_t _cache_line_size = 64;
         size_t _trace_buffer_size = 1LL << 10; //trace reading buffer size
-        size_t _instruction_window = 1024; //number of iaddrs per window
+        size_t _iaddr_per_window = 1024; //number of iaddrs per window
         size_t _max_gather_scatter = 8096; //max number for gathers and scatters
         size_t _histogram_bounds = 512; //histogram positive max
 
@@ -108,8 +108,8 @@ namespace gs_patterns
         static constexpr size_t MIN_TRACE_BUFFER_SIZE = 1;
         static constexpr size_t MAX_TRACE_BUFFER_SIZE = 1LL << 20;   // Over 1 million buffers
 
-        static constexpr size_t MIN_INSTRUCTION_WINDOW = 16;
-        static constexpr size_t MAX_INSTRUCTION_WINDOW = 1LL << 17; // 131,072 instructions
+        static constexpr size_t MIN_IADDR_PER_WINDOW = 16;
+        static constexpr size_t MAX_IADDR_PER_WINDOW = 1LL << 17; // 131,072 instructions
 
         static constexpr size_t MIN_MAX_GATHER_SCATTER = 2;
         static constexpr size_t MAX_MAX_GATHER_SCATTER = 1LL << 14; // 16,384 elements

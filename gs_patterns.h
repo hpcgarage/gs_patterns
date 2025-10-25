@@ -235,12 +235,12 @@ namespace gs_patterns
     class InstrWindow
     {
     public:
-        explicit InstrWindow(size_t window_size = Config::get_instance().get_instruction_window())
-        : _window_size(window_size),
-          _w_iaddrs{std::make_unique<int64_t[]>(2 * _window_size)},
-          _w_bytes {std::make_unique<int64_t[]>(2 * _window_size)},
-          _w_maddr {std::make_unique<int64_t[]>(2 * _window_size * MAX_ACCESS_SIZE)},
-          _w_cnt   {std::make_unique<int64_t[]>(2 * _window_size)}
+        explicit InstrWindow(size_t iaddr_per_window = Config::get_instance().get_iaddr_per_window())
+        : _iaddr_per_window(iaddr_per_window),
+          _w_iaddrs{std::make_unique<int64_t[]>(2 * _iaddr_per_window)},
+          _w_bytes {std::make_unique<int64_t[]>(2 * _iaddr_per_window)},
+          _w_maddr {std::make_unique<int64_t[]>(2 * _iaddr_per_window * MAX_ACCESS_SIZE)},
+          _w_cnt   {std::make_unique<int64_t[]>(2 * _iaddr_per_window)}
         {
             // First dimension is 0=GATHER/1=SCATTER
             init();
@@ -250,7 +250,7 @@ namespace gs_patterns
 
         void init() {
             for (int w = 0; w < 2; w++) {
-                for (int i = 0; i < _window_size; i++) {
+                for (int i = 0; i < _iaddr_per_window; i++) {
                     w_iaddrs(w, i) = -1;
                     w_bytes(w, i) = 0;
                     w_cnt(w, i) = 0;
@@ -261,7 +261,7 @@ namespace gs_patterns
         }
 
         void reset(int w) {
-            for (int i = 0; i < _window_size; i++) {
+            for (int i = 0; i < _iaddr_per_window; i++) {
                 w_iaddrs(w, i) = -1;
                 w_bytes(w, i) = 0;
                 w_cnt(w, i) = 0;
@@ -281,28 +281,28 @@ namespace gs_patterns
 
         int64_t & w_iaddrs(int32_t i, int32_t j)
         {
-            return _w_iaddrs[i * _window_size + j];
+            return _w_iaddrs[i * _iaddr_per_window + j];
         }
         int64_t & w_bytes(int32_t i, int32_t j)
         {
-            return _w_bytes[i * _window_size + j];
+            return _w_bytes[i * _iaddr_per_window + j];
         }
         int64_t & w_maddr(int32_t i, int32_t j, int32_t k)
         {
-            return _w_maddr[i * _window_size * MAX_ACCESS_SIZE + j * MAX_ACCESS_SIZE + k];
+            return _w_maddr[i * _iaddr_per_window * MAX_ACCESS_SIZE + j * MAX_ACCESS_SIZE + k];
         }
         int64_t & w_cnt(int32_t i, int32_t j)
         {
-            return _w_cnt[i * _window_size + j];
+            return _w_cnt[i * _iaddr_per_window + j];
         }
 
-        [[nodiscard]] size_t get_window_size() const { return _window_size; }
+        [[nodiscard]] size_t get_window_size() const { return _iaddr_per_window; }
         addr_t &  get_iaddr()       { return iaddr;      }
         int64_t & get_maddr_prev()  { return maddr_prev; }
         int64_t & get_maddr()       { return maddr;      }
 
     private:
-        const size_t _window_size;
+        const size_t _iaddr_per_window;
         // First dimension is 0=GATHER/1=SCATTER
         std::unique_ptr<int64_t[]> _w_iaddrs;
         std::unique_ptr<int64_t[]> _w_bytes;
