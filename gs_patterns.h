@@ -20,9 +20,6 @@
 //info
 // #define CLSIZE (64) //cacheline bytes - Unused - available via Config::get_instance().get_cache_line_size()
 
-//patterns
-#define NTOP (10)       //Final gather / scatters to keep - Used as compile time constant for
-// sizing static arrays - skipping for now
 
 #define MAX_LINE_LENGTH 1024 // Used as compile time constant for
 // sizing static arrays - skipping for now
@@ -119,6 +116,13 @@ namespace gs_patterns
         {
             try
             {
+                // Zero-initialize numeric arrays
+                std::fill_n(offset.get(),   _top_patterns, 0);
+                std::fill_n(size.get(),     _top_patterns, 0);
+                std::fill_n(tot.get(),      _top_patterns, 0);
+                std::fill_n(top.get(),      _top_patterns, 0);
+                std::fill_n(top_idx.get(),  _top_patterns, 0);
+
                 for (int j = 0; j < _top_patterns; j++)
                 {
                     patterns[j].resize(_initial_size);
@@ -186,7 +190,8 @@ namespace gs_patterns
     class InstrInfo
     {
     public:
-        explicit InstrInfo(mem_access_type mType,
+        explicit InstrInfo(
+                mem_access_type mType,
                 size_t max_gather_scatter = Config::get_instance().get_max_gather_scatter())
         :
             _mType(mType),
@@ -194,8 +199,12 @@ namespace gs_patterns
             _iaddrs(std::make_unique<addr_t[]>(2 * _max_gather_scatter)),
             _icnt(std::make_unique<int64_t[]>(2 * _max_gather_scatter)),
             _occ(std::make_unique<int64_t[]>(2 * _max_gather_scatter))
-
-        { }
+        {
+            // Zero initialize arrays
+            std::fill_n(_iaddrs.get(), 2 * _max_gather_scatter, 0);
+            std::fill_n(_icnt.get(),   2 * _max_gather_scatter, 0);
+            std::fill_n(_occ.get(),    2 * _max_gather_scatter, 0);
+        }
         ~InstrInfo() = default;
 
         InstrInfo(const InstrInfo &) = delete;

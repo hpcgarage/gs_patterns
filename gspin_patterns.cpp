@@ -226,6 +226,8 @@ void MemPatternsForPin::process_second_pass(gzFile & fp_drtrace)
     int64_t maddr;
     auto gather_base = std::make_unique<addr_t[]>(_top_patterns);
     auto scatter_base = std::make_unique<addr_t[]>(_top_patterns);
+    std::fill_n(gather_base.get(), _top_patterns, 0);
+    std::fill_n(scatter_base.get(), _top_patterns, 0);
 
     bool breakout = false;
     printf("\nSecond pass to fill gather / scatter subtraces\n");

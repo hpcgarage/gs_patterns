@@ -426,8 +426,10 @@ void MemPatternsForNV::process_second_pass()
     // State carried thru
     addr_t iaddr;
     int64_t maddr;
-    addr_t gather_base[NTOP] = {0};
-    addr_t scatter_base[NTOP] = {0};
+    std::unique_ptr<addr_t[]> gather_base(new addr_t[_top_patterns]());
+    std::unique_ptr<addr_t[]> scatter_base(new addr_t[_top_patterns]());
+    std::fill_n(gather_base.get(), _top_patterns * sizeof(addr_t), 0);
+    std::fill_n(scatter_base.get(), _top_patterns * sizeof(addr_t), 0);
 
     bool breakout = false;
     printf("\nSecond pass to fill gather / scatter subtraces\n");
@@ -458,7 +460,7 @@ void MemPatternsForNV::process_second_pass()
             {
                 InstrAddrAdapterForNV ia(const_cast<const trace_entry_t &>(ta[i]));
                 breakout = handle_2nd_pass_trace_entry(ia, get_gather_metrics(), get_scatter_metrics(),
-                                                         iaddr, maddr, mcnt, gather_base, scatter_base);
+                                                         iaddr, maddr, mcnt, gather_base.get(), scatter_base.get());
                 count_read++;
 
                 if (breakout) break;
