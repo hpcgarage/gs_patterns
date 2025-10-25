@@ -127,7 +127,7 @@ namespace gs_patterns_core
 			if (gs == -1) {
 			  
 			  InstrInfo & target_iinfo = (w == 0) ? gather_iinfo : scatter_iinfo;			    
-			  for(k=0; k<NGS; k++) {
+			  for(k=0; k<Config::get_instance().get_max_gather_scatter(); k++) {
 			    
 			    //end
 			    if (target_iinfo.get_iaddrs()[k] == 0)
@@ -159,7 +159,7 @@ namespace gs_patterns_core
                                 scatter_metrics.cnt += 1.0;
                             }
 
-                            for (k = 0; k < NGS; k++) {
+                            for (k = 0; k < Config::get_instance().get_max_gather_scatter(); k++) {
                                 if (target_iinfo.get_iaddrs()[k] == 0) {
                                     target_iinfo.get_iaddrs()[k] = iw.w_iaddrs(w, i);
                                     (target_iinfo.get_icnt()[k])++;
