@@ -164,7 +164,7 @@ namespace gs_patterns_core
                     fprintf(fp, ",\n {\"kernel\":\"%s\", \"pattern\":[", target_metrics.getName().c_str());
                 }
 
-                fwrite(target_metrics.patterns[i], sizeof(uint64_t), target_metrics.offset[i], fp_bin);
+                fwrite(target_metrics.patterns[i].data(), sizeof(uint64_t), target_metrics.offset[i], fp_bin);
                 fclose(fp_bin);
 
                 for (j = 0; j < target_metrics.offset[i] - 1; j++)

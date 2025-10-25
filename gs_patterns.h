@@ -90,8 +90,6 @@ namespace gs_patterns
 
         mem_access_type _mType;
 
-        std::vector<size_t>  _pattern_sizes;
-
     public:
         // Proxy class for 2D array access
         // This class is public so it can be the return type of get_srcline()
@@ -111,21 +109,20 @@ namespace gs_patterns
                 _top_patterns{Config::get_instance().get_top_patterns()},
                 _max_gather_scatter{Config::get_instance().get_max_gather_scatter()},
                 _max_line_length{Config::get_instance().get_max_pattern_size()},
+                srcline(std::make_unique<char[]>(2 * _max_gather_scatter * _max_line_length)),
                 _mType(mType),
-                _pattern_sizes(_top_patterns),
-                srcline(new char[2 * _max_gather_scatter * _max_line_length]),
-                offset(new int[_top_patterns]),
-                size(new int[_top_patterns]),
-                tot(new addr_t[_top_patterns]),
-                top(new addr_t[_top_patterns]),
-                top_idx(new addr_t[_top_patterns]),
-                patterns(new int64_t*[_top_patterns]{})
+                offset(std::make_unique<int[]>(_top_patterns)),
+                size(std::make_unique<int[]>(_top_patterns)),
+                tot(std::make_unique<addr_t[]>(_top_patterns)),
+                top(std::make_unique<addr_t[]>(_top_patterns)),
+                top_idx(std::make_unique<addr_t[]>(_top_patterns)),
+                patterns(_top_patterns)
         {
             try
             {
-                for (int j = 0; j < _top_patterns; j++) {
-                    patterns[j] = new int64_t[_initial_size];
-                    _pattern_sizes[j] = _initial_size;
+                for (int j = 0; j < _top_patterns; j++)
+                {
+                    patterns[j].resize(_initial_size);
                 }
             }
             catch (const std::exception & ex)
@@ -134,32 +131,22 @@ namespace gs_patterns
             }
         }
 
-        ~Metrics()
-        {
-            for (int i = 0; i < _top_patterns; i++) {
-                delete [] patterns[i];
-            }
-        }
+        ~Metrics() = default;
 
         [[nodiscard]] size_t get_pattern_size(int pattern_index) const
         {
-            return _pattern_sizes[pattern_index];
+            return patterns[pattern_index].size();
         }
 
         bool grow(int pattern_index) {
             try {
-                size_t old_size = _pattern_sizes[pattern_index];
+                size_t old_size = patterns[pattern_index].size();
                 size_t new_size = old_size * 2;
                 if (new_size > Config::get_instance().get_max_pattern_size()) {
                     return false;
                 }
 
-                int64_t *tmp = new int64_t[new_size];
-                memcpy(tmp, patterns[pattern_index], old_size * sizeof(int64_t));
-
-                delete [] patterns[pattern_index];
-                patterns[pattern_index] = tmp;
-                _pattern_sizes[pattern_index] = new_size;
+                patterns[pattern_index].resize(new_size);
 
                 return true;
             }
@@ -193,31 +180,36 @@ namespace gs_patterns
         std::unique_ptr<addr_t[]> tot;
         std::unique_ptr<addr_t[]> top;
         std::unique_ptr<addr_t[]> top_idx;
-        std::unique_ptr<int64_t*[]> patterns;
+        std::vector<std::vector<int64_t>> patterns;
     };
 
 
     class InstrInfo
     {
     public:
-        explicit InstrInfo(mem_access_type mType) : _mType(mType) { }
-        ~InstrInfo() {
-            delete [] iaddrs;
-            delete [] icnt;
-            delete [] occ;
-        }
+        explicit InstrInfo(mem_access_type mType)
+        :
+            _mType(mType),
+            _max_gather_scatter{Config::get_instance().get_max_gather_scatter()},
+            _iaddrs(std::make_unique<addr_t[]>(2 * _max_gather_scatter)),
+            _icnt(std::make_unique<int64_t[]>(2 * _max_gather_scatter)),
+            _occ(std::make_unique<int64_t[]>(2 * _max_gather_scatter))
+
+        { }
+        ~InstrInfo() = default;
 
         InstrInfo(const InstrInfo &) = delete;
         InstrInfo & operator=(const InstrInfo & right) = delete;
 
-        addr_t*  get_iaddrs() { return iaddrs[_mType]; }
-        int64_t* get_icnt()   { return icnt[_mType]; }
-        int64_t* get_occ()    { return occ[_mType]; }
+        addr_t*  get_iaddrs() { return &_iaddrs[_mType * _max_gather_scatter]; }
+        int64_t* get_icnt()   { return &_icnt[_mType * _max_gather_scatter]; }
+        int64_t* get_occ()    { return &_occ[_mType * _max_gather_scatter]; }
 
     private:
-        addr_t (*iaddrs)[NGS] = new addr_t[2][NGS];
-        int64_t (*icnt)[NGS]  = new int64_t[2][NGS]; //vector instances
-        int64_t (*occ)[NGS]   = new int64_t[2][NGS];  //load/store instances
+        const size_t _max_gather_scatter;
+        std::unique_ptr<addr_t[]> _iaddrs;
+        std::unique_ptr<int64_t[]> _icnt; //vector instances
+        std::unique_ptr<int64_t[]> _occ; //load/store instances
 
         mem_access_type _mType;
     };
