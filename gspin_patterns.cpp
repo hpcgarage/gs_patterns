@@ -23,7 +23,7 @@ namespace gspin_patterns
 
 using namespace gs_patterns::gs_patterns_core;
 
-int drline_read(gzFile fp, trace_entry_t * val, trace_entry_t ** p_val, int * edx, size_t num_buffers)
+int drline_read(gzFile fp, trace_entry_t * val, trace_entry_t ** p_val, int * edx, size_t trace_buffer_size)
 {
 
     int idx;
@@ -31,11 +31,11 @@ int drline_read(gzFile fp, trace_entry_t * val, trace_entry_t ** p_val, int * ed
     idx = (*edx) / sizeof(trace_entry_t);
     //first read
     if (NULL == *p_val) {
-        *edx = gzread(fp, val, sizeof(trace_entry_t) * num_buffers);
+        *edx = gzread(fp, val, sizeof(trace_entry_t) * trace_buffer_size);
         *p_val = val;
 
     } else if (*p_val == &val[idx]) {
-        *edx = gzread(fp, val, sizeof(trace_entry_t) * num_buffers);
+        *edx = gzread(fp, val, sizeof(trace_entry_t) * trace_buffer_size);
         *p_val = val;
     }
 
@@ -70,7 +70,7 @@ InstrInfo & MemPatternsForPin::get_iinfo(mem_access_type m)
 void MemPatternsForPin::handle_trace_entry(const InstrAddrAdapter & ia)
 {
     // Call libgs_patterns
-    gs_patterns_core::handle_trace_entry(*this, ia);
+    gs_patterns_core::handle_trace_entry(*this, ia, _max_gather_scatter);
 }
 
 void MemPatternsForPin::generate_patterns()
@@ -85,7 +85,7 @@ void MemPatternsForPin::generate_patterns()
 
     // ----------------- Create Spatter File -----------------
 
-    create_spatter_file<MEMORY_ACCESS_SIZE>(*this, get_file_prefix());
+    create_spatter_file<MEMORY_ACCESS_SIZE>(*this, get_file_prefix(), _unique_distances_threshold, _out_threshold, _unique_strides_threshold);
 
 }
 
@@ -102,10 +102,10 @@ void MemPatternsForPin::update_metrics()
     }
 
     // Get top gathers
-    get_gather_metrics().ntop = get_top_target(get_gather_iinfo(), get_gather_metrics());
+    get_gather_metrics().ntop = get_top_target(get_gather_iinfo(), get_gather_metrics(), _top_patterns, _max_gather_scatter);
 
     // Get top scatters
-    get_scatter_metrics().ntop = get_top_target(get_scatter_iinfo(), get_scatter_metrics());
+    get_scatter_metrics().ntop = get_top_target(get_scatter_iinfo(), get_scatter_metrics(), _top_patterns, _max_gather_scatter);
 
     // ----------------- Second Pass -----------------
 
@@ -185,11 +185,10 @@ void MemPatternsForPin::process_traces()
 
     uint64_t lines_read = 0;
     trace_entry_t *p_drtrace = NULL;
-    const int64_t num_buffers = Config::get_instance().get_num_buffers();
-    auto drtrace = std::make_unique<trace_entry_t[]>(num_buffers); // was static (1024 bytes)
+    auto drtrace = std::make_unique<trace_entry_t[]>(_trace_buffer_size); // was static (1024 bytes)
 
     
-    while (drline_read(fp_drtrace, drtrace.get(), &p_drtrace, &iret, num_buffers)) {
+    while (drline_read(fp_drtrace, drtrace.get(), &p_drtrace, &iret, _trace_buffer_size)) {
         //decode drtrace
         drline = p_drtrace;
 
@@ -234,10 +233,9 @@ void MemPatternsForPin::process_second_pass(gzFile & fp_drtrace)
     fflush(stdout);
 
     trace_entry_t *p_drtrace = NULL;
-    const int64_t num_buffers = Config::get_instance().get_num_buffers();
-    auto drtrace = std::make_unique<trace_entry_t[]>(num_buffers); // was static (1024 bytes)
+    auto drtrace = std::make_unique<trace_entry_t[]>(_trace_buffer_size); // was static (1024 bytes)
 
-    while (drline_read(fp_drtrace, drtrace.get(), &p_drtrace, &iret, num_buffers) && !breakout) {
+    while (drline_read(fp_drtrace, drtrace.get(), &p_drtrace, &iret, _trace_buffer_size) && !breakout) {
         //decode drtrace
         drline = p_drtrace;
 

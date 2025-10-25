@@ -27,15 +27,15 @@ namespace gs_patterns
         _cache_line_size = cache_line_size;
     }
 
-    void Config::set_num_buffers(int64_t num_buffers)
+    void Config::set_trace_buffer_size(size_t trace_buffer_size)
     {
-        if (num_buffers < MIN_NUM_BUFFERS || num_buffers > MAX_NUM_BUFFERS ) {
-            throw GSError("Invalid num_buffers");
+        if (trace_buffer_size < MIN_TRACE_BUFFER_SIZE || trace_buffer_size > MAX_TRACE_BUFFER_SIZE ) {
+            throw GSError("Invalid trace_buffer_size");
         }
-        if (!isPowerOf2(num_buffers)) {
-            throw GSError("num_buffers must be power of 2");
+        if (!isPowerOf2(trace_buffer_size)) {
+            throw GSError("trace_buffer_size must be power of 2");
         }
-        _num_buffers = num_buffers;
+        _trace_buffer_size = trace_buffer_size;
     }
 
     void Config::set_instruction_window(size_t instruction_window)
@@ -79,12 +79,12 @@ namespace gs_patterns
         _unique_strides_threshold = unique_strides_threshold;
     }
 
-    void Config::set_num_unique_distances(size_t num_unique_distances)
+    void Config::set_unique_distances_threshold(size_t unique_distances_threshold)
     {
-        if (num_unique_distances < MIN_NUM_UNIQUE_DISTANCES || num_unique_distances > MAX_NUM_UNIQUE_DISTANCES ) {
-            throw GSError("Invalid num_unique_distances");
+        if (unique_distances_threshold < MIN_UNIQUE_DISTANCES_THRESHOLD || unique_distances_threshold > MAX_UNIQUE_DISTANCES_THRESHOLD ) {
+            throw GSError("Invalid unique_distances_threshold");
         }
-        _num_unique_distances = num_unique_distances;
+        _unique_distances_threshold = unique_distances_threshold;
     }
 
     void Config::set_out_threshold(double out_threshold)
@@ -193,8 +193,8 @@ namespace gs_patterns
                 else if (arg == "--cache-line-size" || arg == "-cls") {
                     set_cache_line_size(std::stoull(value));
                 }
-                else if (arg == "--num-buffers" || arg == "-nb") {
-                    set_num_buffers(std::stoll(value));
+                else if (arg == "--trace-buffer-size" || arg == "-tbs") {
+                    set_trace_buffer_size(std::stoll(value));
                 }
                 else if (arg == "--instruction-window" || arg == "-iw") {
                     set_instruction_window(std::stoull(value));
@@ -208,8 +208,8 @@ namespace gs_patterns
                 else if (arg == "--unique-strides-threshold" || arg == "-ust") {
                     set_unique_strides_threshold(std::stoull(value));
                 }
-                else if (arg == "--num-unique-distances" || arg == "-nud") {
-                    set_num_unique_distances(std::stoull(value));
+                else if (arg == "--unique-distances-threshold" || arg == "-udt") {
+                    set_unique_distances_threshold(std::stoull(value));
                 }
                 else if (arg == "--out-threshold" || arg == "-ot") {
                     set_out_threshold(std::stod(value));
@@ -237,7 +237,7 @@ namespace gs_patterns
         }
     }
 
-    void Config::printHelp(const char* program_name /*= "program"*/)
+    void Config::printHelp(const char* program_name)
     {
         const Config& cfg = get_instance();
         constexpr int option_width = 45;
@@ -276,22 +276,22 @@ namespace gs_patterns
                   << "Range: [" << MIN_PER_SAMPLE << ", " << MAX_PER_SAMPLE << "]\n\n";
 
         std::cout << "Info Parameters:\n";
-        // std::cout << "  " << std::left << std::setw(option_width) << "--cache-line-size, -cls <value>"
-        //           << "Cache line size in bytes (default: " << cfg.get_cache_line_size() << ")\n";
-        // std::cout << "  " << std::left << std::setw(option_width) << ""
-        //           << "Range: [" << MIN_CACHE_LINE_SIZE << ", " << MAX_CACHE_LINE_SIZE << "]\n";
-        std::cout << "  " << std::left << std::setw(option_width) << "--num-buffers, -nb <value>"
-                  << "Number of trace buffers (default: " << cfg.get_num_buffers() << ")\n";
-        // std::cout << "  " << std::left << std::setw(option_width) << ""
-        //           << "Range: [" << MIN_NUM_BUFFERS << ", " << MAX_NUM_BUFFERS << "]\n";
-        // std::cout << "  " << std::left << std::setw(option_width) << "--instruction-window, -iw <value>"
-        //           << "Instruction window size (default: " << cfg.get_instruction_window() << ")\n";
-        // std::cout << "  " << std::left << std::setw(option_width) << ""
-        //           << "Range: [" << MIN_INSTRUCTION_WINDOW << ", " << MAX_INSTRUCTION_WINDOW << "]\n";
-        // std::cout << "  " << std::left << std::setw(option_width) << "--max-gather-scatter, -mgs <value>"
-        //           << "Max gather/scatter elements (default: " << cfg.get_max_gather_scatter() << ")\n";
-        // std::cout << "  " << std::left << std::setw(option_width) << ""
-        //           << "Range: [" << MIN_MAX_GATHER_SCATTER << ", " << MAX_MAX_GATHER_SCATTER << "]\n";
+        std::cout << "  " << std::left << std::setw(option_width) << "--cache-line-size, -cls <value>"
+                  << "Cache line size in bytes (default: " << cfg.get_cache_line_size() << ")\n";
+        std::cout << "  " << std::left << std::setw(option_width) << ""
+                  << "Range: [" << MIN_CACHE_LINE_SIZE << ", " << MAX_CACHE_LINE_SIZE << "]\n";
+        std::cout << "  " << std::left << std::setw(option_width) << "--trace-buffer-size, -tbs <value>"
+                  << "Number of trace buffers (default: " << cfg.get_trace_buffer_size() << ")\n";
+        std::cout << "  " << std::left << std::setw(option_width) << ""
+                  << "Range: [" << MIN_TRACE_BUFFER_SIZE << ", " << MAX_TRACE_BUFFER_SIZE << "]\n";
+        std::cout << "  " << std::left << std::setw(option_width) << "--instruction-window, -iw <value>"
+                  << "Instruction window size (default: " << cfg.get_instruction_window() << ")\n";
+        std::cout << "  " << std::left << std::setw(option_width) << ""
+                  << "Range: [" << MIN_INSTRUCTION_WINDOW << ", " << MAX_INSTRUCTION_WINDOW << "]\n";
+        std::cout << "  " << std::left << std::setw(option_width) << "--max-gather-scatter, -mgs <value>"
+                  << "Max gather/scatter elements (default: " << cfg.get_max_gather_scatter() << ")\n";
+        std::cout << "  " << std::left << std::setw(option_width) << ""
+                  << "Range: [" << MIN_MAX_GATHER_SCATTER << ", " << MAX_MAX_GATHER_SCATTER << "]\n";
         std::cout << "  " << std::left << std::setw(option_width) << "--histogram-bounds, -hb <value>"
                   << "Histogram bounds (default: " << cfg.get_histogram_bounds() << ")\n";
         std::cout << "  " << std::left << std::setw(option_width) << ""
@@ -302,18 +302,18 @@ namespace gs_patterns
                   << "Unique strides threshold (default: " << cfg.get_unique_strides_threshold() << ")\n";
         std::cout << "  " << std::left << std::setw(option_width) << ""
                   << "Range: [" << MIN_UNIQUE_STRIDES_THRESHOLD << ", " << MAX_UNIQUE_STRIDES_THRESHOLD << "]\n";
-        std::cout << "  " << std::left << std::setw(option_width) << "--num-unique-distances, -nud <value>"
-                  << "Number of unique distances (default: " << cfg.get_num_unique_distances() << ")\n";
+        std::cout << "  " << std::left << std::setw(option_width) << "--unique-distances-threshold, -udt <value>"
+                  << "Number of unique distances (default: " << cfg.get_unique_distances_threshold() << ")\n";
         std::cout << "  " << std::left << std::setw(option_width) << ""
-                  << "Range: [" << MIN_NUM_UNIQUE_DISTANCES << ", " << MAX_NUM_UNIQUE_DISTANCES << "]\n";
+                  << "Range: [" << MIN_UNIQUE_DISTANCES_THRESHOLD << ", " << MAX_UNIQUE_DISTANCES_THRESHOLD << "]\n";
         std::cout << "  " << std::left << std::setw(option_width) << "--out-threshold, -ot <value>"
                   << "Out threshold (default: " << cfg.get_out_threshold() << ")\n";
         std::cout << "  " << std::left << std::setw(option_width) << ""
                   << "Range: [" << MIN_OUT_THRESHOLD << ", " << MAX_OUT_THRESHOLD << "]\n";
-        // std::cout << "  " << std::left << std::setw(option_width) << "--top-patterns, -tp <value>"
-        //           << "Number of top patterns to keep (default: " << cfg.get_top_patterns() << ")\n";
-        // std::cout << "  " << std::left << std::setw(option_width) << ""
-        //           << "Range: [" << MIN_TOP_PATTERNS << ", " << MAX_TOP_PATTERNS << "]\n";
+        std::cout << "  " << std::left << std::setw(option_width) << "--top-patterns, -tp <value>"
+                  << "Number of top patterns to keep (default: " << cfg.get_top_patterns() << ")\n";
+        std::cout << "  " << std::left << std::setw(option_width) << ""
+                  << "Range: [" << MIN_TOP_PATTERNS << ", " << MAX_TOP_PATTERNS << "]\n";
         std::cout << "  " << std::left << std::setw(option_width) << "--initial-pattern-size, -ips <value>"
                   << "Initial pattern size (default: " << cfg.get_initial_pattern_size() << ")\n";
         std::cout << "  " << std::left << std::setw(option_width) << ""
@@ -322,10 +322,10 @@ namespace gs_patterns
                   << "Maximum pattern size (default: " << cfg.get_max_pattern_size() << ")\n";
         std::cout << "  " << std::left << std::setw(option_width) << ""
                   << "Range: [" << MIN_PATTERN_SIZE << ", " << MAX_PATTERN_SIZE << "]\n";
-        // std::cout << "  " << std::left << std::setw(option_width) << "--max-line-length, -mll <value>"
-        //           << "Maximum line length (default: " << cfg.get_max_line_length() << ")\n";
-        // std::cout << "  " << std::left << std::setw(option_width) << ""
-        //           << "Range: [" << MIN_MAX_LINE_LENGTH << ", " << MAX_MAX_LINE_LENGTH << "]\n\n";
+        std::cout << "  " << std::left << std::setw(option_width) << "--max-line-length, -mll <value>"
+                  << "Maximum line length (default: " << cfg.get_max_line_length() << ")\n";
+        std::cout << "  " << std::left << std::setw(option_width) << ""
+                  << "Range: [" << MIN_MAX_LINE_LENGTH << ", " << MAX_MAX_LINE_LENGTH << "]\n\n";
 
         std::cout << "Note: Most numeric values must be powers of 2.\n"
                   << "      Exceptions: out-threshold, num-unique-distances, and top-patterns.\n\n";

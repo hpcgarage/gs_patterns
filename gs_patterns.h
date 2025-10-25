@@ -198,12 +198,7 @@ namespace gs_patterns
             _iaddrs(std::make_unique<addr_t[]>(2 * _max_gather_scatter)),
             _icnt(std::make_unique<int64_t[]>(2 * _max_gather_scatter)),
             _occ(std::make_unique<int64_t[]>(2 * _max_gather_scatter))
-        {
-            // Zero initialize arrays
-            std::fill_n(_iaddrs.get(), 2 * _max_gather_scatter, 0);
-            std::fill_n(_icnt.get(),   2 * _max_gather_scatter, 0);
-            std::fill_n(_occ.get(),    2 * _max_gather_scatter, 0);
-        }
+        {}
         ~InstrInfo() = default;
 
         InstrInfo(const InstrInfo &) = delete;

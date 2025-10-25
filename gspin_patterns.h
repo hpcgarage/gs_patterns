@@ -88,13 +88,22 @@ namespace gspin_patterns
     {
     public:
         MemPatternsForPin(
+                            size_t unique_distances_threshold = Config::get_instance().get_unique_distances_threshold(),
+                            double out_threshold = Config::get_instance().get_out_threshold(),
+                            size_t unique_strides_threshold = Config::get_instance().get_unique_strides_threshold(),
+                            size_t trace_buffer_size = Config::get_instance().get_trace_buffer_size(),
                             size_t max_gather_scatter = Config::get_instance().get_max_gather_scatter(),
                             size_t top_patterns = Config::get_instance().get_top_patterns()
                          ):
+                    _unique_distances_threshold(unique_distances_threshold),
+                    _out_threshold(out_threshold),
+                    _unique_strides_threshold(unique_strides_threshold),
+                    _trace_buffer_size(trace_buffer_size),
                     _top_patterns(top_patterns),
                     _max_gather_scatter(max_gather_scatter),
                     _metrics(GATHER, SCATTER),
                     _iinfo(GATHER, SCATTER) { }
+
         virtual ~MemPatternsForPin() override { }
 
         void handle_trace_entry(const InstrAddrAdapter & ia) override;
@@ -130,6 +139,10 @@ namespace gspin_patterns
         void process_second_pass(gzFile & fp_drtrace);
 
     private:
+        size_t _unique_distances_threshold;
+        double _out_threshold;
+        size_t _unique_strides_threshold;
+        size_t _trace_buffer_size;
         size_t _top_patterns;
         size_t _max_gather_scatter;
         std::pair<Metrics, Metrics>     _metrics;

@@ -37,13 +37,13 @@ namespace gs_patterns
         // getters implemented in line for performance
         [[nodiscard]] size_t get_per_sample() const { return _per_sample; }
         [[nodiscard]] size_t get_cache_line_size() const { return _cache_line_size; }
-        [[nodiscard]] int64_t get_num_buffers() const { return _num_buffers; }
+        [[nodiscard]] size_t get_trace_buffer_size() const { return _trace_buffer_size; }
         [[nodiscard]] size_t get_instruction_window() const { return _instruction_window; }
         [[nodiscard]] size_t get_max_gather_scatter() const { return _max_gather_scatter; }
         [[nodiscard]] size_t get_histogram_bounds() const { return _histogram_bounds; }
         [[nodiscard]] size_t get_histogram_bounds_alloc() const { return 2 * _histogram_bounds + 3; }
         [[nodiscard]] size_t get_unique_strides_threshold() const { return _unique_strides_threshold; }
-        [[nodiscard]] size_t get_num_unique_distances() const { return _num_unique_distances; }
+        [[nodiscard]] size_t get_unique_distances_threshold() const { return _unique_distances_threshold; }
         [[nodiscard]] double get_out_threshold() const { return _out_threshold; }
         [[nodiscard]] size_t get_top_patterns() const { return _top_patterns; }
         [[nodiscard]] size_t get_initial_pattern_size() const { return _initial_pattern_size; }
@@ -53,12 +53,12 @@ namespace gs_patterns
         // setters
         void set_per_sample(size_t per_sample);
         void set_cache_line_size(size_t cache_line_size);
-        void set_num_buffers(int64_t num_buffers);
+        void set_trace_buffer_size(size_t trace_buffer_size);
         void set_instruction_window(size_t instruction_window);
         void set_max_gather_scatter(size_t max_gather_scatter);
         void set_histogram_bounds(size_t histogram_bounds);
         void set_unique_strides_threshold(size_t unique_strides_threshold);
-        void set_num_unique_distances(size_t num_unique_distances);
+        void set_unique_distances_threshold(size_t unique_distances_threshold);
         void set_out_threshold(double out_threshold);
         void set_top_patterns(size_t top_patterns);
         void set_initial_pattern_size(size_t initial_pattern_size);
@@ -80,18 +80,18 @@ namespace gs_patterns
 
         // info
         size_t _cache_line_size = 64;
-        int64_t _num_buffers = 1LL << 10;
-        size_t _instruction_window = 1024;
-        size_t _max_gather_scatter = 8096;
-        size_t _histogram_bounds = 512;
+        size_t _trace_buffer_size = 1LL << 10; //trace reading buffer size
+        size_t _instruction_window = 1024; //number of iaddrs per window
+        size_t _max_gather_scatter = 8096; //max number for gathers and scatters
+        size_t _histogram_bounds = 512; //histogram positive max
 
         // patterns
-        size_t _unique_strides_threshold = 1024;
-        size_t _num_unique_distances = 15;
-        double _out_threshold = 0.5;
-        size_t _top_patterns = 10;
+        size_t _unique_strides_threshold = 1024; //Threshold for number of accesses
+        size_t _unique_distances_threshold = 15;  //Threshold for number of unique distances
+        double _out_threshold = 0.5; //Threshold for percentage of distances at boundaries of histogram
+        size_t _top_patterns = 10;  //Final gather / scatters to keep
         size_t _initial_pattern_size = 1 << 15;
-        size_t _max_pattern_size = 1 << 30;
+        size_t _max_pattern_size = 1 << 30; //Max number of indices recorded per gather/scatter
 
         size_t _max_line_length = 1024;
 
@@ -105,8 +105,8 @@ namespace gs_patterns
         static constexpr size_t MIN_CACHE_LINE_SIZE = 16;
         static constexpr size_t MAX_CACHE_LINE_SIZE = 512;
 
-        static constexpr int64_t MIN_NUM_BUFFERS = 1;
-        static constexpr int64_t MAX_NUM_BUFFERS = 1LL << 20;   // Over 1 million buffers
+        static constexpr size_t MIN_TRACE_BUFFER_SIZE = 1;
+        static constexpr size_t MAX_TRACE_BUFFER_SIZE = 1LL << 20;   // Over 1 million buffers
 
         static constexpr size_t MIN_INSTRUCTION_WINDOW = 16;
         static constexpr size_t MAX_INSTRUCTION_WINDOW = 1LL << 17; // 131,072 instructions
@@ -121,8 +121,8 @@ namespace gs_patterns
         static constexpr size_t MIN_UNIQUE_STRIDES_THRESHOLD = 16;
         static constexpr size_t MAX_UNIQUE_STRIDES_THRESHOLD = 1LL << 16; // 65,536
 
-        static constexpr size_t MIN_NUM_UNIQUE_DISTANCES = 1;
-        static constexpr size_t MAX_NUM_UNIQUE_DISTANCES = 128;
+        static constexpr size_t MIN_UNIQUE_DISTANCES_THRESHOLD = 1;
+        static constexpr size_t MAX_UNIQUE_DISTANCES_THRESHOLD = 128;
 
         static constexpr double MIN_OUT_THRESHOLD = 0.0;
         static constexpr double MAX_OUT_THRESHOLD = 1.0;

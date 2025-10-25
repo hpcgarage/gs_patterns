@@ -119,12 +119,18 @@ namespace gsnv_patterns
 
 
         explicit MemPatternsForNV(
-                                    size_t num_buffers = Config::get_instance().get_num_buffers(),
+                                    size_t trace_buffer_size = Config::get_instance().get_trace_buffer_size(),
                                     size_t top_patterns = Config::get_instance().get_top_patterns(),
                                     size_t max_gather_scatter = Config::get_instance().get_max_gather_scatter(),
-                                    size_t max_line_length = Config::get_instance().get_max_line_length()
+                                    size_t max_line_length = Config::get_instance().get_max_line_length(),
+                                    size_t unique_distances_threshold = Config::get_instance().get_unique_distances_threshold(),
+                                    double out_threshold = Config::get_instance().get_out_threshold(),
+                                    size_t unique_strides_threshold = Config::get_instance().get_unique_strides_threshold()
                                 ):
-                            _num_buffers(num_buffers),
+                            _unique_distances_threshold(unique_distances_threshold),
+                            _out_threshold(out_threshold),
+                            _unique_strides_threshold(unique_strides_threshold),
+                            _trace_buffer_size(trace_buffer_size),
                             _top_patterns(top_patterns),
                             _max_line_length(max_line_length),
                             _max_gather_scatter(max_gather_scatter),
@@ -225,7 +231,10 @@ namespace gsnv_patterns
         bool convert_to_trace_entry(const mem_access_t & ma, bool ignore_partial_warps, std::vector<trace_entry_t> & te_list);
 
     private:
-        size_t _num_buffers;
+        size_t _unique_distances_threshold;
+        double _out_threshold;
+        size_t _unique_strides_threshold;
+        size_t _trace_buffer_size;
         size_t _top_patterns;
         size_t _max_line_length;
         size_t _max_gather_scatter;
