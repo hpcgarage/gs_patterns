@@ -19,6 +19,7 @@
 #include "gs_patterns.h"
 #include "gs_patterns_core.h"
 #include "utils.h"
+#include "config.h"
 
 // Enable to use a vector for storing trace data for use by second pass (if not defined data is stored to a temp file
 //#define USE_VECTOR_FOR_SECOND_PASS 1
@@ -117,10 +118,17 @@ namespace gsnv_patterns
         static constexpr const char * GSNV_ONE_WARP_MODE   = "GSNV_ONE_WARP_MODE";
 
 
-        MemPatternsForNV(): _metrics(GATHER, SCATTER),
+        explicit MemPatternsForNV(
+                                    size_t max_gather_scatter = Config::get_instance().get_max_gather_scatter(),
+                                    size_t max_line_length = Config::get_instance().get_max_line_length()
+                                ):
+                            _max_line_length(max_line_length),
+                            _max_gather_scatter(max_gather_scatter),
+                            _metrics(GATHER, SCATTER),
                             _iinfo(GATHER, SCATTER),
                             _target_opcodes { "LD", "ST", "LDS", "STS", "LDG", "STG" }
         { }
+
 
         virtual ~MemPatternsForNV() override {  }
 
@@ -213,7 +221,8 @@ namespace gsnv_patterns
         bool convert_to_trace_entry(const mem_access_t & ma, bool ignore_partial_warps, std::vector<trace_entry_t> & te_list);
 
     private:
-
+        size_t _max_line_length;
+        size_t _max_gather_scatter;
         std::pair<Metrics, Metrics>        _metrics;
         std::pair<InstrInfo, InstrInfo>    _iinfo;
         TraceInfo                          _trace_info;

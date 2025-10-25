@@ -398,7 +398,7 @@ double MemPatternsForNV::update_source_lines_from_binary(mem_access_type mType)
     InstrInfo & target_iinfo   = get_iinfo(mType);
     Metrics &   target_metrics = get_metrics(mType);
 
-    for (int k = 0; k < NGS; k++) {
+    for (int k = 0; k < _max_gather_scatter; k++) {
 
         if (0 == target_iinfo.get_iaddrs()[k]) {
             break;
@@ -406,7 +406,7 @@ double MemPatternsForNV::update_source_lines_from_binary(mem_access_type mType)
 
         std::string line;
         line = addr_to_line(target_iinfo.get_iaddrs()[k]);
-        strncpy(target_metrics.get_srcline().get(k), line.c_str(), MAX_LINE_LENGTH-1);
+        strncpy(target_metrics.get_srcline().get(k), line.c_str(), _max_line_length-1);
 
         if (std::string(target_metrics.get_srcline().get(k)).empty())
             target_iinfo.get_icnt()[k] = 0;
