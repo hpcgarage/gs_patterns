@@ -20,10 +20,6 @@
 //info
 // #define CLSIZE (64) //cacheline bytes - Unused - available via Config::get_instance().get_cache_line_size()
 
-
-#define MAX_LINE_LENGTH 1024 // Used as compile time constant for
-// sizing static arrays - skipping for now
-
 #if !defined(VBITS)
 # define VBITS (512L)
 # define VBYTES (VBITS/8)
