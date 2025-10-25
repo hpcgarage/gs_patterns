@@ -43,15 +43,17 @@ namespace gs_patterns_core
 
     void create_metrics_file(FILE * fp, FILE * fp2, const std::string & file_prefix, Metrics & target_metrics, bool & first_spatter)
     {
+        size_t obounds = Config::get_instance().get_histogram_bounds();
+        size_t obounds_alloc = Config::get_instance().get_histogram_bounds_alloc();
         int i = 0;
         int j = 0;
 
         //Create stride histogram and create spatter
         int sidx;
-	int firstgs = 1;
+	    int firstgs = 1;
         int unique_strides;
-	int64_t hbin = 0;
-        int64_t n_stride[OBOUNDS_ALLOC];
+	    int64_t hbin = 0;
+        auto n_stride = std::make_unique<int64_t[]>(obounds_alloc);
         double outbounds;
 
         if (file_prefix.empty()) throw GSFileError ("Empty file prefix provided.");
@@ -63,23 +65,23 @@ namespace gs_patterns_core
             printf("***************************************************************************************\n");
 
             unique_strides = 0;
-            for (j = 0; j < OBOUNDS_ALLOC; j++)
+            for (j = 0; j < obounds_alloc; j++)
                 n_stride[j] = 0;
 
             for (j = 1; j < target_metrics.offset[i]; j++) {
-                sidx = target_metrics.patterns[i][j] - target_metrics.patterns[i][j - 1] + OBOUNDS + 1;
+                sidx = target_metrics.patterns[i][j] - target_metrics.patterns[i][j - 1] + obounds + 1;
                 sidx = (sidx < 1) ? 0 : sidx;
-                sidx = (sidx > OBOUNDS_ALLOC - 1) ? OBOUNDS_ALLOC - 1 : sidx;
+                sidx = (sidx > obounds_alloc - 1) ? obounds_alloc - 1 : sidx;
                 n_stride[sidx]++;
             }
 
-            for (j = 0; j < OBOUNDS_ALLOC; j++) {
+            for (j = 0; j < obounds_alloc; j++) {
                 if (n_stride[j] > 0) {
                     unique_strides++;
                 }
             }
 
-            outbounds = (double) (n_stride[0] + n_stride[OBOUNDS_ALLOC-1]) / (double) target_metrics.offset[i];
+            outbounds = (double) (n_stride[0] + n_stride[obounds_alloc-1]) / (double) target_metrics.offset[i];
 
             if (((unique_strides > Config::get_instance().get_num_unique_distances()) || (outbounds > Config::get_instance().get_out_threshold())  && (target_metrics.offset[i] > Config::get_instance().get_unique_strides_threshold() ) )) {
 		//if (true) {
@@ -135,21 +137,21 @@ namespace gs_patterns_core
                 printf("DIST HISTOGRAM --\n");
 
 	        hbin = 0;
-	        for(j=0; j<OBOUNDS_ALLOC; j++) {
+	        for(j=0; j<obounds_alloc; j++) {
 	
 		 if (j == 0) {
 		   printf("( -inf, %5ld]: %ld\n", (int64_t)(-(VBITS+1)), n_stride[j]);
 		   hbin = 0;
 	  
-		 } else if (j == OBOUNDS +1) {
+		 } else if (j == obounds +1) {
 		   printf("[%5ld,     0): %ld\n", (int64_t)-VBITS, hbin);
 		   hbin = 0;
 	  
-		 } else if (j == (OBOUNDS_ALLOC-2) ) {
+		 } else if (j == (obounds_alloc - 2) ) {
 		   printf("[    0, %5ld]: %ld\n", VBITS, hbin);
 		   hbin = 0;	      
 	  
-		 } else if (j == (OBOUNDS_ALLOC-1)) {
+		 } else if (j == (obounds_alloc - 1)) {
 		   printf("[%5ld,   inf): %ld\n", VBITS+1, n_stride[j]);
 	  
 		 } else {
