@@ -17,29 +17,29 @@ namespace gs_patterns_core
 
     void translate_iaddr(const std::string & binary, char * source_line, addr_t iaddr)
     {
-        char path[MAX_LINE_LENGTH];
-        char cmd[MAX_LINE_LENGTH];
+        auto max_line_length = Config::get_instance().get_max_line_length();
+        auto path = std::make_unique<char[]>(max_line_length);
+        auto cmd = std::make_unique<char[]>(max_line_length);
+
         FILE *fp;
 
-        sprintf(cmd, "addr2line -e %s 0x%lx", binary.c_str(), iaddr);
+        sprintf(cmd.get(), "addr2line -e %s 0x%lx", binary.c_str(), iaddr);
 
         /* Open the command for reading. */
-        fp = popen(cmd, "r");
+        fp = popen(cmd.get(), "r");
         if (NULL == fp) {
             throw GSError("Failed to run command");
         }
 
         /* Read the output a line at a time - output it. */
-        while (fgets(path, sizeof(path), fp) != NULL) {
-            strcpy(source_line, path);
+        while (fgets(path.get(), sizeof(path), fp) != NULL) {
+            strcpy(source_line, path.get());
             source_line[strcspn(source_line, "\n")] = 0;
         }
 
         /* close */
         pclose(fp);
-
-        return;
-    }
+   }
 
     void create_metrics_file(FILE * fp, FILE * fp2, const std::string & file_prefix, Metrics & target_metrics, bool & first_spatter)
     {
