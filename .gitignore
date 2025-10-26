@@ -34,3 +34,5 @@
 #Build and pin directories
 /build
 /pin_dir
+#Examples directory
+/examples/spmv/datasets
