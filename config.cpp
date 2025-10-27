@@ -246,7 +246,10 @@ namespace gs_patterns
         std::cout << "\nUsage:\n"
                   << "  " << program_name << " [options] <trace.gz> [<binary>|-nv]\n\n"
                   << "  Options accept both '--opt value' and '--opt=value' formats.\n"
-                  << "  Argument parsing stops at '--'. A lone '-' is treated as stdin/stdout.\n\n";
+                  << "  Argument parsing stops at '--'.\n\n";
+        // Could add, if implemented in the future
+        // A lone '-' is treated as stdin/stdout.
+        // current parser skips '-', but treating it as stdin/stdout is not yet implemented
 
         // (from README) ---
         std::cout << "Invocation:\n"
