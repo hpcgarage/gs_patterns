@@ -228,7 +228,7 @@ VOID ThreadFini(THREADID threadIndex, const CONTEXT* ctxt, INT32 code, VOID* v) 
   printf("PIN --   TOTAL Instrs      %lu\n", gIcnt);
   printf("PIN --   ROI Instrs      %lu\n", Icnt);
   printf("PIN --   ROI MemInstrs   %lu\n", Mcnt);
-  printf("PIN --   File            inscount.out\n");  
+  printf("PIN --   File            inscount.out\n");
   printf("PIN -- \n");
 
 }
@@ -291,6 +291,7 @@ VOID Routine(RTN rtn, VOID *v) {
   const CHAR * name = RTN_Name(rtn).c_str();
 
   // Check for the START function
+  std::cout << name << std::endl;
   if (strcmp(name, "PINTOOL_ROI_START") == 0) {
     RTN_Open(rtn);
     // At the BEGINNING of the START function, call StartROI
