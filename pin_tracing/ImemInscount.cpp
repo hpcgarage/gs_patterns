@@ -4,6 +4,7 @@
 #include <fstream>
 #include <unistd.h>
 #include <dirent.h>
+#include <map>
 #include "pin.H"
 
 #define MAXBYTES (1LL<<37) //32GiB
@@ -26,7 +27,7 @@ UINT64 Mcnt = 0;
 UINT64 gIcnt = 0;
 UINT64 gMcnt_global = 0;
 UINT64 gMcnt_ROI = 0;
-
+std::map<std::string, u_int64_t> gs_count_map;
 
 #define PADSIZE 56 // 64 byte line size: 64-8
 #define NBUFS (1024)
@@ -235,6 +236,14 @@ VOID ThreadFini(THREADID threadIndex, const CONTEXT* ctxt, INT32 code, VOID* v) 
 
   printf("PIN --   File            inscount.out\n");
   printf("PIN -- \n");
+  printf("PIN -- G/S Instructions per Function (ROI):\n");
+  // Iterate over the map and print the counts
+  for (std::map<std::string, UINT64>::iterator it = gs_count_map.begin(); it != gs_count_map.end(); ++it) {
+    // it->first is the function name (string)
+    // it->second is the count (UINT64)
+    printf("PIN --   %-60s : %lu\n", it->first.c_string(), it->second);
+  }
+  printf("PIN -- \n");
 
 }
 
@@ -335,7 +344,7 @@ VOID RecordInstr(VOID * ip, USIZE bsize, THREADID threadid) {
 
 }
 
-VOID RecordMemScattered(IMULTI_ELEMENT_OPERAND* memOpInfo, THREADID threadid) {
+VOID RecordMemScattered(IMULTI_ELEMENT_OPERAND* memOpInfo, THREADID threadid, const CHAR * rtn_name) {
   
   if (!doTrace)
     return;
@@ -350,7 +359,8 @@ VOID RecordMemScattered(IMULTI_ELEMENT_OPERAND* memOpInfo, THREADID threadid) {
   if(!isROI)
     return;
   gMcnt_ROI++;
-            
+  // increase count for g/s for this function
+  gs_count_map[rtn_name]++;
   for (UINT32 j = 0; j < memOpInfo->NumOfElements(); j++) {
     
     Mcnt++;
@@ -377,11 +387,12 @@ VOID Instruction(INS ins, VOID *v) {
   Isize = INS_Size (ins);
   
     // Get routine name if valid
-  //const CHAR * name = "invalid";
+  const CHAR * name = "invalid";
+
   
-  //if(RTN_Valid(INS_Rtn(ins))) {
-  //  name = RTN_Name(INS_Rtn(ins)).c_str();
-  //}
+  if(RTN_Valid(INS_Rtn(ins))) {
+    name = RTN_Name(INS_Rtn(ins)).c_str();
+  }
   
   INS_InsertPredicatedCall(
 			   ins, IPOINT_BEFORE, (AFUNPTR)RecordInstr,
@@ -403,6 +414,7 @@ VOID Instruction(INS ins, VOID *v) {
 	      INS_InsertCall( ins, IPOINT_BEFORE, (AFUNPTR)RecordMemScattered,
 			      IARG_MULTI_ELEMENT_OPERAND, op,
 			      IARG_THREAD_ID,
+			      IARG_PTR, name,
 			      IARG_END);
             }
         }
