@@ -238,18 +238,18 @@ VOID ThreadFini(THREADID threadIndex, const CONTEXT* ctxt, INT32 code, VOID* v) 
   printf("PIN -- \n");
   printf("PIN -- G/S Instructions per Function (ALL):\n");
   // Iterate over the map and print the counts
-  for (std::map<std::string, UINT64>::iterator it = gs_count_map_all.begin(); it != gs_count_map_all.end(); ++it) {
+  for (std::map<std::string, u_int64_t>::iterator it = gs_count_map_all.begin(); it != gs_count_map_all.end(); ++it) {
     // it->first is the function name (string)
     // it->second is the count (UINT64)
-    printf("PIN --   %-60s : %lu\n", it->first.c_string(), it->second);
+    printf("PIN --   %-60s : %lu\n", it->first.c_str(), it->second);
   }
   printf("PIN -- \n");
   printf("PIN -- G/S Instructions per Function (ROI):\n");
   // Iterate over the map and print the counts
-  for (std::map<std::string, UINT64>::iterator it = gs_count_map_roi.begin(); it != gs_count_map_roi.end(); ++it) {
+  for (std::map<std::string, u_int64_t>::iterator it = gs_count_map_roi.begin(); it != gs_count_map_roi.end(); ++it) {
     // it->first is the function name (string)
     // it->second is the count (UINT64)
-    printf("PIN --   %-60s : %lu\n", it->first.c_string(), it->second);
+    printf("PIN --   %-60s : %lu\n", it->first.c_str(), it->second);
   }
   printf("PIN -- \n");
 
@@ -313,7 +313,6 @@ VOID Routine(RTN rtn, VOID *v) {
   const CHAR * name = RTN_Name(rtn).c_str();
 
   // Check for the START function
-  std::cout << name << std::endl;
   if (strcmp(name, "PINTOOL_ROI_START") == 0) {
     RTN_Open(rtn);
     // At the BEGINNING of the START function, call StartROI
