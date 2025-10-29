@@ -27,8 +27,8 @@ UINT64 Mcnt = 0;
 UINT64 gIcnt = 0;
 UINT64 gMcnt_global = 0;
 UINT64 gMcnt_ROI = 0;
-std::map<std::string, u_int64_t> gs_count_map;
-
+std::map<std::string, u_int64_t> gs_count_map_roi;
+std::map<std::string, u_int64_t> gs_count_map_all;
 #define PADSIZE 56 // 64 byte line size: 64-8
 #define NBUFS (1024)
 INT32 numThreads = 0;
@@ -236,9 +236,17 @@ VOID ThreadFini(THREADID threadIndex, const CONTEXT* ctxt, INT32 code, VOID* v) 
 
   printf("PIN --   File            inscount.out\n");
   printf("PIN -- \n");
+  printf("PIN -- G/S Instructions per Function (ALL):\n");
+  // Iterate over the map and print the counts
+  for (std::map<std::string, UINT64>::iterator it = gs_count_map_all.begin(); it != gs_count_map_all.end(); ++it) {
+    // it->first is the function name (string)
+    // it->second is the count (UINT64)
+    printf("PIN --   %-60s : %lu\n", it->first.c_string(), it->second);
+  }
+  printf("PIN -- \n");
   printf("PIN -- G/S Instructions per Function (ROI):\n");
   // Iterate over the map and print the counts
-  for (std::map<std::string, UINT64>::iterator it = gs_count_map.begin(); it != gs_count_map.end(); ++it) {
+  for (std::map<std::string, UINT64>::iterator it = gs_count_map_roi.begin(); it != gs_count_map_roi.end(); ++it) {
     // it->first is the function name (string)
     // it->second is the count (UINT64)
     printf("PIN --   %-60s : %lu\n", it->first.c_string(), it->second);
@@ -356,11 +364,12 @@ VOID RecordMemScattered(IMULTI_ELEMENT_OPERAND* memOpInfo, THREADID threadid, co
     return;
 
   gMcnt_global++;
+  gs_count_map_all[rtn_name]++;
   if(!isROI)
     return;
   gMcnt_ROI++;
   // increase count for g/s for this function
-  gs_count_map[rtn_name]++;
+  gs_count_map_roi[rtn_name]++;
   for (UINT32 j = 0; j < memOpInfo->NumOfElements(); j++) {
     
     Mcnt++;
