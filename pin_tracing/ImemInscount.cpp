@@ -24,7 +24,9 @@ UINT64 ROI_B = 0;
 UINT64 Icnt = 0;
 UINT64 Mcnt = 0;
 UINT64 gIcnt = 0;
-UINT64 gMcnt = 0;
+UINT64 gMcnt_global = 0;
+UINT64 gMcnt_ROI = 0;
+
 
 #define PADSIZE 56 // 64 byte line size: 64-8
 #define NBUFS (1024)
@@ -226,8 +228,11 @@ VOID ThreadFini(THREADID threadIndex, const CONTEXT* ctxt, INT32 code, VOID* v) 
   fclose(fp);
   //printf("PIN -- Instrs = %lu -  %lu\n", ROI_A, ROI_B);
   printf("PIN --   TOTAL Instrs      %lu\n", gIcnt);
+  printf("PIN --   TOTAL G/S MemInstrs   %lu\n", gMcnt_global);
   printf("PIN --   ROI Instrs      %lu\n", Icnt);
-  printf("PIN --   ROI MemInstrs   %lu\n", Mcnt);
+  //printf("PIN --   ROI MemInstrs   %lu\n", Mcnt); // this opens the g/s and count each, skipping for now
+  printf("PIN --   ROI G/S MemInstrs   %lu\n", gMcnt_ROI);
+
   printf("PIN --   File            inscount.out\n");
   printf("PIN -- \n");
 
@@ -340,9 +345,11 @@ VOID RecordMemScattered(IMULTI_ELEMENT_OPERAND* memOpInfo, THREADID threadid) {
       
   if (stopTrace)
     return;
-  
+
+  gMcnt_global++;
   if(!isROI)
     return;
+  gMcnt_ROI++;
             
   for (UINT32 j = 0; j < memOpInfo->NumOfElements(); j++) {
     
