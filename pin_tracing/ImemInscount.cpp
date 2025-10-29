@@ -15,7 +15,7 @@ bool isActive[MAXTHREADS] = {false};
 //pe
 bool doTrace = true;
 bool stopTrace = false;
-bool isROI = true;
+bool isROI = false;
 INT32 pid;
 INT32 nfuncs = 0;
 INT64 totalbytes = 0;
@@ -225,6 +225,7 @@ VOID ThreadFini(THREADID threadIndex, const CONTEXT* ctxt, INT32 code, VOID* v) 
   fprintf(fp, "Count %lu\n", gIcnt);
   fclose(fp);
   //printf("PIN -- Instrs = %lu -  %lu\n", ROI_A, ROI_B);
+  printf("PIN --   TOTAL Instrs      %lu\n", gIcnt);
   printf("PIN --   ROI Instrs      %lu\n", Icnt);
   printf("PIN --   ROI MemInstrs   %lu\n", Mcnt);
   printf("PIN --   File            inscount.out\n");  
@@ -268,6 +269,42 @@ VOID RecordMemWrite(VOID * ip, VOID * addr, USIZE bsize, THREADID threadid) {
     return;
     
   Mcnt++;
+}
+
+// Set ROI flag
+VOID StartROI() {
+  printf("PIN: ROI Start\n");
+  fflush(stdout);
+  isROI = true;
+}
+
+// Set ROI flag
+VOID StopROI() {
+  printf("PIN: ROI End\n");
+  fflush(stdout);
+  isROI = false;
+}
+
+VOID Routine(RTN rtn, VOID *v) {
+
+  // Get routine name
+  const CHAR * name = RTN_Name(rtn).c_str();
+
+  // Check for the START function
+  if (strcmp(name, "PINTOOL_ROI_START") == 0) {
+    RTN_Open(rtn);
+    // At the BEGINNING of the START function, call StartROI
+    RTN_InsertCall(rtn, IPOINT_BEFORE, (AFUNPTR)StartROI, IARG_END);
+    RTN_Close(rtn);
+  }
+
+  // Check for the STOP function
+  if (strcmp(name, "PINTOOL_ROI_END") == 0) {
+    RTN_Open(rtn);
+    // At the BEGINNING of the STOP function, call StopROI
+    RTN_InsertCall(rtn, IPOINT_BEFORE, (AFUNPTR)StopROI, IARG_END);
+    RTN_Close(rtn);
+  }
 }
 
 //VOID RecordInstr(VOID * ip, USIZE bsize, VOID * rtn) {
@@ -451,6 +488,9 @@ int main(int argc, char *argv[]) {
     
   // Add instrument functions
   INS_AddInstrumentFunction(Instruction, 0);
+
+  // Add routine function
+  RTN_AddInstrumentFunction(Routine, 0);
   
   // Never returns
   PIN_StartProgram();
