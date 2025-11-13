@@ -41,7 +41,8 @@ namespace gs_patterns_core
         pclose(fp);
    }
 
-    void create_metrics_file(FILE * fp, FILE * fp2, const std::string & file_prefix, Metrics & target_metrics, bool & first_spatter, size_t unique_distances_threshold, double out_threshold, size_t unique_strides_threshold)
+    void create_metrics_file(FILE * fp, FILE * fp2, const std::string & file_prefix, Metrics & target_metrics, bool & first_spatter,
+        size_t unique_distances_threshold, double out_threshold, size_t unique_strides_threshold, size_t histogram_bounds)
     {
         size_t obounds = Config::get_instance().get_histogram_bounds();
         size_t obounds_alloc = Config::get_instance().get_histogram_bounds_alloc();
@@ -137,21 +138,22 @@ namespace gs_patterns_core
         printf("DIST HISTOGRAM --\n");
 
 	    hbin = 0;
+        int64_t print_bounds = (int64_t)histogram_bounds;
 	    for(j=0; j<obounds_alloc; j++) {
 		     if (j == 0) {
-		       printf("( -inf, %5ld]: %ld\n", (int64_t)(-(VBITS+1)), n_stride[j]);
+		       printf("( -inf, %5ld]: %ld\n", -(print_bounds+1), n_stride[j]);
 		       hbin = 0;
 
 		     } else if (j == obounds +1) {
-		       printf("[%5ld,     0): %ld\n", (int64_t)-VBITS, hbin);
+		       printf("[%5ld,     0): %ld\n", -print_bounds, hbin);
 		       hbin = 0;
 
 		     } else if (j == (obounds_alloc - 2) ) {
-		       printf("[    0, %5ld]: %ld\n", VBITS, hbin);
+		       printf("[    0, %5ld]: %ld\n", print_bounds, hbin);
 		       hbin = 0;
 
 		     } else if (j == (obounds_alloc - 1)) {
-		       printf("[%5ld,   inf): %ld\n", VBITS+1, n_stride[j]);
+		       printf("[%5ld,   inf): %ld\n", print_bounds+1, n_stride[j]);
 
 		     } else {
 		       hbin += n_stride[j];

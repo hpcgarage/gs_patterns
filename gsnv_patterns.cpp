@@ -162,7 +162,7 @@ void MemPatternsForNV::generate_patterns()
 
     // ----------------- Create Spatter File -----------------
 
-    create_spatter_file<MEMORY_ACCESS_SIZE>(*this, get_file_prefix(),_unique_distances_threshold, _out_threshold, _unique_strides_threshold);
+    create_spatter_file<MEMORY_ACCESS_SIZE>(*this, get_file_prefix(),_unique_distances_threshold, _out_threshold, _unique_strides_threshold, _histogram_bounds);
 
 }
 
