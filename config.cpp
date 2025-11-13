@@ -21,9 +21,9 @@ namespace gs_patterns
         if (cache_line_size < MIN_CACHE_LINE_SIZE || cache_line_size > MAX_CACHE_LINE_SIZE ) {
             throw gs_patterns::GSError("Invalid cache_line_size");
         }
-        if (!isPowerOf2(cache_line_size)) {
-            throw GSError("cache_line_size must be power of 2");
-        }
+        // if (!isPowerOf2(cache_line_size)) {
+        //     throw GSError("cache_line_size must be power of 2");
+        // }
         _cache_line_size = cache_line_size;
     }
 
@@ -32,9 +32,6 @@ namespace gs_patterns
         if (trace_buffer_size < MIN_TRACE_BUFFER_SIZE || trace_buffer_size > MAX_TRACE_BUFFER_SIZE ) {
             throw GSError("Invalid trace_buffer_size");
         }
-        if (!isPowerOf2(trace_buffer_size)) {
-            throw GSError("trace_buffer_size must be power of 2");
-        }
         _trace_buffer_size = trace_buffer_size;
     }
 
@@ -42,9 +39,6 @@ namespace gs_patterns
     {
         if (iaddr_per_window < MIN_IADDR_PER_WINDOW || iaddr_per_window > MAX_IADDR_PER_WINDOW ) {
             throw GSError("Invalid iaddr_per_window");
-        }
-        if (!isPowerOf2(iaddr_per_window)) {
-            throw GSError("iaddr_per_window must be power of 2");
         }
         _iaddr_per_window = iaddr_per_window;
     }
@@ -61,9 +55,6 @@ namespace gs_patterns
     {
         if (histogram_bounds < MIN_HISTOGRAM_BOUNDS || histogram_bounds > MAX_HISTOGRAM_BOUNDS ) {
             throw GSError("Invalid histogram_bounds");
-        }
-        if (!isPowerOf2(histogram_bounds)) {
-            throw GSError("histogram_bounds must be power of 2");
         }
         _histogram_bounds = histogram_bounds;
     }
@@ -105,9 +96,6 @@ namespace gs_patterns
         if (initial_pattern_size < MIN_PATTERN_SIZE || initial_pattern_size > MAX_PATTERN_SIZE ) {
             throw GSError("Invalid initial_pattern_size");
         }
-        if (!isPowerOf2(initial_pattern_size)) {
-            throw GSError("initial_pattern_size must be power of 2");
-        }
         _initial_pattern_size = initial_pattern_size;
     }
 
@@ -116,9 +104,6 @@ namespace gs_patterns
         if (max_pattern_size < MIN_PATTERN_SIZE || max_pattern_size > MAX_PATTERN_SIZE ) {
             throw GSError("Invalid max_pattern_size");
         }
-        if (!isPowerOf2(max_pattern_size)) {
-            throw GSError("max_pattern_size must be power of 2");
-        }
         _max_pattern_size = max_pattern_size;
     }
 
@@ -126,9 +111,6 @@ namespace gs_patterns
     {
         if (max_line_length < MIN_MAX_LINE_LENGTH || max_line_length > MAX_MAX_LINE_LENGTH ) {
             throw GSError("Invalid max_pattern_size");
-        }
-        if (!isPowerOf2(max_line_length)) {
-            throw GSError("max_line_length must be power of 2");
         }
         _max_line_length = max_line_length;
     }
