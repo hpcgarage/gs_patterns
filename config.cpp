@@ -73,9 +73,6 @@ namespace gs_patterns
         if (unique_strides_threshold < MIN_UNIQUE_STRIDES_THRESHOLD || unique_strides_threshold > MAX_UNIQUE_STRIDES_THRESHOLD ) {
             throw GSError("Invalid unique_strides_threshold");
         }
-        if (!isPowerOf2(unique_strides_threshold)) {
-            throw GSError("unique_strides_threshold must be power of 2");
-        }
         _unique_strides_threshold = unique_strides_threshold;
     }
 
