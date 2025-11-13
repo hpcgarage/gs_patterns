@@ -32,7 +32,7 @@ namespace gs_patterns_core
         }
 
         /* Read the output a line at a time - output it. */
-        while (fgets(path.get(), sizeof(path), fp) != NULL) {
+        while (fgets(path.get(), static_cast<int>(max_line_length), fp) != NULL) {
             strcpy(source_line, path.get());
             source_line[strcspn(source_line, "\n")] = 0;
         }
