@@ -110,7 +110,7 @@ namespace gs_patterns
     void Config::set_max_line_length(size_t max_line_length)
     {
         if (max_line_length < MIN_MAX_LINE_LENGTH || max_line_length > MAX_MAX_LINE_LENGTH ) {
-            throw GSError("Invalid max_pattern_size");
+            throw GSError("Invalid max_line_length");
         }
         _max_line_length = max_line_length;
     }
