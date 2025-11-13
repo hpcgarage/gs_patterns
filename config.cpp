@@ -309,8 +309,8 @@ namespace gs_patterns
         std::cout << "  " << std::left << std::setw(option_width) << ""
                   << "Range: [" << MIN_MAX_LINE_LENGTH << ", " << MAX_MAX_LINE_LENGTH << "]\n\n";
 
-        std::cout << "Note: Most numeric values must be powers of 2.\n"
-                  << "      Exceptions: out-threshold, num-unique-distances, and top-patterns.\n\n";
+        // std::cout << "Note: Most numeric values must be powers of 2.\n"
+        //           << "      Exceptions: out-threshold, num-unique-distances, and top-patterns.\n\n";
 
         // --- How it works ---
         std::cout << "How gs_patterns works:\n"
