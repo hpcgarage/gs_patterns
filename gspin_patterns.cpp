@@ -70,7 +70,7 @@ InstrInfo & MemPatternsForPin::get_iinfo(mem_access_type m)
 void MemPatternsForPin::handle_trace_entry(const InstrAddrAdapter & ia)
 {
     // Call libgs_patterns
-    gs_patterns_core::handle_trace_entry(*this, ia, _max_gather_scatter);
+    gs_patterns_core::handle_trace_entry(*this, ia, _max_gather_scatter, _per_sample);
 }
 
 void MemPatternsForPin::generate_patterns()
@@ -239,7 +239,7 @@ void MemPatternsForPin::process_second_pass(gzFile & fp_drtrace)
         drline = p_drtrace;
 
         breakout = handle_2nd_pass_trace_entry(InstrAddrAdapterForPin(drline), get_gather_metrics(), get_scatter_metrics(),
-                                                 iaddr, maddr, mcnt, gather_base.get(), scatter_base.get());
+                                                 iaddr, maddr, mcnt, gather_base.get(), scatter_base.get(), _per_sample);
 
         p_drtrace++;
     }

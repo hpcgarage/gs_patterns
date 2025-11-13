@@ -128,7 +128,7 @@ InstrInfo & MemPatternsForNV::get_iinfo(mem_access_type m)
 void MemPatternsForNV::handle_trace_entry(const InstrAddrAdapter & ia)
 {
     // Call libgs_patterns
-    gs_patterns_core::handle_trace_entry(*this, ia, _max_gather_scatter);
+    gs_patterns_core::handle_trace_entry(*this, ia, _max_gather_scatter, _per_sample);
 
     const InstrAddrAdapterForNV &ianv = dynamic_cast<const InstrAddrAdapterForNV &> (ia);
 #ifdef USE_VECTOR_FOR_SECOND_PASS
@@ -438,7 +438,7 @@ void MemPatternsForNV::process_second_pass()
         InstrAddrAdapter & ia = *itr;
 
         breakout = ::handle_2nd_pass_trace_entry(ia, get_gather_metrics(), get_scatter_metrics(),
-                                                 iaddr, maddr, mcnt, gather_base, scatter_base);
+                                                 iaddr, maddr, mcnt, gather_base, scatter_base, _per_sample);
         if (breakout) {
             break;
         }
@@ -457,7 +457,7 @@ void MemPatternsForNV::process_second_pass()
             {
                 InstrAddrAdapterForNV ia(const_cast<const trace_entry_t &>(ta[i]));
                 breakout = handle_2nd_pass_trace_entry(ia, get_gather_metrics(), get_scatter_metrics(),
-                                                         iaddr, maddr, mcnt, gather_base.get(), scatter_base.get());
+                                                         iaddr, maddr, mcnt, gather_base.get(), scatter_base.get(), _per_sample);
                 count_read++;
 
                 if (breakout) break;

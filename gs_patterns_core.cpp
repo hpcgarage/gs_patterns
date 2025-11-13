@@ -255,7 +255,8 @@ namespace gs_patterns_core
     bool handle_2nd_pass_trace_entry(const InstrAddrAdapter & ia,
                                      Metrics & gather_metrics, Metrics & scatter_metrics,
                                      addr_t & iaddr, int64_t & maddr, uint64_t & mcnt,
-                                     addr_t * gather_base, addr_t * scatter_base)
+                                     addr_t * gather_base, addr_t * scatter_base,
+                                     size_t per_sample)
     {
         int iret = 0;
         int i = 0;
@@ -287,7 +288,7 @@ namespace gs_patterns_core
                 iaddr = ia.get_iaddr();
             }
 
-            if ((++mcnt % Config::get_instance().get_per_sample()) == 0) {
+            if ((++mcnt % per_sample) == 0) {
                 printf(".");
                 fflush(stdout);
             }

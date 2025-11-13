@@ -16,7 +16,7 @@ namespace gs_patterns_core
     void translate_iaddr(const std::string & binary, char * source_line, addr_t iaddr);
 
     template <typename std::size_t T>
-    void handle_trace_entry(MemPatterns<T> & mp, const InstrAddrAdapter & ia, size_t max_gather_scatter)
+    void handle_trace_entry(MemPatterns<T> & mp, const InstrAddrAdapter & ia, size_t max_gather_scatter, size_t per_sample)
     {
         int i, j, k, w = 0;
         int w_rw_idx;   // Index into instruction window first dimension (RW: 0=Gather(R) or 1=Scatter(W))
@@ -64,7 +64,7 @@ namespace gs_patterns_core
             //printf("M DRTRACE -- iaddr: %016lx addr: %016lx cl_start: %d bytes: %d\n",
             //     iw.iaddr,  ia.get_address(), ia.get_address() % 64, ia.get_size());
 
-            if ((++trace_info.mcnt % Config::get_instance().get_per_sample()) == 0) {
+            if ((++trace_info.mcnt % per_sample) == 0) {
                 printf(".");
                 fflush(stdout);
             }
@@ -269,7 +269,8 @@ namespace gs_patterns_core
     bool handle_2nd_pass_trace_entry(const InstrAddrAdapter & ia,
                                      Metrics & gather_metrics, Metrics & scatter_metrics,
                                      addr_t & iaddr, int64_t & maddr, uint64_t & mcnt,
-                                     addr_t * gather_base, addr_t * scatter_base);
+                                     addr_t * gather_base, addr_t * scatter_base,
+                                     size_t per_sample);
 
     void create_metrics_file(FILE * fp,
                              FILE * fp2,
