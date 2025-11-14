@@ -93,8 +93,15 @@ namespace gs_patterns_core
                 FILE * fp_bin;
 		
 		char bin_name[1024];
-		sprintf(bin_name, "%s.%s.%03d.%02dB.sbin", file_prefix.c_str(), target_metrics.getShortNameLower().c_str(), \
-			i, target_metrics.size[i]);
+		snprintf(
+		    bin_name,
+		    sizeof(bin_name),
+		    "%s.%s.%03d.%02dB.sbin",
+            file_prefix.c_str(),
+            target_metrics.getShortNameLower().c_str(),
+            i,
+            target_metrics.size[i]);
+                
 		printf("%s\n", bin_name);
                 //std::string bin_name =				\
 		//  file_prefix + "." + target_metrics.getShortNameLower().c_str() + "." + std::to_string(i) + "." + \
