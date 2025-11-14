@@ -406,7 +406,8 @@ double MemPatternsForNV::update_source_lines_from_binary(mem_access_type mType)
         std::string line;
         line = addr_to_line(target_iinfo.get_iaddrs()[k]);
         strncpy(target_metrics.get_srcline().get(k), line.c_str(), _max_line_length-1);
-
+        // for safety if line size is bigger than max_line_length
+        target_metrics.get_srcline().get(k)[_max_line_length - 1] = '\0';
         if (std::string(target_metrics.get_srcline().get(k)).empty())
             target_iinfo.get_icnt()[k] = 0;
 
