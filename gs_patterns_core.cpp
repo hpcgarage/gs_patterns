@@ -22,7 +22,7 @@ namespace gs_patterns_core
 
         FILE *fp;
 
-        sprintf(cmd.get(), "addr2line -e %s 0x%lx", binary.c_str(), iaddr);
+        snprintf(cmd.get(), max_line_length, "addr2line -e %s 0x%lx", binary.c_str(), iaddr);
 
         /* Open the command for reading. */
         fp = popen(cmd.get(), "r");
