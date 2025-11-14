@@ -15,9 +15,8 @@ namespace gs_patterns_core
 {
     using namespace gs_patterns;
 
-    void translate_iaddr(const std::string & binary, char * source_line, addr_t iaddr)
+    void translate_iaddr(const std::string & binary, char * source_line, addr_t iaddr, size_t max_line_length)
     {
-        auto max_line_length = Config::get_instance().get_max_line_length();
         auto path = std::make_unique<char[]>(max_line_length);
         auto cmd = std::make_unique<char[]>(max_line_length);
 

@@ -145,7 +145,8 @@ double MemPatternsForPin::update_source_lines_from_binary(mem_access_type mType)
         }
 	
 #if SYMBOLS_ONLY
-        translate_iaddr(get_binary_file_name(), target_metrics.get_srcline().get(k), target_iinfo.get_iaddrs()[k]);
+        translate_iaddr(get_binary_file_name(), target_metrics.get_srcline().get(k), target_iinfo.get_iaddrs()[k],
+            _max_line_length);
         if (startswith(target_metrics.get_srcline().get(k), "?")) {
             target_iinfo.get_icnt()[k] = 0;
 	    target_metrics.iaddrs_nosym++;

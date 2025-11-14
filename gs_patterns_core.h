@@ -13,7 +13,7 @@ namespace gs_patterns
 {
 namespace gs_patterns_core
 {
-    void translate_iaddr(const std::string & binary, char * source_line, addr_t iaddr);
+    void translate_iaddr(const std::string & binary, char * source_line, addr_t iaddr, size_t max_line_length);
 
     template <typename std::size_t T>
     void handle_trace_entry(MemPatterns<T> & mp, const InstrAddrAdapter & ia, size_t max_gather_scatter, size_t per_sample)
