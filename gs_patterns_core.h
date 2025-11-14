@@ -252,8 +252,8 @@ namespace gs_patterns_core
 		 (double)(mp.get_scatter_metrics().indices_nosym + mp.get_scatter_metrics().indices_sym),'%');
 	  printf("\n");
 	  printf("KEPT SYMBOL STATS:\n");
-	  printf("gather unique iaddrs:  %16ld\n", mp.get_scatter_metrics().iaddrs_sym); 
-	  printf("gather total indices:  %16ld\n", mp.get_scatter_metrics().indices_sym);  
+	  printf("gather unique iaddrs:  %16ld\n", mp.get_gather_metrics().iaddrs_sym);
+	  printf("gather total indices:  %16ld\n", mp.get_gather_metrics().indices_sym);
 	  printf("scatter unique iaddrs: %16ld\n", mp.get_scatter_metrics().iaddrs_sym); 
 	  printf("scatter total indices: %16ld\n", mp.get_scatter_metrics().indices_sym);
 	}
