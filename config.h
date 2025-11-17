@@ -98,42 +98,42 @@ namespace gs_patterns
 
         // -- Validation boundaries --
         // Triggers
-        static constexpr size_t MIN_PER_SAMPLE = 1000;
-        static constexpr size_t MAX_PER_SAMPLE = 1LL << 40;    // ~1 trillion
+        static constexpr size_t MIN_PER_SAMPLE = 1LL << 10; // Minimum number of memory operations before printing a progress dot.
+        static constexpr size_t MAX_PER_SAMPLE = 1LL << 30; // Maximum number of memory operations before printing a progress dot (avoids impractically large values).
 
         // Info
-        static constexpr size_t MIN_CACHE_LINE_SIZE = 16;
-        static constexpr size_t MAX_CACHE_LINE_SIZE = 512;
+        static constexpr size_t MIN_CACHE_LINE_SIZE = 16; // Smallest cache line size (in bytes) to consider.
+        static constexpr size_t MAX_CACHE_LINE_SIZE = 512; // Largest cache line size (in bytes) to consider (e.g., for specialized hardware).
 
-        static constexpr size_t MIN_TRACE_BUFFER_SIZE = 1;
-        static constexpr size_t MAX_TRACE_BUFFER_SIZE = 1LL << 20;   // Over 1 million buffers
+        static constexpr size_t MIN_TRACE_BUFFER_SIZE = 1; // Smallest number of trace entries to read at once (at least 1).
+        static constexpr size_t MAX_TRACE_BUFFER_SIZE = 1LL << 20;   // Largest number of trace entries to read at once (~1M), limits memory for the read buffer.
 
-        static constexpr size_t MIN_IADDR_PER_WINDOW = 16;
-        static constexpr size_t MAX_IADDR_PER_WINDOW = 1LL << 17; // 131,072 instructions
+        static constexpr size_t MIN_IADDR_PER_WINDOW = 16; // Smallest "window" of unique instruction addresses to analyze for 1st pass.
+        static constexpr size_t MAX_IADDR_PER_WINDOW = 1LL << 12; // Largest instruction window (4,096), prevents extreme 1st pass slowdown.
 
-        static constexpr size_t MIN_MAX_GATHER_SCATTER = 2;
-        static constexpr size_t MAX_MAX_GATHER_SCATTER = 1LL << 14; // 16,384 elements
+        static constexpr size_t MIN_MAX_GATHER_SCATTER = 2; // Minimum number of unique gather/scatter iaddrs to track (at least 2).
+        static constexpr size_t MAX_MAX_GATHER_SCATTER = 1LL << 14; // Maximum number of unique gather/scatter iaddrs (16,384) to track across the whole trace.
 
-        static constexpr size_t MIN_HISTOGRAM_BOUNDS = 16;
-        static constexpr size_t MAX_HISTOGRAM_BOUNDS = 1LL << 16; // 65,536 bins
+        static constexpr size_t MIN_HISTOGRAM_BOUNDS = 16; // Smallest positive/negative bound for the stride histogram.
+        static constexpr size_t MAX_HISTOGRAM_BOUNDS = 1LL << 12; // Largest bound (4,096), controls memory/size of the stride histogram (total bins = 2*bounds+3).
 
         // Patterns
-        static constexpr size_t MIN_UNIQUE_STRIDES_THRESHOLD = 16;
-        static constexpr size_t MAX_UNIQUE_STRIDES_THRESHOLD = 1LL << 16; // 65,536
+        static constexpr size_t MIN_UNIQUE_STRIDES_THRESHOLD = 16; // Minimum number of accesses a pattern must have to be considered.
+        static constexpr size_t MAX_UNIQUE_STRIDES_THRESHOLD = 1LL << 14; // Maximum number of accesses (16,384) to require for a pattern.
 
-        static constexpr size_t MIN_UNIQUE_DISTANCES_THRESHOLD = 1;
-        static constexpr size_t MAX_UNIQUE_DISTANCES_THRESHOLD = 128;
+        static constexpr size_t MIN_UNIQUE_DISTANCES_THRESHOLD = 1; // Minimum number of unique strides (distances) to trigger filtering (at least 1).
+        static constexpr size_t MAX_UNIQUE_DISTANCES_THRESHOLD = 128; // Maximum number of unique strides, used to identify complex patterns.
 
-        static constexpr double MIN_OUT_THRESHOLD = 0.0;
-        static constexpr double MAX_OUT_THRESHOLD = 1.0;
+        static constexpr double MIN_OUT_THRESHOLD = 0.0; // Minimum percentage (0%) of accesses allowed "out of bounds" of the histogram.
+        static constexpr double MAX_OUT_THRESHOLD = 1.0; // Maximum percentage (100%) of accesses allowed "out of bounds".
 
-        static constexpr size_t MIN_TOP_PATTERNS = 1;
-        static constexpr size_t MAX_TOP_PATTERNS = 100;
+        static constexpr size_t MIN_TOP_PATTERNS = 1; // Minimum number of top gather/scatter patterns to save (at least 1).
+        static constexpr size_t MAX_TOP_PATTERNS = 100; // Maximum number of top gather/scatter patterns to save.
 
-        static constexpr size_t MIN_PATTERN_SIZE = 1LL << 10; // 1 KB
-        static constexpr size_t MAX_PATTERN_SIZE = 1LL << 33; // 8 GB
+        static constexpr size_t MIN_PATTERN_SIZE = 1LL << 10; // Minimum *initial* size (1,024 indices) to allocate for storing a pattern.
+        static constexpr size_t MAX_PATTERN_SIZE = 1LL << 31; // Absolute *maximum* size (2B indices) a pattern can grow to, prevents OOM errors.
 
-        static constexpr size_t MIN_MAX_LINE_LENGTH = 80;
-        static constexpr size_t MAX_MAX_LINE_LENGTH = 1LL << 13;
+        static constexpr size_t MIN_MAX_LINE_LENGTH = 1LL << 10; // Minimum buffer size (in chars) for reading source code lines (addr2line).
+        static constexpr size_t MAX_MAX_LINE_LENGTH = 1LL << 13; // Maximum buffer size (8,192 chars) for reading source code lines.
     };
 }
