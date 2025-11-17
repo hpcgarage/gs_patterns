@@ -121,6 +121,7 @@ namespace gsnv_patterns
         explicit MemPatternsForNV(
                                     size_t per_sample = Config::get_instance().get_per_sample(),
                                     size_t histogram_bounds = Config::get_instance().get_histogram_bounds(),
+                                    size_t histogram_bounds_alloc = Config::get_instance().get_histogram_bounds_alloc(),
                                     size_t trace_buffer_size = Config::get_instance().get_trace_buffer_size(),
                                     size_t top_patterns = Config::get_instance().get_top_patterns(),
                                     size_t max_gather_scatter = Config::get_instance().get_max_gather_scatter(),
@@ -131,6 +132,7 @@ namespace gsnv_patterns
                                 ):
                             _per_sample(per_sample),
                             _histogram_bounds(histogram_bounds),
+                            _histogram_bounds_alloc(histogram_bounds_alloc),
                             _unique_distances_threshold(unique_distances_threshold),
                             _out_threshold(out_threshold),
                             _unique_strides_threshold(unique_strides_threshold),
@@ -237,6 +239,7 @@ namespace gsnv_patterns
     private:
         size_t _per_sample;
         size_t _histogram_bounds;
+        size_t _histogram_bounds_alloc;
         size_t _unique_distances_threshold;
         double _out_threshold;
         size_t _unique_strides_threshold;

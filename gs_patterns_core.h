@@ -280,10 +280,12 @@ namespace gs_patterns_core
                              size_t unique_distances_threshold,
                              double out_threshold,
                              size_t unique_strides_threshold,
-                             size_t histogram_bounds);
+                             size_t histogram_bounds,
+                             size_t histogram_bounds_alloc);
 
     template <typename std::size_t T>
-    void create_spatter_file(MemPatterns<T> & mp, const std::string & file_prefix, size_t unique_distances_threshold, double out_threshold, size_t unique_strides_threshold, size_t histogram_bounds)
+    void create_spatter_file(MemPatterns<T> & mp, const std::string & file_prefix, size_t unique_distances_threshold, double out_threshold, size_t unique_strides_threshold,
+        size_t histogram_bounds, size_t histogram_bounds_alloc)
     {
         // Create spatter file
         FILE *fp, *fp2;
@@ -307,9 +309,10 @@ namespace gs_patterns_core
 	fprintf(fp2, "#iaddr, sourceline, type size bytes, g/s, nindices, final percentage of g/s\n");
 
         bool first_spatter = true;
-        create_metrics_file(fp, fp2, file_prefix, mp.get_gather_metrics(), first_spatter, unique_distances_threshold, out_threshold, unique_strides_threshold, histogram_bounds);
+        create_metrics_file(fp, fp2, file_prefix, mp.get_gather_metrics(), first_spatter, unique_distances_threshold, out_threshold, unique_strides_threshold, histogram_bounds, histogram_bounds_alloc);
 
-        create_metrics_file(fp, fp2, file_prefix, mp.get_scatter_metrics(), first_spatter, unique_distances_threshold, out_threshold, unique_strides_threshold, histogram_bounds);
+        create_metrics_file(fp, fp2, file_prefix, mp.get_scatter_metrics(), first_spatter, unique_distances_threshold, out_threshold, unique_strides_threshold, histogram_bounds,
+            histogram_bounds_alloc);
 
         // Footer
         fprintf(fp, " ]");

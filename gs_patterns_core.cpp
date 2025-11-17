@@ -41,10 +41,9 @@ namespace gs_patterns_core
    }
 
     void create_metrics_file(FILE * fp, FILE * fp2, const std::string & file_prefix, Metrics & target_metrics, bool & first_spatter,
-        size_t unique_distances_threshold, double out_threshold, size_t unique_strides_threshold, size_t histogram_bounds)
+        size_t unique_distances_threshold, double out_threshold, size_t unique_strides_threshold, size_t histogram_bounds,
+        size_t histogram_bounds_alloc)
     {
-        size_t obounds = Config::get_instance().get_histogram_bounds();
-        size_t obounds_alloc = Config::get_instance().get_histogram_bounds_alloc();
         int i = 0;
         int j = 0;
 
@@ -53,7 +52,7 @@ namespace gs_patterns_core
 	    int firstgs = 1;
         int unique_strides;
 	    int64_t hbin = 0;
-        auto n_stride = std::make_unique<int64_t[]>(obounds_alloc);
+        auto n_stride = std::make_unique<int64_t[]>(histogram_bounds_alloc);
         double outbounds;
 
         if (file_prefix.empty()) throw GSFileError ("Empty file prefix provided.");
@@ -65,23 +64,23 @@ namespace gs_patterns_core
             printf("***************************************************************************************\n");
 
             unique_strides = 0;
-            for (j = 0; j < obounds_alloc; j++)
+            for (j = 0; j < histogram_bounds_alloc; j++)
                 n_stride[j] = 0;
 
             for (j = 1; j < target_metrics.offset[i]; j++) {
-                sidx = target_metrics.patterns[i][j] - target_metrics.patterns[i][j - 1] + obounds + 1;
+                sidx = target_metrics.patterns[i][j] - target_metrics.patterns[i][j - 1] + histogram_bounds + 1;
                 sidx = (sidx < 1) ? 0 : sidx;
-                sidx = (sidx > obounds_alloc - 1) ? obounds_alloc - 1 : sidx;
+                sidx = (sidx > histogram_bounds_alloc - 1) ? histogram_bounds_alloc - 1 : sidx;
                 n_stride[sidx]++;
             }
 
-            for (j = 0; j < obounds_alloc; j++) {
+            for (j = 0; j < histogram_bounds_alloc; j++) {
                 if (n_stride[j] > 0) {
                     unique_strides++;
                 }
             }
 
-            outbounds = (double) (n_stride[0] + n_stride[obounds_alloc-1]) / (double) target_metrics.offset[i];
+            outbounds = (double) (n_stride[0] + n_stride[histogram_bounds_alloc-1]) / (double) target_metrics.offset[i];
 
             bool has_too_few_instances = (target_metrics.offset[i] < unique_strides_threshold ); // FILTER 4 ("Less than 1024 instances")
             bool is_not_complex = (unique_strides < unique_distances_threshold);  // FILTER 5 ("Less than 6 unique index distances...
@@ -144,20 +143,20 @@ namespace gs_patterns_core
 
 	    hbin = 0;
         int64_t print_bounds = (int64_t)histogram_bounds;
-	    for(j=0; j<obounds_alloc; j++) {
+	    for(j=0; j<histogram_bounds_alloc; j++) {
 		     if (j == 0) {
 		       printf("( -inf, %5ld]: %ld\n", -(print_bounds+1), n_stride[j]);
 		       hbin = 0;
 
-		     } else if (j == obounds +1) {
+		     } else if (j == histogram_bounds +1) {
 		       printf("[%5ld,     0): %ld\n", -print_bounds, hbin);
 		       hbin = 0;
 
-		     } else if (j == (obounds_alloc - 2) ) {
+		     } else if (j == (histogram_bounds_alloc - 2) ) {
 		       printf("[    0, %5ld]: %ld\n", print_bounds, hbin);
 		       hbin = 0;
 
-		     } else if (j == (obounds_alloc - 1)) {
+		     } else if (j == (histogram_bounds_alloc - 1)) {
 		       printf("[%5ld,   inf): %ld\n", print_bounds+1, n_stride[j]);
 
 		     } else {
