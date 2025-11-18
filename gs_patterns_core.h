@@ -7,15 +7,16 @@
 #include <string>
 
 #include "gs_patterns.h"
+#include "config.h"
 
 namespace gs_patterns
 {
 namespace gs_patterns_core
 {
-    void translate_iaddr(const std::string & binary, char * source_line, addr_t iaddr);
+    void translate_iaddr(const std::string & binary, char * source_line, addr_t iaddr, size_t max_line_length);
 
     template <typename std::size_t T>
-    void handle_trace_entry(MemPatterns<T> & mp, const InstrAddrAdapter & ia)
+    void handle_trace_entry(MemPatterns<T> & mp, const InstrAddrAdapter & ia, size_t max_gather_scatter, size_t per_sample)
     {
         int i, j, k, w = 0;
         int w_rw_idx;   // Index into instruction window first dimension (RW: 0=Gather(R) or 1=Scatter(W))
@@ -63,14 +64,14 @@ namespace gs_patterns_core
             //printf("M DRTRACE -- iaddr: %016lx addr: %016lx cl_start: %d bytes: %d\n",
             //     iw.iaddr,  ia.get_address(), ia.get_address() % 64, ia.get_size());
 
-            if ((++trace_info.mcnt % PERSAMPLE) == 0) {
+            if ((++trace_info.mcnt % per_sample) == 0) {
                 printf(".");
                 fflush(stdout);
             }
 
             //is iaddr in window
             w_idx = -1;
-            for (i = 0; i < IWINDOW; i++) {
+            for (i = 0; i < iw.get_window_size(); i++) {
 
                 //new iaddr
                 if (iw.w_iaddrs(w_rw_idx, i) == -1) {
@@ -94,7 +95,7 @@ namespace gs_patterns_core
                 // i = each window
                 for (w = 0; w < 2; w++) {  // 2
 
-                    for (i = 0; i < IWINDOW; i++) {  // 1024
+                    for (i = 0; i < iw.get_window_size(); i++) {  // 1024
 
                         if (iw.w_iaddrs(w,i) == -1)
                             break;
@@ -126,7 +127,7 @@ namespace gs_patterns_core
 			if (gs == -1) {
 			  
 			  InstrInfo & target_iinfo = (w == 0) ? gather_iinfo : scatter_iinfo;			    
-			  for(k=0; k<NGS; k++) {
+			  for(k=0; k<max_gather_scatter; k++) {
 			    
 			    //end
 			    if (target_iinfo.get_iaddrs()[k] == 0)
@@ -158,7 +159,7 @@ namespace gs_patterns_core
                                 scatter_metrics.cnt += 1.0;
                             }
 
-                            for (k = 0; k < NGS; k++) {
+                            for (k = 0; k < max_gather_scatter; k++) {
                                 if (target_iinfo.get_iaddrs()[k] == 0) {
                                     target_iinfo.get_iaddrs()[k] = iw.w_iaddrs(w, i);
                                     (target_iinfo.get_icnt()[k])++;
@@ -261,23 +262,30 @@ namespace gs_patterns_core
   
     }
 
-    int get_top_target(InstrInfo & target_iinfo, Metrics & target_metrics);
+    int get_top_target(InstrInfo & target_iinfo, Metrics & target_metrics, size_t top_patterns, size_t max_gather_scatter);
 
     void normalize_stats(Metrics & target_metrics);
 
     bool handle_2nd_pass_trace_entry(const InstrAddrAdapter & ia,
                                      Metrics & gather_metrics, Metrics & scatter_metrics,
                                      addr_t & iaddr, int64_t & maddr, uint64_t & mcnt,
-                                     addr_t * gather_base, addr_t * scatter_base);
+                                     addr_t * gather_base, addr_t * scatter_base,
+                                     size_t per_sample);
 
     void create_metrics_file(FILE * fp,
                              FILE * fp2,
                              const std::string & file_prefix,
                              Metrics & target_metrics,
-                             bool & first_spatter);
+                             bool & first_spatter,
+                             size_t unique_distances_threshold,
+                             double out_threshold,
+                             size_t min_accesses_threshold,
+                             size_t histogram_bounds,
+                             size_t histogram_bounds_alloc);
 
     template <typename std::size_t T>
-    void create_spatter_file(MemPatterns<T> & mp, const std::string & file_prefix)
+    void create_spatter_file(MemPatterns<T> & mp, const std::string & file_prefix, size_t unique_distances_threshold, double out_threshold, size_t min_accesses_threshold,
+        size_t histogram_bounds, size_t histogram_bounds_alloc)
     {
         // Create spatter file
         FILE *fp, *fp2;
@@ -301,9 +309,10 @@ namespace gs_patterns_core
 	fprintf(fp2, "#iaddr, sourceline, type size bytes, g/s, nindices, final percentage of g/s\n");
 
         bool first_spatter = true;
-        create_metrics_file(fp, fp2, file_prefix, mp.get_gather_metrics(), first_spatter);
+        create_metrics_file(fp, fp2, file_prefix, mp.get_gather_metrics(), first_spatter, unique_distances_threshold, out_threshold, min_accesses_threshold, histogram_bounds, histogram_bounds_alloc);
 
-        create_metrics_file(fp, fp2, file_prefix, mp.get_scatter_metrics(), first_spatter);
+        create_metrics_file(fp, fp2, file_prefix, mp.get_scatter_metrics(), first_spatter, unique_distances_threshold, out_threshold, min_accesses_threshold, histogram_bounds,
+            histogram_bounds_alloc);
 
         // Footer
         fprintf(fp, " ]");
