@@ -11,6 +11,9 @@
 #include "gs_patterns.h"
 #include "gs_patterns_core.h"
 #include "gspin_patterns.h"
+
+#include <memory>
+
 #include "utils.h"
 
 namespace gs_patterns
@@ -20,7 +23,7 @@ namespace gspin_patterns
 
 using namespace gs_patterns::gs_patterns_core;
 
-int drline_read(gzFile fp, trace_entry_t * val, trace_entry_t ** p_val, int * edx)
+int drline_read(gzFile fp, trace_entry_t * val, trace_entry_t ** p_val, int * edx, size_t trace_buffer_size)
 {
 
     int idx;
@@ -28,11 +31,11 @@ int drline_read(gzFile fp, trace_entry_t * val, trace_entry_t ** p_val, int * ed
     idx = (*edx) / sizeof(trace_entry_t);
     //first read
     if (NULL == *p_val) {
-        *edx = gzread(fp, val, sizeof(trace_entry_t) * NBUFS);
+        *edx = gzread(fp, val, sizeof(trace_entry_t) * trace_buffer_size);
         *p_val = val;
 
     } else if (*p_val == &val[idx]) {
-        *edx = gzread(fp, val, sizeof(trace_entry_t) * NBUFS);
+        *edx = gzread(fp, val, sizeof(trace_entry_t) * trace_buffer_size);
         *p_val = val;
     }
 
@@ -67,7 +70,7 @@ InstrInfo & MemPatternsForPin::get_iinfo(mem_access_type m)
 void MemPatternsForPin::handle_trace_entry(const InstrAddrAdapter & ia)
 {
     // Call libgs_patterns
-    gs_patterns_core::handle_trace_entry(*this, ia);
+    gs_patterns_core::handle_trace_entry(*this, ia, _max_gather_scatter, _per_sample);
 }
 
 void MemPatternsForPin::generate_patterns()
@@ -82,7 +85,8 @@ void MemPatternsForPin::generate_patterns()
 
     // ----------------- Create Spatter File -----------------
 
-    create_spatter_file<MEMORY_ACCESS_SIZE>(*this, get_file_prefix());
+    create_spatter_file<MEMORY_ACCESS_SIZE>(*this, get_file_prefix(), _unique_distances_threshold, _out_threshold, _min_accesses_threshold, _histogram_bounds,
+        _histogram_bounds_alloc);
 
 }
 
@@ -99,10 +103,10 @@ void MemPatternsForPin::update_metrics()
     }
 
     // Get top gathers
-    get_gather_metrics().ntop = get_top_target(get_gather_iinfo(), get_gather_metrics());
+    get_gather_metrics().ntop = get_top_target(get_gather_iinfo(), get_gather_metrics(), _top_patterns, _max_gather_scatter);
 
     // Get top scatters
-    get_scatter_metrics().ntop = get_top_target(get_scatter_iinfo(), get_scatter_metrics());
+    get_scatter_metrics().ntop = get_top_target(get_scatter_iinfo(), get_scatter_metrics(), _top_patterns, _max_gather_scatter);
 
     // ----------------- Second Pass -----------------
 
@@ -135,15 +139,16 @@ double MemPatternsForPin::update_source_lines_from_binary(mem_access_type mType)
     Metrics &   target_metrics = get_metrics(mType);
 
     //Check it is not a library
-    for (int k = 0; k < NGS; k++) {
+    for (int k = 0; k < _max_gather_scatter; k++) {
 
         if (0 == target_iinfo.get_iaddrs()[k]) {
             break;
         }
 	
 #if SYMBOLS_ONLY
-        translate_iaddr(get_binary_file_name(), target_metrics.get_srcline()[k], target_iinfo.get_iaddrs()[k]);
-        if (startswith(target_metrics.get_srcline()[k], "?")) {
+        translate_iaddr(get_binary_file_name(), target_metrics.get_srcline().get(k), target_iinfo.get_iaddrs()[k],
+            _max_line_length);
+        if (startswith(target_metrics.get_srcline().get(k), "?")) {
             target_iinfo.get_icnt()[k] = 0;
 	    target_metrics.iaddrs_nosym++;
 	    target_metrics.indices_nosym += target_iinfo.get_occ()[k];
@@ -182,10 +187,10 @@ void MemPatternsForPin::process_traces()
 
     uint64_t lines_read = 0;
     trace_entry_t *p_drtrace = NULL;
-    trace_entry_t drtrace[NBUFS];  // was static (1024 bytes)
+    auto drtrace = std::make_unique<trace_entry_t[]>(_trace_buffer_size); // was static (1024 bytes)
 
     
-    while (drline_read(fp_drtrace, drtrace, &p_drtrace, &iret)) {
+    while (drline_read(fp_drtrace, drtrace.get(), &p_drtrace, &iret, _trace_buffer_size)) {
         //decode drtrace
         drline = p_drtrace;
 
@@ -217,25 +222,26 @@ void MemPatternsForPin::process_second_pass(gzFile & fp_drtrace)
     int iret = 0;
     trace_entry_t *drline;
 
-    // State carried thru
+    // State carried through
     addr_t iaddr;
     int64_t maddr;
-    addr_t gather_base[NTOP] = {0};
-    addr_t scatter_base[NTOP] = {0};
+    auto gather_base = std::make_unique<addr_t[]>(_top_patterns);
+    auto scatter_base = std::make_unique<addr_t[]>(_top_patterns);
+
 
     bool breakout = false;
     printf("\nSecond pass to fill gather / scatter subtraces\n");
     fflush(stdout);
 
     trace_entry_t *p_drtrace = NULL;
-    trace_entry_t drtrace[NBUFS];   // was static (1024 bytes)
+    auto drtrace = std::make_unique<trace_entry_t[]>(_trace_buffer_size); // was static (1024 bytes)
 
-    while (drline_read(fp_drtrace, drtrace, &p_drtrace, &iret) && !breakout) {
+    while (drline_read(fp_drtrace, drtrace.get(), &p_drtrace, &iret, _trace_buffer_size) && !breakout) {
         //decode drtrace
         drline = p_drtrace;
 
         breakout = handle_2nd_pass_trace_entry(InstrAddrAdapterForPin(drline), get_gather_metrics(), get_scatter_metrics(),
-                                                 iaddr, maddr, mcnt, gather_base, scatter_base);
+                                                 iaddr, maddr, mcnt, gather_base.get(), scatter_base.get(), _per_sample);
 
         p_drtrace++;
     }
