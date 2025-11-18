@@ -81,7 +81,7 @@ int tline_read_maps(gzFile fp, trace_map_entry_t * val, trace_map_entry_t **p_va
     return 1;
 }
 
-int tline_read(gzFile fp, mem_access_t * val, mem_access_t **p_val, int *edx)
+int tline_read(gzFile fp, mem_access_t * val, mem_access_t **p_val, int *edx, size_t trace_buffer_size)
 {
 
     int idx;
@@ -89,11 +89,11 @@ int tline_read(gzFile fp, mem_access_t * val, mem_access_t **p_val, int *edx)
     idx = (*edx) / sizeof(mem_access_t);
     //first read
     if (NULL == *p_val) {
-        *edx = gzread(fp, val, sizeof(mem_access_t) * NBUFS);
+        *edx = gzread(fp, val, sizeof(mem_access_t) * trace_buffer_size);
         *p_val = val;
 
     } else if (*p_val == &val[idx]) {
-        *edx = gzread(fp, val, sizeof(mem_access_t) * NBUFS);
+        *edx = gzread(fp, val, sizeof(mem_access_t) * trace_buffer_size);
         *p_val = val;
     }
 
@@ -128,7 +128,7 @@ InstrInfo & MemPatternsForNV::get_iinfo(mem_access_type m)
 void MemPatternsForNV::handle_trace_entry(const InstrAddrAdapter & ia)
 {
     // Call libgs_patterns
-    gs_patterns_core::handle_trace_entry(*this, ia);
+    gs_patterns_core::handle_trace_entry(*this, ia, _max_gather_scatter, _per_sample);
 
     const InstrAddrAdapterForNV &ianv = dynamic_cast<const InstrAddrAdapterForNV &> (ia);
 #ifdef USE_VECTOR_FOR_SECOND_PASS
@@ -162,17 +162,17 @@ void MemPatternsForNV::generate_patterns()
 
     // ----------------- Create Spatter File -----------------
 
-    create_spatter_file<MEMORY_ACCESS_SIZE>(*this, get_file_prefix());
+    create_spatter_file<MEMORY_ACCESS_SIZE>(*this, get_file_prefix(),_unique_distances_threshold, _out_threshold, _min_accesses_threshold, _histogram_bounds, _histogram_bounds_alloc);
 
 }
 
 void MemPatternsForNV::update_metrics()
 {
     // Get top gathers
-    get_gather_metrics().ntop = get_top_target(get_gather_iinfo(), get_gather_metrics());
+    get_gather_metrics().ntop = get_top_target(get_gather_iinfo(), get_gather_metrics(), _top_patterns, _max_gather_scatter);
 
     // Get top scatters
-    get_scatter_metrics().ntop = get_top_target(get_scatter_iinfo(), get_scatter_metrics());
+    get_scatter_metrics().ntop = get_top_target(get_scatter_iinfo(), get_scatter_metrics(), _top_patterns, _max_gather_scatter);
 
     // ----------------- Second Pass -----------------
 
@@ -327,8 +327,8 @@ void MemPatternsForNV::process_traces()
     uint64_t lines_read = 0;
     uint64_t pos = 0;
     mem_access_t * p_trace = NULL;
-    mem_access_t trace_buff[NBUFS]; // was static (1024 bytes)
-    while (tline_read(fp_trace, trace_buff, &p_trace, &iret))
+    auto trace_buff = std::make_unique<mem_access_t[]>(_trace_buffer_size);
+    while (tline_read(fp_trace, trace_buff.get(), &p_trace, &iret, _trace_buffer_size))
     {
         // Decode trace
         t_line = p_trace;
@@ -397,7 +397,7 @@ double MemPatternsForNV::update_source_lines_from_binary(mem_access_type mType)
     InstrInfo & target_iinfo   = get_iinfo(mType);
     Metrics &   target_metrics = get_metrics(mType);
 
-    for (int k = 0; k < NGS; k++) {
+    for (int k = 0; k < _max_gather_scatter; k++) {
 
         if (0 == target_iinfo.get_iaddrs()[k]) {
             break;
@@ -405,9 +405,10 @@ double MemPatternsForNV::update_source_lines_from_binary(mem_access_type mType)
 
         std::string line;
         line = addr_to_line(target_iinfo.get_iaddrs()[k]);
-        strncpy(target_metrics.get_srcline()[k], line.c_str(), MAX_LINE_LENGTH-1);
-
-        if (std::string(target_metrics.get_srcline()[k]).empty())
+        strncpy(target_metrics.get_srcline().get(k), line.c_str(), _max_line_length-1);
+        // for safety if line size is bigger than max_line_length
+        target_metrics.get_srcline().get(k)[_max_line_length - 1] = '\0';
+        if (std::string(target_metrics.get_srcline().get(k)).empty())
             target_iinfo.get_icnt()[k] = 0;
 
         target_cnt += target_iinfo.get_icnt()[k];
@@ -425,8 +426,8 @@ void MemPatternsForNV::process_second_pass()
     // State carried thru
     addr_t iaddr;
     int64_t maddr;
-    addr_t gather_base[NTOP] = {0};
-    addr_t scatter_base[NTOP] = {0};
+    std::unique_ptr<addr_t[]> gather_base(new addr_t[_top_patterns]());
+    std::unique_ptr<addr_t[]> scatter_base(new addr_t[_top_patterns]());
 
     bool breakout = false;
     printf("\nSecond pass to fill gather / scatter subtraces\n");
@@ -438,7 +439,7 @@ void MemPatternsForNV::process_second_pass()
         InstrAddrAdapter & ia = *itr;
 
         breakout = ::handle_2nd_pass_trace_entry(ia, get_gather_metrics(), get_scatter_metrics(),
-                                                 iaddr, maddr, mcnt, gather_base, scatter_base);
+                                                 iaddr, maddr, mcnt, gather_base, scatter_base, _per_sample);
         if (breakout) {
             break;
         }
@@ -457,7 +458,7 @@ void MemPatternsForNV::process_second_pass()
             {
                 InstrAddrAdapterForNV ia(const_cast<const trace_entry_t &>(ta[i]));
                 breakout = handle_2nd_pass_trace_entry(ia, get_gather_metrics(), get_scatter_metrics(),
-                                                         iaddr, maddr, mcnt, gather_base, scatter_base);
+                                                         iaddr, maddr, mcnt, gather_base.get(), scatter_base.get(), _per_sample);
                 count_read++;
 
                 if (breakout) break;
