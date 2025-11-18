@@ -87,8 +87,31 @@ namespace gspin_patterns
     class MemPatternsForPin : public MemPatterns<MEMORY_ACCESS_SIZE>
     {
     public:
-        MemPatternsForPin() : _metrics(GATHER, SCATTER),
-                              _iinfo(GATHER, SCATTER) { }
+        MemPatternsForPin(
+                            size_t max_line_length = Config::get_instance().get_max_line_length(),
+                            size_t per_sample = Config::get_instance().get_per_sample(),
+                            size_t histogram_bounds = Config::get_instance().get_histogram_bounds(),
+                            size_t histogram_bounds_alloc = Config::get_instance().get_histogram_bounds_alloc(),
+                            size_t unique_distances_threshold = Config::get_instance().get_unique_distances_threshold(),
+                            double out_threshold = Config::get_instance().get_out_threshold(),
+                            size_t min_accesses_threshold = Config::get_instance().get_min_accesses_threshold(),
+                            size_t trace_buffer_size = Config::get_instance().get_trace_buffer_size(),
+                            size_t max_gather_scatter = Config::get_instance().get_max_gather_scatter(),
+                            size_t top_patterns = Config::get_instance().get_top_patterns()
+                         ):
+                    _max_line_length(max_line_length),
+                    _per_sample(per_sample),
+                    _histogram_bounds(histogram_bounds),
+                    _histogram_bounds_alloc(histogram_bounds_alloc),
+                    _unique_distances_threshold(unique_distances_threshold),
+                    _out_threshold(out_threshold),
+                    _min_accesses_threshold(min_accesses_threshold),
+                    _trace_buffer_size(trace_buffer_size),
+                    _top_patterns(top_patterns),
+                    _max_gather_scatter(max_gather_scatter),
+                    _metrics(GATHER, SCATTER),
+                    _iinfo(GATHER, SCATTER) { }
+
         virtual ~MemPatternsForPin() override { }
 
         void handle_trace_entry(const InstrAddrAdapter & ia) override;
@@ -124,6 +147,16 @@ namespace gspin_patterns
         void process_second_pass(gzFile & fp_drtrace);
 
     private:
+        size_t _max_line_length;
+        size_t _per_sample;
+        size_t _histogram_bounds;
+        size_t _histogram_bounds_alloc;
+        size_t _unique_distances_threshold;
+        double _out_threshold;
+        size_t _min_accesses_threshold;
+        size_t _trace_buffer_size;
+        size_t _top_patterns;
+        size_t _max_gather_scatter;
         std::pair<Metrics, Metrics>     _metrics;
         std::pair<InstrInfo, InstrInfo> _iinfo;
         TraceInfo                       _trace_info;
