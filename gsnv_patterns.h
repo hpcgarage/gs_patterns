@@ -19,6 +19,7 @@
 #include "gs_patterns.h"
 #include "gs_patterns_core.h"
 #include "utils.h"
+#include "config.h"
 
 // Enable to use a vector for storing trace data for use by second pass (if not defined data is stored to a temp file
 //#define USE_VECTOR_FOR_SECOND_PASS 1
@@ -117,10 +118,33 @@ namespace gsnv_patterns
         static constexpr const char * GSNV_ONE_WARP_MODE   = "GSNV_ONE_WARP_MODE";
 
 
-        MemPatternsForNV(): _metrics(GATHER, SCATTER),
+        explicit MemPatternsForNV(
+                                    size_t per_sample = Config::get_instance().get_per_sample(),
+                                    size_t histogram_bounds = Config::get_instance().get_histogram_bounds(),
+                                    size_t histogram_bounds_alloc = Config::get_instance().get_histogram_bounds_alloc(),
+                                    size_t trace_buffer_size = Config::get_instance().get_trace_buffer_size(),
+                                    size_t top_patterns = Config::get_instance().get_top_patterns(),
+                                    size_t max_gather_scatter = Config::get_instance().get_max_gather_scatter(),
+                                    size_t max_line_length = Config::get_instance().get_max_line_length(),
+                                    size_t unique_distances_threshold = Config::get_instance().get_unique_distances_threshold(),
+                                    double out_threshold = Config::get_instance().get_out_threshold(),
+                                    size_t min_accesses_threshold = Config::get_instance().get_min_accesses_threshold()
+                                ):
+                            _per_sample(per_sample),
+                            _histogram_bounds(histogram_bounds),
+                            _histogram_bounds_alloc(histogram_bounds_alloc),
+                            _unique_distances_threshold(unique_distances_threshold),
+                            _out_threshold(out_threshold),
+                            _min_accesses_threshold(min_accesses_threshold),
+                            _trace_buffer_size(trace_buffer_size),
+                            _top_patterns(top_patterns),
+                            _max_line_length(max_line_length),
+                            _max_gather_scatter(max_gather_scatter),
+                            _metrics(GATHER, SCATTER),
                             _iinfo(GATHER, SCATTER),
                             _target_opcodes { "LD", "ST", "LDS", "STS", "LDG", "STG" }
         { }
+
 
         virtual ~MemPatternsForNV() override {  }
 
@@ -213,7 +237,16 @@ namespace gsnv_patterns
         bool convert_to_trace_entry(const mem_access_t & ma, bool ignore_partial_warps, std::vector<trace_entry_t> & te_list);
 
     private:
-
+        size_t _per_sample;
+        size_t _histogram_bounds;
+        size_t _histogram_bounds_alloc;
+        size_t _unique_distances_threshold;
+        double _out_threshold;
+        size_t _min_accesses_threshold;
+        size_t _trace_buffer_size;
+        size_t _top_patterns;
+        size_t _max_line_length;
+        size_t _max_gather_scatter;
         std::pair<Metrics, Metrics>        _metrics;
         std::pair<InstrInfo, InstrInfo>    _iinfo;
         TraceInfo                          _trace_info;
