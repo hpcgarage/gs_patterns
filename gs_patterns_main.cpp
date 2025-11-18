@@ -17,44 +17,38 @@ using namespace gs_patterns::gs_patterns_core;
 using namespace gs_patterns::gsnv_patterns;
 using namespace gs_patterns::gspin_patterns;
 
-void usage (const std::string & prog_name)
-{
-    std::cerr << "Usage: " << prog_name << " <pin_trace.gz> <prog_bin> \n"
-              << "       " << prog_name << " <nvbit_trace.gz> -nv [-ow] [-v]" << std::endl;
-}
+// explained in helper function in config.cpp
+// void usage (const std::string & prog_name)
+// {
+//     std::cerr << "Usage: " << prog_name << " <pin_trace.gz> <prog_bin> \n"
+//               << "       " << prog_name << " <nvbit_trace.gz> -nv [-ow] [-v]" << std::endl;
+// }
 
 int main(int argc, char ** argv)
 {
     try
     {
-        bool use_gs_nv = false;
-        bool verbose = false;
-        bool one_warp = false;
-        for (int i = 0; i < argc; i++) {
-            if (std::string(argv[i]) == "-nv") {
-                use_gs_nv = true;
-            }
-            else if (std::string(argv[i]) == "-v") {
-                verbose = true;
-            }
-            else if (std::string(argv[i]) == "-ow") {
-                one_warp = true;
-            }
-        }
+        // Parse configuration arguments first
+        Config& config = Config::get_instance();
+        config.parseArgs(argc, argv);
+        bool use_gs_nv = config.get_use_gs_nv();
+        bool verbose = config.get_verbose();
+        bool one_warp = config.get_one_warp();
+        const auto& positional_args = config.get_positional_args();
 
         size_t pos = std::string(argv[0]).find_last_of("/");
         std::string prog_name = std::string(argv[0]).substr(pos+1);
 
-        if (argc < 3) {
-            usage(prog_name);
-            throw GSError("Invalid program arguments");
-        }
-
         if (use_gs_nv)
         {
+            if (positional_args.empty()) {
+                config.printHelp(prog_name.c_str());
+                throw GSError("Missing required <nvbit_trace.gz> argument.");
+            }
+
             MemPatternsForNV mp;
 
-            mp.set_trace_file(argv[1]);
+            mp.set_trace_file(positional_args[0]);
 
             const char * config_file = std::getenv(GSNV_CONFIG_FILE);
             if (config_file) {
@@ -73,10 +67,15 @@ int main(int argc, char ** argv)
         }
         else
         {
+            if (positional_args.size() < 2) {
+                config.printHelp(prog_name.c_str());
+                throw GSError("Missing required <pin_trace.gz> and <prog_bin> arguments.");
+            }
+
             MemPatternsForPin mp;
 
-            mp.set_trace_file(argv[1]);
-            mp.set_binary_file(argv[2]);
+            mp.set_trace_file(positional_args[0]);
+            mp.set_binary_file(positional_args[1]);
             if (verbose) mp.set_log_level(1);
 
             // ----------------- Process Traces -----------------
