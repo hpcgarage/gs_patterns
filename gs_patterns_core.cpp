@@ -133,26 +133,33 @@ namespace gs_patterns_core
                 ); // Fails Filter 4 or fails Filter 5
 
             // --- LOGGING ADDITION START ---
-            if (exclude) {
+            if (exclude)
+            {
                 printf("DEBUG [FILTER]: Excluding IADDR 0x%lx (%s)\n", target_metrics.top[i], target_metrics.getShortName().c_str());
 
                 if (has_too_few_instances) {
                     printf("    -> REASON: Too few instances.\n");
-                } else {
-                    printf("    -> REASON: Pattern too simple (likely regular stride-1).\n");
+                } else if (is_not_complex) {
+                    printf("    -> REASON: Pattern too simple (too few unique strides).\n");
+                } else
+                {
+                    printf("    -> REASON: Pattern too simple (not enough out of bounds).\n");
                 }
-
-                printf("    -> Size (Captured Indices): %d (Threshold: %lu)\n",
-                       target_metrics.offset[i], min_accesses_threshold);
-                printf("    -> Data Width: %d bytes\n", target_metrics.size[i]);
-                printf("    -> Complexity (Unique Strides): %d (Threshold: %lu)\n",
-                       unique_strides, unique_distances_threshold);
-                printf("    -> Locality (Out of Bounds %%): %.2f (Threshold: %.2f)\n",
-                       outbounds, out_threshold);
-                printf("\n");
+            } else
+            {
+                printf("DEBUG [FILTER]: Keeping IADDR 0x%lx (%s)\n", target_metrics.top[i], target_metrics.getShortName().c_str());
+            }
+            printf("    -> Size (Captured Indices): %d (Threshold: %lu)\n",
+                   target_metrics.offset[i], min_accesses_threshold);
+            printf("    -> Data Width: %d bytes\n", target_metrics.size[i]);
+            printf("    -> Complexity (Unique Strides): %d (Threshold: %lu)\n",
+                   unique_strides, unique_distances_threshold);
+            printf("    -> Locality (Out of Bounds %%): %.2f (Threshold: %.2f)\n",
+                   outbounds, out_threshold);
+            printf("\n");
             }
             // --- LOGGING ADDITION END ---
-            
+
             if (!exclude) {
 
 	        if (firstgs) {
