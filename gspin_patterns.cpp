@@ -160,8 +160,8 @@ std::string MemPatternsForPin::get_file_prefix()
         if (startswith(target_metrics.get_srcline().get(k), "?")) {
             // *** LOGGING ***
             // std::cerr << "DEBUG [update_lines]:   -> REJECTED" << std::endl;
-            std::cerr << "DEBUG [update_lines]:   -> SYMBOL MISSING BUT KEEPING" << std::endl;
-            // target_iinfo.get_icnt()[k] = 0;
+            std::cerr << "DEBUG [update_lines]:   -> SYMBOL MISSING, SKIPPING" << std::endl;
+            target_iinfo.get_icnt()[k] = 0;
             target_metrics.iaddrs_nosym++;
             target_metrics.indices_nosym += target_iinfo.get_occ()[k];
 
