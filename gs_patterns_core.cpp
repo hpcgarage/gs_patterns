@@ -157,7 +157,7 @@ namespace gs_patterns_core
             printf("    -> Locality (Out of Bounds %%): %.2f (Threshold: %.2f)\n",
                    outbounds, out_threshold);
             printf("\n");
-            }
+            
             // --- LOGGING ADDITION END ---
 
             if (!exclude) {
