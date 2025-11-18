@@ -4,7 +4,9 @@
 
 #include <string>
 #include <sstream>
-
+#include <iostream> // For std::cerr
+#include <cstring>  // For strcpy
+#include <iostream>
 #include "utils.h"
 #include "gs_patterns.h"
 #include "config.h"
@@ -22,23 +24,64 @@ namespace gs_patterns_core
 
         FILE *fp;
 
+        // *** BUG FIX & LOGGING PREP ***
+        // Initialize the buffer to a known "failure" state.
+        // This fixes the uninitialized memory bug.
+        strcpy(source_line, "?");
+
         snprintf(cmd.get(), max_line_length, "addr2line -e %s 0x%lx", binary.c_str(), iaddr);
+
+        // *** LOGGING ***
+        std::cerr << "DEBUG [translate_iaddr]: Running command: " << cmd.get() << std::endl;
 
         /* Open the command for reading. */
         fp = popen(cmd.get(), "r");
         if (NULL == fp) {
-            throw GSError("Failed to run command");
+            std::cerr << "DEBUG [translate_iaddr]: popen failed!" << std::endl;
+            // source_line is already set to "?", so we just return.
+            return;
         }
 
         /* Read the output a line at a time - output it. */
-        while (fgets(path.get(), static_cast<int>(max_line_length), fp) != NULL) {
+        // We only read the first line
+        if (fgets(path.get(), static_cast<int>(max_line_length), fp) != NULL) {
+            // *** LOGGING ***
+            std::cerr << "DEBUG [translate_iaddr]:   -> Raw output: " << path.get(); // path has newline
+
             strcpy(source_line, path.get());
-            source_line[strcspn(source_line, "\n")] = 0;
+            source_line[strcspn(source_line, "\n")] = 0; // Remove newline
+        } else {
+            // *** LOGGING ***
+            std::cerr << "DEBUG [translate_iaddr]:   -> No output from addr2line." << std::endl;
         }
 
         /* close */
         pclose(fp);
-   }
+    }
+   //  void translate_iaddr(const std::string & binary, char * source_line, addr_t iaddr, size_t max_line_length)
+   //  {
+   //      auto path = std::make_unique<char[]>(max_line_length);
+   //      auto cmd = std::make_unique<char[]>(max_line_length);
+   //
+   //      FILE *fp;
+   //
+   //      snprintf(cmd.get(), max_line_length, "addr2line -e %s 0x%lx", binary.c_str(), iaddr);
+   //
+   //      /* Open the command for reading. */
+   //      fp = popen(cmd.get(), "r");
+   //      if (NULL == fp) {
+   //          throw GSError("Failed to run command");
+   //      }
+   //
+   //      /* Read the output a line at a time - output it. */
+   //      while (fgets(path.get(), static_cast<int>(max_line_length), fp) != NULL) {
+   //          strcpy(source_line, path.get());
+   //          source_line[strcspn(source_line, "\n")] = 0;
+   //      }
+   //
+   //      /* close */
+   //      pclose(fp);
+   // }
 
     void create_metrics_file(FILE * fp, FILE * fp2, const std::string & file_prefix, Metrics & target_metrics, bool & first_spatter,
         size_t unique_distances_threshold, double out_threshold, size_t min_accesses_threshold, size_t histogram_bounds,
@@ -252,7 +295,8 @@ namespace gs_patterns_core
                 //printf("%sIADDR -- %016lx: %16lu -- %s\n", target_metrics.getShortName().c_str(), target_metrics.top[j], target_metrics.tot[j], target_metrics.get_srcline()[bestidx]);
             }
         } // for
-
+        std::cerr << "DEBUG [get_top_target]: Final ntop for "
+                      << target_metrics.getName() << " is: " << target_ntop << std::endl;
         return target_ntop;
     }
 

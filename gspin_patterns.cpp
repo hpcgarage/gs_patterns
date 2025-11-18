@@ -11,7 +11,8 @@
 #include "gs_patterns.h"
 #include "gs_patterns_core.h"
 #include "gspin_patterns.h"
-
+#include <iostream> // For std::cerr
+#include <iomanip>  // For std::hex
 #include <memory>
 
 #include "utils.h"
@@ -130,8 +131,7 @@ std::string MemPatternsForPin::get_file_prefix()
     }
     return prefix;
 }
-
-double MemPatternsForPin::update_source_lines_from_binary(mem_access_type mType)
+    double MemPatternsForPin::update_source_lines_from_binary(mem_access_type mType)
 {
     double target_cnt = 0.0;
 
@@ -144,19 +144,34 @@ double MemPatternsForPin::update_source_lines_from_binary(mem_access_type mType)
         if (0 == target_iinfo.get_iaddrs()[k]) {
             break;
         }
-	
+
 #if SYMBOLS_ONLY
+        // *** LOGGING ***
+        std::cerr << "DEBUG [update_lines]: Checking iaddr: 0x" << std::hex
+                  << target_iinfo.get_iaddrs()[k] << std::dec << std::endl;
+
         translate_iaddr(get_binary_file_name(), target_metrics.get_srcline().get(k), target_iinfo.get_iaddrs()[k],
             _max_line_length);
+
+        // *** LOGGING ***
+        std::cerr << "DEBUG [update_lines]:   -> Got srcline: '"
+                  << target_metrics.get_srcline().get(k) << "'" << std::endl;
+
         if (startswith(target_metrics.get_srcline().get(k), "?")) {
+            // *** LOGGING ***
+            std::cerr << "DEBUG [update_lines]:   -> REJECTED" << std::endl;
+
             target_iinfo.get_icnt()[k] = 0;
-	    target_metrics.iaddrs_nosym++;
-	    target_metrics.indices_nosym += target_iinfo.get_occ()[k];
-      
-	} else {
-	  target_metrics.iaddrs_sym++;
-	  target_metrics.indices_sym += target_iinfo.get_occ()[k];
-	}
+            target_metrics.iaddrs_nosym++;
+            target_metrics.indices_nosym += target_iinfo.get_occ()[k];
+
+        } else {
+            // *** LOGGING ***
+            std::cerr << "DEBUG [update_lines]:   -> KEPT" << std::endl;
+
+            target_metrics.iaddrs_sym++;
+            target_metrics.indices_sym += target_iinfo.get_occ()[k];
+        }
 #endif
 
         target_cnt += target_iinfo.get_icnt()[k];
@@ -165,6 +180,40 @@ double MemPatternsForPin::update_source_lines_from_binary(mem_access_type mType)
 
     return target_cnt;
 }
+// double MemPatternsForPin::update_source_lines_from_binary(mem_access_type mType)
+// {
+//     double target_cnt = 0.0;
+//
+//     InstrInfo & target_iinfo   = get_iinfo(mType);
+//     Metrics &   target_metrics = get_metrics(mType);
+//
+//     //Check it is not a library
+//     for (int k = 0; k < _max_gather_scatter; k++) {
+//
+//         if (0 == target_iinfo.get_iaddrs()[k]) {
+//             break;
+//         }
+//
+// #if SYMBOLS_ONLY
+//         translate_iaddr(get_binary_file_name(), target_metrics.get_srcline().get(k), target_iinfo.get_iaddrs()[k],
+//             _max_line_length);
+//         if (startswith(target_metrics.get_srcline().get(k), "?")) {
+//             target_iinfo.get_icnt()[k] = 0;
+// 	    target_metrics.iaddrs_nosym++;
+// 	    target_metrics.indices_nosym += target_iinfo.get_occ()[k];
+//
+// 	} else {
+// 	  target_metrics.iaddrs_sym++;
+// 	  target_metrics.indices_sym += target_iinfo.get_occ()[k];
+// 	}
+// #endif
+//
+//         target_cnt += target_iinfo.get_icnt()[k];
+//     }
+//     printf("done.\n");
+//
+//     return target_cnt;
+// }
 
 // First Pass
 void MemPatternsForPin::process_traces()
@@ -218,6 +267,10 @@ void MemPatternsForPin::process_traces()
 
 void MemPatternsForPin::process_second_pass(gzFile & fp_drtrace)
 {
+    std::cerr << "DEBUG [process_second_pass]: Function "
+              << (get_gather_metrics().ntop > 0 || get_scatter_metrics().ntop > 0 ? "IS" : "IS NOT")
+              << " starting work." << std::endl;
+
     uint64_t mcnt = 0;  // used our own local mcnt while iterating over file in this method.
     int iret = 0;
     trace_entry_t *drline;
