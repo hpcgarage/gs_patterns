@@ -1,5 +1,5 @@
 CONFIG_ROOT := $(PIN_ROOT)/source/tools/Config
-TOOL_ROOTS := ImemInscount ImemROIThreads ImemROIThreadsRange
+TOOL_ROOTS := ImemInscount ImemROIThreads ImemROIThreadsRange ImemInscountPerFunction
 
 include $(CONFIG_ROOT)/makefile.config
 include $(TOOLS_ROOT)/Config/makefile.default.rules
