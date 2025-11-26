@@ -1,4 +1,3 @@
-
 #include <assert.h> /// TODO: use cassert instead
 #include <math.h>
 
@@ -6,7 +5,6 @@
 #include <sstream>
 #include <iostream> // For std::cerr
 #include <cstring>  // For strcpy
-#include <iostream>
 #include "utils.h"
 #include "gs_patterns.h"
 #include "config.h"
@@ -58,30 +56,48 @@ namespace gs_patterns_core
         /* close */
         pclose(fp);
     }
-   //  void translate_iaddr(const std::string & binary, char * source_line, addr_t iaddr, size_t max_line_length)
-   //  {
-   //      auto path = std::make_unique<char[]>(max_line_length);
-   //      auto cmd = std::make_unique<char[]>(max_line_length);
-   //
-   //      FILE *fp;
-   //
-   //      snprintf(cmd.get(), max_line_length, "addr2line -e %s 0x%lx", binary.c_str(), iaddr);
-   //
-   //      /* Open the command for reading. */
-   //      fp = popen(cmd.get(), "r");
-   //      if (NULL == fp) {
-   //          throw GSError("Failed to run command");
-   //      }
-   //
-   //      /* Read the output a line at a time - output it. */
-   //      while (fgets(path.get(), static_cast<int>(max_line_length), fp) != NULL) {
-   //          strcpy(source_line, path.get());
-   //          source_line[strcspn(source_line, "\n")] = 0;
-   //      }
-   //
-   //      /* close */
-   //      pclose(fp);
-   // }
+
+    // Helper function to parse source line into filename and line number
+    void parse_srcline(const char* srcline, std::string& filename, std::string& line_number)
+    {
+        // Safety check to prevent segfaults if srcline is NULL
+        if (srcline == nullptr) {
+            filename = "?";
+            line_number = "?";
+            return;
+        }
+
+        std::string src(srcline);
+        size_t colon_pos = src.rfind(':');
+        
+        if (colon_pos != std::string::npos && colon_pos > 0) {
+            filename = src.substr(0, colon_pos);
+            line_number = src.substr(colon_pos + 1);
+        } else {
+            filename = src;
+            line_number = "?";
+        }
+    }
+
+    // Helper function to escape a string for JSON output
+    std::string json_escape(const std::string& s)
+    {
+        std::string result;
+        result.reserve(s.size() * 2);
+        for (char c : s) {
+            switch (c) {
+                case '"':  result += "\\\""; break;
+                case '\\': result += "\\\\"; break;
+                case '\b': result += "\\b";  break;
+                case '\f': result += "\\f";  break;
+                case '\n': result += "\\n";  break;
+                case '\r': result += "\\r";  break;
+                case '\t': result += "\\t";  break;
+                default:   result += c;      break;
+            }
+        }
+        return result;
+    }
 
     void create_metrics_file(FILE * fp, FILE * fp2, const std::string & file_prefix, Metrics & target_metrics, bool & first_spatter,
         size_t unique_distances_threshold, double out_threshold, size_t min_accesses_threshold, size_t histogram_bounds,
@@ -92,9 +108,9 @@ namespace gs_patterns_core
 
         //Create stride histogram and create spatter
         int sidx;
-	    int firstgs = 1;
+        int firstgs = 1;
         int unique_strides;
-	    int64_t hbin = 0;
+        int64_t hbin = 0;
         auto n_stride = std::make_unique<int64_t[]>(histogram_bounds_alloc);
         double outbounds;
 
@@ -162,23 +178,20 @@ namespace gs_patterns_core
 
             if (!exclude) {
 
-	        if (firstgs) {
-	  	  firstgs = 0;
-		  printf("***************************************************************************************\n");
-		  printf("%sS\n", target_metrics.type_as_string().c_str());
-	        }
-	        printf("***************************************************************************************\n");
+            if (firstgs) {
+                firstgs = 0;
+                printf("***************************************************************************************\n");
+                printf("%sS\n", target_metrics.type_as_string().c_str());
+            }
+            printf("***************************************************************************************\n");
                 //create a binary file
                 FILE * fp_bin;
-		
-		char bin_name[1024];
-		sprintf(bin_name, "%s.%s.%03d.%02dB.sbin", file_prefix.c_str(), target_metrics.getShortNameLower().c_str(), \
-			i, target_metrics.size[i]);
-		printf("%s\n", bin_name);
-                //std::string bin_name =				\
-		//  file_prefix + "." + target_metrics.getShortNameLower().c_str() + "." + std::to_string(i) + "." + \
-		//  std::to_string(target_metrics.size[i]) + "B.sbin";
-				
+        
+        char bin_name[1024];
+        sprintf(bin_name, "%s.%s.%03d.%02dB.sbin", file_prefix.c_str(), target_metrics.getShortNameLower().c_str(), \
+            i, target_metrics.size[i]);
+        printf("%s\n", bin_name);
+                
         fp_bin = fopen(bin_name, "w");
         if (NULL == fp_bin)
             throw GSFileError("Could not open " + std::string(bin_name) + "!");
@@ -186,7 +199,7 @@ namespace gs_patterns_core
         printf("%sIADDR    -- %p\n", target_metrics.getShortName().c_str(), (void*) target_metrics.top[i]);
         printf("SRCLINE   -- %s\n", target_metrics.get_srcline().get(target_metrics.top_idx[i]));
         printf("GATHER %c -- %6.3f%c (%4ld-bit chunks)\n",
-	       '%', 100.0 * (double) target_metrics.tot[i] / target_metrics.cnt, '%', VBITS);
+           '%', 100.0 * (double) target_metrics.tot[i] / target_metrics.cnt, '%', VBITS);
         printf("DTYPE      -- %d bytes\n", target_metrics.size[i]);
         printf("NINDICES   -- %d\n", target_metrics.offset[i]);
         printf("INDICES:\n");
@@ -194,47 +207,54 @@ namespace gs_patterns_core
         int64_t nlcnt = 0;
         for (j = 0; j < target_metrics.offset[i]; j++) {
 
-		      if (j <= 49) {
-		        printf("%10ld ", target_metrics.patterns[i][j]);
-		        fflush(stdout);
-		        if (( ++nlcnt % 10) == 0)
-		          printf("\n");
+              if (j <= 49) {
+                printf("%10ld ", target_metrics.patterns[i][j]);
+                fflush(stdout);
+                if (( ++nlcnt % 10) == 0)
+                  printf("\n");
 
-		      } else if (j >= (target_metrics.offset[i] - 50)) {
-		        printf("%10ld ", target_metrics.patterns[i][j]);
-		        fflush(stdout);
-		        if (( ++nlcnt % 10) == 0)
-		          printf("\n");
+              } else if (j >= (target_metrics.offset[i] - 50)) {
+                printf("%10ld ", target_metrics.patterns[i][j]);
+                fflush(stdout);
+                if (( ++nlcnt % 10) == 0)
+                  printf("\n");
 
-		      } else if (j == 50)
-		        printf("...\n");
+              } else if (j == 50)
+                printf("...\n");
         }
         printf("\n");
         printf("DIST HISTOGRAM --\n");
 
-	    hbin = 0;
+        hbin = 0;
         int64_t print_bounds = (int64_t)histogram_bounds;
-	    for(j=0; j<histogram_bounds_alloc; j++) {
-		     if (j == 0) {
-		       printf("( -inf, %5ld]: %ld\n", -(print_bounds+1), n_stride[j]);
-		       hbin = 0;
+        for(j=0; j<histogram_bounds_alloc; j++) {
+             if (j == 0) {
+               printf("( -inf, %5ld]: %ld\n", -(print_bounds+1), n_stride[j]);
+               hbin = 0;
 
-		     } else if (j == histogram_bounds +1) {
-		       printf("[%5ld,     0): %ld\n", -print_bounds, hbin);
-		       hbin = 0;
+             } else if (j == histogram_bounds +1) {
+               printf("[%5ld,     0): %ld\n", -print_bounds, hbin);
+               hbin = 0;
 
-		     } else if (j == (histogram_bounds_alloc - 2) ) {
-		       printf("[    0, %5ld]: %ld\n", print_bounds, hbin);
-		       hbin = 0;
+             } else if (j == (histogram_bounds_alloc - 2) ) {
+               printf("[    0, %5ld]: %ld\n", print_bounds, hbin);
+               hbin = 0;
 
-		     } else if (j == (histogram_bounds_alloc - 1)) {
-		       printf("[%5ld,   inf): %ld\n", print_bounds+1, n_stride[j]);
+             } else if (j == (histogram_bounds_alloc - 1)) {
+               printf("[%5ld,   inf): %ld\n", print_bounds+1, n_stride[j]);
 
-		     } else {
-		       hbin += n_stride[j];
-		     }
-	    }
+             } else {
+               hbin += n_stride[j];
+             }
+        }
 
+        // Parse source line to get filename and line number
+        std::string src_filename, src_line_number;
+        // SAFE PARSING CHECK:
+        const char* raw_srcline = target_metrics.get_srcline().get(target_metrics.top_idx[i]);
+        parse_srcline(raw_srcline, src_filename, src_line_number);
+
+        // Write JSON output with additional fields
         if (first_spatter) {
             first_spatter = false;
             fprintf(fp, " {\"kernel\":\"%s\", \"pattern\":[", target_metrics.getName().c_str());
@@ -248,15 +268,29 @@ namespace gs_patterns_core
         for (j = 0; j < target_metrics.offset[i] - 1; j++)
             fprintf(fp, "%ld,", target_metrics.patterns[i][j]);
         fprintf(fp, "%ld", target_metrics.patterns[i][target_metrics.offset[i] - 1]);
-        fprintf(fp, "], \"count\":1}");
+        
+        // Close pattern array and add count (original fields)
+        fprintf(fp, "], \"count\":1");
+        
+        // Add new fields for pattern information
+        fprintf(fp, ", \"file_name\":\"%s\"", json_escape(src_filename).c_str());
+        fprintf(fp, ", \"line_number\":\"%s\"", json_escape(src_line_number).c_str());
+        fprintf(fp, ", \"hex_iaddr\":\"0x%lx\"", target_metrics.top[i]);
+        fprintf(fp, ", \"size\":%d", target_metrics.offset[i]);
+        fprintf(fp, ", \"size_cutoff\":%lu", min_accesses_threshold);
+        fprintf(fp, ", \"unique_strides\":%d", unique_strides);
+        fprintf(fp, ", \"unique_strides_cutoff\":%lu", unique_distances_threshold);
+        fprintf(fp, ", \"out_of_bounds_pct\":%.6f", outbounds);
+        fprintf(fp, ", \"out_of_bounds_cutoff\":%.6f", out_threshold);
+        fprintf(fp, "}");
 
-		fprintf(fp2, "0x%lx,%s,%d,%s,%d,%6.3f\n",
-			target_metrics.top[i],
-			target_metrics.get_srcline().get(target_metrics.top_idx[i]),
-			target_metrics.size[i],
-			target_metrics.getShortName().c_str(),
-			target_metrics.offset[i],
-                        100.0 * (double) target_metrics.tot[i] / target_metrics.cnt);		
+        fprintf(fp2, "0x%lx,%s,%d,%s,%d,%6.3f\n",
+            target_metrics.top[i],
+            target_metrics.get_srcline().get(target_metrics.top_idx[i]),
+            target_metrics.size[i],
+            target_metrics.getShortName().c_str(),
+            target_metrics.offset[i],
+                        100.0 * (double) target_metrics.tot[i] / target_metrics.cnt);        
             }
             printf("***************************************************************************************\n\n");
         }
@@ -269,8 +303,8 @@ namespace gs_patterns_core
         for (int i = 0; i < target_metrics.ntop; i++) {
 
             //Find smallest
-	    smallest = 0x7FFFFFFFFFFFFFFFL;
-	    for (int j = 0; j < target_metrics.offset[i]; j++) {
+            smallest = 0x7FFFFFFFFFFFFFFFL;
+            for (int j = 0; j < target_metrics.offset[i]; j++) {
                 if (target_metrics.patterns[i][j] < smallest)
                     smallest = target_metrics.patterns[i][j];
             }
@@ -377,9 +411,9 @@ namespace gs_patterns_core
                     //found it
                     if (iaddr == gather_metrics.top[i])
                     {
-		      
-		        gather_metrics.size[i] = ia.get_size();
-			
+              
+                        gather_metrics.size[i] = ia.get_size();
+            
                         if (gather_base[i] == 0)
                             gather_base[i] = maddr;
 
@@ -388,7 +422,7 @@ namespace gs_patterns_core
                             if (!gather_metrics.grow(i)) {
                                 printf("WARNING: Unable to increase PSIZE. Truncating trace...\n");
                                 breakout = true;
-				break;
+                                break;
                             }
                         }
                         gather_metrics.patterns[i][gather_metrics.offset[i]++] = (int64_t) (maddr - gather_base[i]);
@@ -404,8 +438,8 @@ namespace gs_patterns_core
                     //found it
                     if (iaddr == scatter_metrics.top[i])
                     {
-		        scatter_metrics.size[i] = ia.get_size();
-			
+                        scatter_metrics.size[i] = ia.get_size();
+            
                         //set base
                         if (scatter_base[i] == 0)
                             scatter_base[i] = maddr;
@@ -415,7 +449,7 @@ namespace gs_patterns_core
                             if (!scatter_metrics.grow(i)) {
                                 printf("WARNING: Unable to increase PSIZE. Truncating trace...\n");
                                 breakout = true;
-				break;
+                                break;
                             }
                         }
                         scatter_metrics.patterns[i][scatter_metrics.offset[i]++] = (int64_t) (maddr - scatter_base[i]);
@@ -441,5 +475,3 @@ std::ostream & operator<<(std::ostream & os, const gs_patterns::InstrAddrAdapter
 }
 
 } // namespace gs_patterns
-
-
