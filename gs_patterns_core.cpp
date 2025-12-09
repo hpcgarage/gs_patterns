@@ -80,8 +80,14 @@ namespace gs_patterns_core
 
             outbounds = (double) (n_stride[0] + n_stride[OBOUNDS_ALLOC-1]) / (double) target_metrics.offset[i];
 
-            if (((unique_strides > NSTRIDES) || (outbounds > OUTTHRESH)  && (target_metrics.offset[i] > USTRIDES ) )) {
-		//if (true) {
+            bool has_too_few_instances = (target_metrics.offset[i] < USTRIDES ); // FILTER 4 ("Less than 1024 instances")
+            bool is_not_complex = (unique_strides < NSTRIDES);  // FILTER 5 ("Less than 6 unique index distances...
+            bool is_not_out_of_bounds = (outbounds < OUTTHRESH); // FILTER 5 ...and less than 50% out of bounds distances")
+            bool exclude = (
+                    (has_too_few_instances) || (is_not_complex && is_not_out_of_bounds)
+                ); // Fails Filter 4 or fails Filter 5
+
+            if (!exclude) {
 
 	        if (firstgs) {
 	  	  firstgs = 0;
