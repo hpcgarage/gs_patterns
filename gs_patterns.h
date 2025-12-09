@@ -4,6 +4,7 @@
 #include <exception>
 #include <string>
 #include <cstring>
+#include <utility>
 #include <vector>
 
 //symbol lookup options
@@ -46,8 +47,8 @@ namespace gs_patterns
     class GSError : public std::exception
     {
     public:
-        GSError (const std::string & reason) : _reason(reason) { }
-        ~GSError() {}
+        explicit GSError (std::string  reason) : _reason(std::move(reason)) { }
+        ~GSError() override = default;
 
         const char * what() const noexcept override { return _reason.c_str(); }
     private:
@@ -57,29 +58,29 @@ namespace gs_patterns
     class GSFileError : public GSError
     {
     public:
-        GSFileError (const std::string & reason) : GSError(reason) { }
-        ~GSFileError() {}
+        explicit GSFileError (std::string reason) : GSError(std::move(reason)) { }
+        ~GSFileError() override = default;
     };
 
     class GSDataError : public GSError
     {
     public:
-        GSDataError (const std::string & reason) : GSError(reason) { }
-        ~GSDataError() {}
+        explicit GSDataError (std::string reason) : GSError(std::move(reason)) { }
+        ~GSDataError() override = default;
     };
 
     class GSAllocError : public GSError
     {
     public:
-        GSAllocError (const std::string & reason) : GSError(reason) { }
-        ~GSAllocError() {}
+        explicit GSAllocError (std::string reason) : GSError(std::move(reason)) { }
+        ~GSAllocError() override = default;
     };
 
     class InstrAddrAdapter
     {
     public:
-        InstrAddrAdapter() { }
-        virtual ~InstrAddrAdapter() { }
+        InstrAddrAdapter() = default;
+        virtual ~InstrAddrAdapter() = default;
 
         virtual bool            is_valid() const            = 0;
         virtual bool            is_mem_instr() const        = 0;
@@ -110,7 +111,7 @@ namespace gs_patterns
     class Metrics
     {
     public:
-        Metrics(mem_access_type mType) : _mType(mType), _pattern_sizes(NTOP)
+        explicit Metrics(mem_access_type mType) : _mType(mType), _pattern_sizes(NTOP)
         {
             try
             {
@@ -134,7 +135,8 @@ namespace gs_patterns
             delete [] srcline;
         }
 
-        size_t get_pattern_size(int pattern_index) {
+        size_t get_pattern_size(int pattern_index) const
+        {
             return _pattern_sizes[pattern_index];
         }
 
@@ -163,10 +165,10 @@ namespace gs_patterns
         Metrics(const Metrics &) = delete;
         Metrics & operator=(const Metrics & right) = delete;
 
-        std::string type_as_string() { return !_mType ? "GATHER" : "SCATTER"; }
-        std::string getName()        { return !_mType ? "Gather" : "Scatter"; }
-        std::string getShortName()   { return !_mType ? "G" : "S"; }
-        std::string getShortNameLower()   { return !_mType ? "g" : "s"; }
+        std::string type_as_string() const { return !_mType ? "GATHER" : "SCATTER"; }
+        std::string getName() const { return !_mType ? "Gather" : "Scatter"; }
+        std::string getShortName() const { return !_mType ? "G" : "S"; }
+        std::string getShortNameLower() const { return !_mType ? "g" : "s"; }
 
         auto get_srcline() { return srcline[_mType]; }
 
@@ -197,7 +199,7 @@ namespace gs_patterns
     class InstrInfo
     {
     public:
-        InstrInfo(mem_access_type mType) : _mType(mType) { }
+        explicit InstrInfo(mem_access_type mType) : _mType(mType) { }
         ~InstrInfo() {
             delete [] iaddrs;
             delete [] icnt;
@@ -309,17 +311,17 @@ namespace gs_patterns
         int64_t (*_w_cnt)[IWINDOW];
 
         // State which must be carried with each call to handle a trace
-        addr_t   iaddr;
-        int64_t  maddr_prev;
-        int64_t  maddr;
+        addr_t   iaddr = -1;
+        int64_t  maddr_prev = -1;
+        int64_t  maddr = -1;
     };
 
     template <std::size_t MAX_ACCESS_SIZE>
     class MemPatterns
     {
     public:
-        MemPatterns() { }
-        virtual ~MemPatterns() { };
+        MemPatterns() = default;
+        virtual ~MemPatterns() = default;
 
         MemPatterns(const MemPatterns &) = delete;
         MemPatterns & operator=(const MemPatterns &) = delete;
